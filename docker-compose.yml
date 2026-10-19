@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: qualys_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-qualys_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-qualys_secret_password}
+      POSTGRES_DB: ${POSTGRES_DB:-qualys_alert_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qualys_user -d qualys_alert_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: qualys_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-qualys_user}:${POSTGRES_PASSWORD:-qualys_secret_password}@postgres:5432/${POSTGRES_DB:-qualys_alert_db}
+      QUALYS_API_URL: ${QUALYS_API_URL:-https://qualysapi.qualys.com}
+      QUALYS_USERNAME: ${QUALYS_USERNAME:-}
+      QUALYS_PASSWORD: ${QUALYS_PASSWORD:-}
+      QUALYS_MOCK_MODE: ${QUALYS_MOCK_MODE:-true}
+      QUALYS_SYNC_INTERVAL_HOURS: ${QUALYS_SYNC_INTERVAL_HOURS:-6}
+      QUALYS_TAG_FILTER: ${QUALYS_TAG_FILTER:-}
+      TELEGRAM_ENABLED: ${TELEGRAM_ENABLED:-false}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      TELEGRAM_COOLDOWN_HOURS: ${TELEGRAM_COOLDOWN_HOURS:-6}
+      SECRET_KEY: ${SECRET_KEY:-qualys-risk-alert-super-secret-key-change-in-production-2026}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@internal.security}
+      VIEWER_USERNAME: ${VIEWER_USERNAME:-viewer}
+      VIEWER_PASSWORD: ${VIEWER_PASSWORD:-viewer123}
+      VIEWER_EMAIL: ${VIEWER_EMAIL:-viewer@internal.security}
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: qualys_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  pgdata:

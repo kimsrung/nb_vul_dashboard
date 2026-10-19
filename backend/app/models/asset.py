@@ -1,0 +1,33 @@
+from datetime import datetime, timezone
+from sqlalchemy import Column, Integer, String, Float, Boolean, JSON, DateTime
+from sqlalchemy.orm import relationship
+from app.core.database import Base
+
+
+class Asset(Base):
+    __tablename__ = "assets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    qualys_id = Column(String(100), unique=True, index=True, nullable=False)
+    ip_address = Column(String(50), index=True, nullable=True)
+    ipv6_address = Column(String(100), nullable=True)
+    fqdn = Column(String(255), index=True, nullable=True)
+    netbios_name = Column(String(100), nullable=True)
+    os_name = Column(String(255), nullable=True)
+    os_family = Column(String(100), index=True, nullable=True)  # e.g., "Linux", "Windows", "Network"
+    tags = Column(JSON, default=list, nullable=False)  # List of tag strings
+    
+    last_scan_date = Column(DateTime, nullable=True)
+    risk_score = Column(Float, default=0.0, nullable=False, index=True)
+    risk_level = Column(String(20), default="Low", nullable=False, index=True)  # "Critical", "High", "Medium", "Low"
+    is_risky = Column(Boolean, default=False, nullable=False, index=True)
+    
+    total_vulns = Column(Integer, default=0, nullable=False)
+    critical_vulns = Column(Integer, default=0, nullable=False)
+    high_vulns = Column(Integer, default=0, nullable=False)
+
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+    detections = relationship("Detection", back_populates="asset", cascade="all, delete-orphan")
+    alerts = relationship("Alert", back_populates="asset", cascade="all, delete-orphan")
