@@ -60,6 +60,7 @@ dashboard_alert/
 │       │   ├── knowledge_base.py   # KnowledgeBase model (QID, title, solution, patches)
 │       │   ├── detection.py        # Detection model (QID, severity, status, proof, remediation)
 │       │   ├── alert.py            # Alert model (risk alerts, telegram dispatch logs)
+│       │   ├── audit_log.py        # AuditLog model (immutable administrative history trail)
 │       │   └── setting.py          # SystemSetting model (key-value config store)
 │       ├── schemas/                # Pydantic validation schemas
 │       │   ├── auth.py             # Login, Token, User schemas
@@ -68,7 +69,8 @@ dashboard_alert/
 │       │   ├── misp.py             # MispAssessmentListItem, MispAssessmentDetail, reports
 │       │   ├── detection.py        # DetectionItem, RemediationUpdate
 │       │   ├── knowledge_base.py   # KnowledgeBaseItem
-│       │   ├── alert.py            # AlertItem
+│       │   ├── alert.py            # AlertItem, PaginatedAlertsResponse
+│       │   ├── audit_log.py        # AuditLogItem, PaginatedAuditLogsResponse
 │       │   ├── dashboard.py        # DashboardSummaryResponse, KPI metrics
 │       │   └── settings.py         # SystemSettingsResponse, test requests
 │       ├── services/
@@ -78,6 +80,7 @@ dashboard_alert/
 │       │   ├── misp_mock.py        # FS-ISAC emergency advisory mock generator
 │       │   ├── proactive_assessment_engine.py # Pre-scan inventory matcher & evaluator
 │       │   ├── risk_engine.py      # Composite risk scoring computation
+│       │   ├── audit_service.py    # Structured audit event logger
 │       │   ├── sync_service.py     # Ingestion & delta synchronization coordinator
 │       │   ├── telegram_service.py # Telegram bot HTML dispatch (Qualys + FS-ISAC alerts)
 │       │   └── scheduler.py        # Background periodic sync runner (APScheduler)
@@ -86,12 +89,13 @@ dashboard_alert/
 │           └── routes/
 │               ├── auth.py         # POST /auth/login, user CRUD, GET /auth/owners
 │               ├── dashboard.py    # GET /dashboard/summary, POST /dashboard/sync
-│               ├── assets.py       # GET /assets (paginated), GET /assets/{id}, PATCH owner
+│               ├── assets.py       # GET /assets (paginated), GET /assets/{id}, PATCH owner, DELETE /{id}
 │               ├── software.py     # GET /assets/{id}/software inventory management
 │               ├── misp.py         # GET /misp/feed, GET /misp/summary, POST /misp/sync
 │               ├── detections.py   # GET /detections/{id}, PATCH /detections/{id}/remediation
 │               ├── knowledge_base.py# GET /kb/{qid}
-│               ├── alerts.py       # GET /alerts, POST /alerts/{id}/resolve
+│               ├── alerts.py       # GET /alerts (paginated), POST /alerts/{id}/resolve
+│               ├── audit_logs.py   # GET /audit-logs (paginated history trail)
 │               └── settings.py     # GET /settings, POST /settings, connection testers
 └── frontend/
     ├── Dockerfile                  # Multi-stage Vite build + Nginx Alpine runner
@@ -121,10 +125,11 @@ dashboard_alert/
         │       └── RemediationDrawer.tsx # Slide-over drawer with KB solutions & action form
         └── pages/
             ├── DashboardPage.tsx   # Executive overview, KPI widgets, RTI metrics
-            ├── AssetsPage.tsx      # Paginated inventory table with server name & owner assignment
-            ├── AssetDetailPage.tsx # Host dossier with detections & installed software
+            ├── AssetsPage.tsx      # Paginated inventory table with server name, drag-resize, owner assignment, & admin delete
+            ├── AssetDetailPage.tsx # Host dossier with detections, installed software, & admin delete
             ├── MispFeedPage.tsx    # FS-ISAC threat intel & proactive assessment drawer
-            ├── AlertsPage.tsx      # Security alert center & Telegram dispatch log
+            ├── AlertsPage.tsx      # Security alert center & Telegram dispatch log (paginated)
+            ├── AuditLogsPage.tsx   # Security audit trail & administrative history logs
             ├── UsersPage.tsx       # User role management (Admin, Analyst, Owner, Viewer)
             ├── SettingsPage.tsx    # Connection tester & settings editor
             └── LoginPage.tsx       # Sign-in page with preset demo credentials

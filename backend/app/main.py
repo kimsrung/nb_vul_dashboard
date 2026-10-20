@@ -17,7 +17,7 @@ from app.services.proactive_assessment_engine import ProactiveAssessmentEngine
 from app.services.scheduler import start_scheduler, stop_scheduler
 from app.services.sync_service import SyncService
 
-from app.api.routes import auth, dashboard, assets, detections, knowledge_base, alerts, settings as settings_routes, misp, software
+from app.api.routes import auth, dashboard, assets, detections, knowledge_base, alerts, settings as settings_routes, misp, software, audit_logs
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("qualys-dashboard-alert")
@@ -236,6 +236,7 @@ app.include_router(alerts.router, prefix=settings.API_V1_STR)
 app.include_router(settings_routes.router, prefix=settings.API_V1_STR)
 app.include_router(misp.router, prefix=settings.API_V1_STR)
 app.include_router(software.router, prefix=settings.API_V1_STR)
+app.include_router(audit_logs.router, prefix=settings.API_V1_STR)
 
 
 @app.get("/health")

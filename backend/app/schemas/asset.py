@@ -46,6 +46,18 @@ class AssetOwnerUpdate(BaseModel):
     server_name: Optional[str] = None
 
 
+class AssetDeleteRequest(BaseModel):
+    reason: Optional[str] = None
+
+
+class AssetDeleteResponse(BaseModel):
+    success: bool
+    message: str
+    deleted_asset_id: int
+    server_name: Optional[str] = None
+    ip_address: Optional[str] = None
+
+
 class AssetFilterParams(BaseModel):
     risk_level: Optional[str] = None
     is_risky: Optional[bool] = None

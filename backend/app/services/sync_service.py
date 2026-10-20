@@ -97,9 +97,9 @@ class SyncService:
                     qualys_id = host_data["qualys_id"]
                     detections_data = host_data.pop("detections", [])
 
-                    # Find or create Asset
-                    res = await db.execute(select(Asset).where(Asset.qualys_id == qualys_id))
-                    asset = res.scalar_one_or_none()
+                    # Find or create Asset (use .scalars().first() to avoid MultipleResultsFound)
+                    res = await db.execute(select(Asset).where(Asset.qualys_id == qualys_id).limit(1))
+                    asset = res.scalars().first()
 
                     s_name = host_data.get("server_name") or (host_data.get("fqdn", "").split(".")[0] if host_data.get("fqdn") else host_data.get("netbios_name"))
 
@@ -121,7 +121,9 @@ class SyncService:
                         db.add(asset)
                         await db.flush()
                     else:
-                        if s_name:
+                        if not asset.server_name and s_name:
+                            asset.server_name = s_name
+                        elif s_name and not any(k in (asset.server_name or "").upper() for k in ["DC", "DR", "SIT", "PROD", "CORE", "BANK"]):
                             asset.server_name = s_name
                         asset.ip_address = host_data.get("ip_address")
                         asset.ipv6_address = host_data.get("ipv6_address")
@@ -150,13 +152,23 @@ class SyncService:
                             await db.flush()
                             kb_map[det_qid] = stub_kb
 
+                        det_port = det_item.get("port")
+                        det_proto = det_item.get("protocol")
+
+                        # Build specific port/protocol conditions to match the exact detection instance
+                        det_conditions = [
+                            Detection.asset_id == asset.id,
+                            Detection.qid == det_qid,
+                        ]
+                        if det_port is not None:
+                            det_conditions.append(Detection.port == det_port)
+                        if det_proto is not None:
+                            det_conditions.append(Detection.protocol == det_proto)
+
                         det_res = await db.execute(
-                            select(Detection).where(
-                                Detection.asset_id == asset.id,
-                                Detection.qid == det_qid,
-                            )
+                            select(Detection).where(*det_conditions).limit(1)
                         )
-                        detection = det_res.scalar_one_or_none()
+                        detection = det_res.scalars().first()
 
                         if detection is None:
                             detection = Detection(
@@ -168,8 +180,8 @@ class SyncService:
                                 first_found_date=det_item.get("first_found_date"),
                                 last_found_date=det_item.get("last_found_date"),
                                 times_found=det_item.get("times_found", 1),
-                                port=det_item.get("port"),
-                                protocol=det_item.get("protocol"),
+                                port=det_port,
+                                protocol=det_proto,
                                 scanner_results=det_item.get("scanner_results"),
                                 remediation_status="Open",
                                 created_at=now,
@@ -181,8 +193,8 @@ class SyncService:
                             detection.status = det_item.get("status", detection.status)
                             detection.last_found_date = det_item.get("last_found_date")
                             detection.times_found = det_item.get("times_found", detection.times_found)
-                            detection.port = det_item.get("port")
-                            detection.protocol = det_item.get("protocol")
+                            detection.port = det_port
+                            detection.protocol = det_proto
                             detection.scanner_results = det_item.get("scanner_results", detection.scanner_results)
                             detection.updated_at = now
                         
@@ -206,14 +218,15 @@ class SyncService:
 
                     # Check Alert & Telegram Dispatch
                     if is_risky:
-                        # Check last alert cooldown
+                        # Check last alert cooldown (use .scalars().first() with .limit(1) to avoid MultipleResultsFound)
                         cooldown_cutoff = now - timedelta(hours=settings.TELEGRAM_COOLDOWN_HOURS)
                         recent_alert_res = await db.execute(
                             select(Alert)
                             .where(Alert.asset_id == asset.id, Alert.created_at >= cooldown_cutoff)
                             .order_by(Alert.created_at.desc())
+                            .limit(1)
                         )
-                        recent_alert = recent_alert_res.scalar_one_or_none()
+                        recent_alert = recent_alert_res.scalars().first()
 
                         # Alert title: <Server Name>: <IP Address> as requested
                         server_display = asset.server_name or (asset.fqdn.split(".")[0] if asset.fqdn else asset.netbios_name or "Unknown-Host")

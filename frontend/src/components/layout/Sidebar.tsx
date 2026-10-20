@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Server, Bell, Settings, ShieldCheck, Users, ChevronLeft, ChevronRight, Radio } from 'lucide-react';
+import { LayoutDashboard, Server, Bell, Settings, ShieldCheck, Users, ChevronLeft, ChevronRight, Radio, History } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface SidebarProps {
@@ -25,6 +25,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'alerts', label: 'Alert Center', icon: Bell, badge: activeAlertCount > 0 ? activeAlertCount : undefined },
     { id: 'misp', label: 'FS-ISAC Threat Intel', icon: Radio },
     ...(isAdmin ? [{ id: 'users', label: 'User Management', icon: Users }] : []),
+    { id: 'audit-logs', label: 'Audit & History Logs', icon: History },
     { id: 'settings', label: 'Admin Settings', icon: Settings },
   ];
 

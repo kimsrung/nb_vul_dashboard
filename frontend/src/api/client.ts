@@ -268,3 +268,33 @@ export interface MispSyncResponse {
   qualys_confirmed: number;
   clean_cves: number;
 }
+
+export interface AssetDeleteResponse {
+  success: boolean;
+  message: string;
+  deleted_asset_id: number;
+  server_name: string | null;
+  ip_address: string | null;
+}
+
+export interface AuditLogItem {
+  id: number;
+  action: string;
+  target_type: string;
+  target_id: string;
+  target_name: string | null;
+  actor_id: number | null;
+  actor_username: string;
+  actor_role: string;
+  ip_address: string | null;
+  details: Record<string, any>;
+  created_at: string;
+}
+
+export interface PaginatedAuditLogsResponse {
+  items: AuditLogItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}

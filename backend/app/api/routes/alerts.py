@@ -1,7 +1,7 @@
 import math
 from typing import List, Optional
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Request
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +11,7 @@ from app.models.user import User
 from app.models.alert import Alert
 from app.models.asset import Asset
 from app.schemas.alert import AlertItem, PaginatedAlertsResponse
+from app.services.audit_service import AuditService
 
 router = APIRouter(prefix="/alerts", tags=["Alerts"])
 
@@ -75,6 +76,7 @@ async def list_alerts(
 @router.post("/{alert_id}/resolve", response_model=AlertItem)
 async def resolve_alert(
     alert_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     admin_or_analyst: User = Depends(require_analyst_or_admin),
 ):
@@ -87,6 +89,24 @@ async def resolve_alert(
 
     alert.is_resolved = True
     alert.resolved_at = datetime.now(timezone.utc)
+
+    # Log to audit history
+    await AuditService.log_event(
+        db=db,
+        action="RESOLVE_ALERT",
+        target_type="Alert",
+        target_id=str(alert.id),
+        target_name=alert.title,
+        actor=admin_or_analyst,
+        request=request,
+        details={
+            "alert_id": alert.id,
+            "asset_id": alert.asset_id,
+            "severity": alert.severity,
+            "title": alert.title,
+        },
+    )
+
     await db.commit()
     await db.refresh(alert)
     return alert

@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +12,7 @@ from app.models.detection import Detection
 from app.models.knowledge_base import KnowledgeBase
 from app.schemas.detection import DetectionItem, RemediationUpdate
 from app.services.risk_engine import RiskEngine
+from app.services.audit_service import AuditService
 
 router = APIRouter(prefix="/detections", tags=["Detections & Remediation"])
 
@@ -41,6 +42,7 @@ async def get_detection(
 async def update_remediation(
     detection_id: int,
     remediation_in: RemediationUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -63,6 +65,8 @@ async def update_remediation(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Detection {detection_id} not found",
         )
+
+    old_status = det.remediation_status
 
     # Check authorization: Admin, Analyst, or Asset Owner
     asset_res = await db.execute(
@@ -109,6 +113,27 @@ async def update_remediation(
         asset.critical_vulns = crit_v
         asset.high_vulns = high_v
         asset.updated_at = now
+
+    # Audit log remediation update
+    await AuditService.log_event(
+        db=db,
+        action="UPDATE_REMEDIATION",
+        target_type="Detection",
+        target_id=str(detection_id),
+        target_name=f"QID {det.qid}: {det.knowledge_base.title if det.knowledge_base else 'Vulnerability'}",
+        actor=user,
+        request=request,
+        details={
+            "detection_id": det.id,
+            "qid": det.qid,
+            "asset_id": det.asset_id,
+            "old_status": old_status,
+            "new_status": det.remediation_status,
+            "notes": det.remediation_notes,
+            "server_name": asset.server_name if asset else None,
+            "ip_address": asset.ip_address if asset else None,
+        },
+    )
 
     await db.commit()
     await db.refresh(det)

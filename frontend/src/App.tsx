@@ -9,6 +9,7 @@ import { AlertsPage } from './pages/AlertsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { UsersPage } from './pages/UsersPage';
 import { MispFeedPage } from './pages/MispFeedPage';
+import { AuditLogsPage } from './pages/AuditLogsPage';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardSummary, apiClient } from './api/client';
 
@@ -116,6 +117,8 @@ const MainApp: React.FC = () => {
           )}
 
           {currentTab === 'users' && <UsersPage />}
+
+          {currentTab === 'audit-logs' && <AuditLogsPage />}
 
           {currentTab === 'settings' && <SettingsPage />}
         </main>

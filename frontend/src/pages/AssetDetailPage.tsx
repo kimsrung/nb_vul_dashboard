@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Server, Bug, RefreshCw, Wrench, Package } from 'lucide-react';
+import { ArrowLeft, Server, Bug, RefreshCw, Wrench, Package, Trash2, AlertTriangle, X } from 'lucide-react';
 import { AssetDetail, DetectionItem, SoftwareItem, apiClient } from '../api/client';
 import { RiskBadge } from '../components/common/RiskBadge';
 import { SeverityTag } from '../components/common/SeverityTag';
 import { RemediationStatusBadge } from '../components/common/RemediationStatusBadge';
 import { RemediationDrawer } from '../components/remediation/RemediationDrawer';
+import { useAuth } from '../context/AuthContext';
 
 interface AssetDetailPageProps {
   assetId: number;
@@ -12,11 +13,17 @@ interface AssetDetailPageProps {
 }
 
 export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId, onBack }) => {
+  const { isAdmin } = useAuth();
   const [asset, setAsset] = useState<AssetDetail | null>(null);
   const [softwareList, setSoftwareList] = useState<SoftwareItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedDetection, setSelectedDetection] = useState<DetectionItem | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+
+  // Deletion modal state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
+  const [deleteReason, setDeleteReason] = useState<string>('');
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   const fetchAssetDetail = async () => {
     setIsLoading(true);
@@ -43,6 +50,23 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId, onBac
     setIsDrawerOpen(true);
   };
 
+  const handleConfirmDelete = async () => {
+    if (!asset) return;
+    setIsDeleting(true);
+    try {
+      await apiClient.delete(`/assets/${asset.id}`, {
+        data: { reason: deleteReason.trim() || undefined },
+      });
+      setIsDeleteModalOpen(false);
+      onBack();
+    } catch (err: any) {
+      console.error('Failed to remove asset', err);
+      alert(err.response?.data?.detail || 'Failed to remove asset.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (isLoading || !asset) {
     return (
       <div className="p-8 flex items-center justify-center min-h-[400px]">
@@ -64,12 +88,26 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId, onBac
         >
           <ArrowLeft className="w-4 h-4" /> Back to Assets
         </button>
-        <button
-          onClick={fetchAssetDetail}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700"
-        >
-          <RefreshCw className="w-3.5 h-3.5 text-sky-400" /> Refresh Dossier
-        </button>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <button
+              onClick={() => {
+                setDeleteReason('');
+                setIsDeleteModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-900/60 text-xs font-semibold text-red-400 border border-red-800/40 hover:border-red-700 transition-colors"
+              title="Permanently remove asset from system (Admin Only)"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Remove Host
+            </button>
+          )}
+          <button
+            onClick={fetchAssetDetail}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700"
+          >
+            <RefreshCw className="w-3.5 h-3.5 text-sky-400" /> Refresh Dossier
+          </button>
+        </div>
       </div>
 
       {/* Asset Header Dossier Card */}
@@ -307,6 +345,98 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId, onBac
         onClose={() => setIsDrawerOpen(false)}
         onStatusUpdated={fetchAssetDetail}
       />
+
+      {/* Delete Confirmation Modal (Admin Only) */}
+      {isDeleteModalOpen && asset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+          <div className="bg-surface border border-surfaceBorder rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-surfaceBorder">
+              <div className="flex items-center gap-2 text-red-400">
+                <AlertTriangle className="w-5 h-5 shrink-0" />
+                <h3 className="text-sm font-bold text-slate-100">Remove Asset from Alert System</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="text-slate-400 hover:text-slate-200 p-1 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs text-slate-300">
+              <p>
+                Are you sure you want to permanently remove this host from the alert dashboard?
+              </p>
+
+              <div className="p-3 rounded-xl bg-slate-950 border border-surfaceBorder space-y-1 font-mono">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Server Name:</span>
+                  <span className="text-sky-300 font-bold">{asset.server_name || '—'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Host IP:</span>
+                  <span className="text-slate-200">{asset.ip_address}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Risk Score:</span>
+                  <span className="text-orange-400 font-semibold">{asset.risk_score} ({asset.risk_level})</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Active Vulns:</span>
+                  <span className="text-red-400 font-semibold">{asset.total_vulns} ({asset.critical_vulns} Crit)</span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-lg bg-red-950/30 border border-red-900/50 text-red-300 text-[11px] leading-relaxed">
+                <strong>Administrative Audit Notice:</strong> Removing this asset permanently deletes its detections, risk scoring, software inventory, and generated alerts. A permanent audit record will be logged with your administrator identity.
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">
+                  Reason for Decommissioning / Removal (Recorded in Audit Log):
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., Host decommissioned, IP retired, server rebuilt..."
+                  value={deleteReason}
+                  onChange={(e) => setDeleteReason(e.target.value)}
+                  className="w-full bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-red-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-surfaceBorder">
+              <button
+                type="button"
+                onClick={() => setIsDeleteModalOpen(false)}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-xs font-bold text-white shadow-lg shadow-red-600/20 transition-all flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    Removing Asset...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Confirm Removal
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

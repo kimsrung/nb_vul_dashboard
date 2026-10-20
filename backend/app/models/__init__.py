@@ -6,6 +6,7 @@ from app.models.alert import Alert
 from app.models.setting import SystemSetting
 from app.models.software import AssetSoftware
 from app.models.misp_feed import MispCveAssessment
+from app.models.audit_log import AuditLog
 
 __all__ = [
     "User",
@@ -16,4 +17,5 @@ __all__ = [
     "SystemSetting",
     "AssetSoftware",
     "MispCveAssessment",
+    "AuditLog",
 ]

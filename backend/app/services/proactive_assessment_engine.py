@@ -179,8 +179,8 @@ class ProactiveAssessmentEngine:
         }
 
         # Check existing record in DB
-        existing_res = await db.execute(select(MispCveAssessment).where(MispCveAssessment.cve_id == cve_id))
-        record = existing_res.scalar_one_or_none()
+        existing_res = await db.execute(select(MispCveAssessment).where(MispCveAssessment.cve_id == cve_id).limit(1))
+        record = existing_res.scalars().first()
 
         dispatched_now = False
         if record is None:
