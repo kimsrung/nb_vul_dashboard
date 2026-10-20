@@ -10,8 +10,8 @@ interface NavbarProps {
   onToggleSidebar?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ 
-  onSyncTriggered, 
+export const Navbar: React.FC<NavbarProps> = ({
+  onSyncTriggered,
   syncStatus = 'Idle',
   isSidebarCollapsed = false,
   onToggleSidebar,
@@ -89,7 +89,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
         <div>
           <h1 className="text-sm font-bold text-slate-100 flex items-center gap-2">
-            Qualys Risk Alert
+            Risk Alert
             <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">
               KB Remediation
             </span>

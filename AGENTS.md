@@ -1,6 +1,6 @@
 # AGENTS.md — Developer & AI Agent Guide
 
-Welcome to the **Qualys Risk Alert Dashboard & KnowledgeBase Remediation Platform**. This document provides context, architectural decisions, and operational instructions for AI agents and developers working on this codebase.
+Welcome to the **Risk Alert Dashboard & KnowledgeBase Remediation Platform**. This document provides context, architectural decisions, and operational instructions for AI agents and developers working on this codebase.
 
 ---
 

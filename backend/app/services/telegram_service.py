@@ -65,7 +65,7 @@ class TelegramService:
         icon = "🚨" if risk_level == "CRITICAL" else "⚠️"
 
         lines = [
-            f"{icon} <b>QUALYS RISK ALERT: {server_name} ({ip})</b>",
+            f"{icon} <b>Risk Alert: {server_name} ({ip})</b>",
             "",
             f"🖥 <b>Server Name:</b> <code>{server_name}</code>",
             f"🌐 <b>IP Address:</b> <code>{ip}</code> ({fqdn})",
@@ -82,7 +82,7 @@ class TelegramService:
             title = html.escape(getattr(kb, "title", f"Qualys QID {qid}") if kb else f"Qualys QID {qid}")
             cve_list = getattr(kb, "cve_list", []) if kb else []
             cve_str = f" | <i>CVE:</i> {', '.join(cve_list[:2])}" if cve_list else ""
-            
+
             # Solution snippet
             sol = getattr(kb, "solution", "") if kb else ""
             sol_snippet = html.escape(sol[:120] + "..." if len(sol) > 120 else sol) if sol else "Check dashboard for fix details"
@@ -94,7 +94,7 @@ class TelegramService:
         lines.extend([
             "",
             "🔧 <b>Action Required:</b> Review findings and apply vendor patches.",
-            "🛡 <i>Qualys Risk Alert Dashboard</i>",
+            "🛡 <i>Risk Alert Dashboard</i>",
         ])
 
         return "\n".join(lines)

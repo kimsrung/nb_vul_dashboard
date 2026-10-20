@@ -1,4 +1,4 @@
-# Qualys Risk Alert Dashboard & KnowledgeBase Remediation Platform
+# Risk Alert Dashboard & KnowledgeBase Remediation Platform
 
 An internal enterprise security operations dashboard that automatically ingests scanned assets from the **Qualys Host Detection API**, computes real-time **composite risk scores**, and maps every finding to actionable fix guidance via the **Qualys KnowledgeBase (KB) API**.
 

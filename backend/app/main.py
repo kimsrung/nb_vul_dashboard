@@ -140,7 +140,7 @@ async def init_db_and_seed():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    logger.info("Initializing Qualys Risk Alert Dashboard Backend...")
+    logger.info("Initializing Risk Alert Dashboard Backend...")
     await init_db_and_seed()
     start_scheduler()
     yield

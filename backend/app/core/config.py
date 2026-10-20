@@ -16,7 +16,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    PROJECT_NAME: str = "Qualys Risk Alert Dashboard"
+    PROJECT_NAME: str = "Risk Alert Dashboard"
     API_V1_STR: str = "/api/v1"
 
     # Database: Supports SQLite (aiosqlite) or PostgreSQL (asyncpg)

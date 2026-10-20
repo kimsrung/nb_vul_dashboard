@@ -32,7 +32,7 @@ export const LoginPage: React.FC = () => {
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20 mx-auto mb-3">
             <Shield className="w-6 h-6 text-white" />
           </div>
-          <h1 className="text-xl font-bold text-slate-100">Qualys Risk Alert Dashboard</h1>
+          <h1 className="text-xl font-bold text-slate-100">Risk Alert Dashboard</h1>
           <p className="text-xs text-slate-400">
             Host Detection Threat Intelligence & Remediation Platform
           </p>
