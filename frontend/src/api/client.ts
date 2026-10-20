@@ -138,6 +138,14 @@ export interface AlertItem {
   resolved_at: string | null;
 }
 
+export interface PaginatedAlertsResponse {
+  items: AlertItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
 export interface DashboardSummary {
   total_assets: number;
   risky_assets: number;

@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, CheckCircle2, Send, RefreshCw, ShieldAlert } from 'lucide-react';
-import { AlertItem, apiClient } from '../api/client';
+import { 
+  Bell, CheckCircle2, Send, RefreshCw, ShieldAlert, 
+  Search, ChevronLeft, ChevronRight 
+} from 'lucide-react';
+import { AlertItem, PaginatedAlertsResponse, apiClient } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
 interface AlertsPageProps {
@@ -12,6 +15,11 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
   const canResolve = isAdmin || isAnalyst;
 
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [total, setTotal] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [page, setPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [search, setSearch] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [statusFilter, setStatusFilter] = useState<string>('unresolved');
   const [severityFilter, setSeverityFilter] = useState<string>('');
@@ -20,13 +28,19 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
   const fetchAlerts = async () => {
     setIsLoading(true);
     try {
-      const params: any = {};
+      const params: any = {
+        page,
+        page_size: pageSize,
+      };
       if (statusFilter === 'unresolved') params.is_resolved = false;
       if (statusFilter === 'resolved') params.is_resolved = true;
       if (severityFilter) params.severity = severityFilter;
+      if (search.trim()) params.search = search.trim();
 
-      const res = await apiClient.get('/alerts', { params });
-      setAlerts(res.data);
+      const res = await apiClient.get<PaginatedAlertsResponse>('/alerts', { params });
+      setAlerts(res.data.items);
+      setTotal(res.data.total);
+      setTotalPages(res.data.total_pages);
     } catch (err) {
       console.error('Failed to load alerts', err);
     } finally {
@@ -36,7 +50,13 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
 
   useEffect(() => {
     fetchAlerts();
-  }, [statusFilter, severityFilter]);
+  }, [page, pageSize, statusFilter, severityFilter]);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPage(1);
+    fetchAlerts();
+  };
 
   const handleResolveAlert = async (alertId: number) => {
     setResolvingId(alertId);
@@ -94,7 +114,9 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
           </p>
         </div>
         <button
-          onClick={fetchAlerts}
+          onClick={() => {
+            fetchAlerts();
+          }}
           disabled={isLoading}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 self-start"
         >
@@ -103,53 +125,88 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
         </button>
       </div>
 
-      {/* Filter Bar */}
-      <div className="p-4 rounded-xl bg-surface border border-surfaceBorder flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setStatusFilter('unresolved')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-              statusFilter === 'unresolved'
-                ? 'bg-primary-600 text-white'
-                : 'bg-slate-900 text-slate-400 hover:bg-slate-800'
-            }`}
-          >
-            Active Alerts
-          </button>
-          <button
-            onClick={() => setStatusFilter('resolved')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-              statusFilter === 'resolved'
-                ? 'bg-primary-600 text-white'
-                : 'bg-slate-900 text-slate-400 hover:bg-slate-800'
-            }`}
-          >
-            Resolved History
-          </button>
-          <button
-            onClick={() => setStatusFilter('all')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-              statusFilter === 'all'
-                ? 'bg-primary-600 text-white'
-                : 'bg-slate-900 text-slate-400 hover:bg-slate-800'
-            }`}
-          >
-            All
-          </button>
-        </div>
+      {/* Filter & Search Toolbar */}
+      <div className="p-4 rounded-xl bg-surface border border-surfaceBorder space-y-3">
+        <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row gap-3">
+          <div className="flex-1 relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <input
+              type="text"
+              placeholder="Search alerts by title, description, server name, or IP..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full bg-slate-950 border border-surfaceBorder rounded-lg pl-9 pr-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-primary-500"
+            />
+          </div>
 
-        <div className="flex items-center gap-2">
-          <select
-            value={severityFilter}
-            onChange={(e) => setSeverityFilter(e.target.value)}
-            className="bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-primary-500"
-          >
-            <option value="">All Severities</option>
-            <option value="Critical">Critical</option>
-            <option value="High">High</option>
-            <option value="Medium">Medium</option>
-          </select>
-        </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-surfaceBorder">
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusFilter('unresolved');
+                  setPage(1);
+                }}
+                className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
+                  statusFilter === 'unresolved'
+                    ? 'bg-primary-600 text-white'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Active
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusFilter('resolved');
+                  setPage(1);
+                }}
+                className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
+                  statusFilter === 'resolved'
+                    ? 'bg-primary-600 text-white'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Resolved
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusFilter('all');
+                  setPage(1);
+                }}
+                className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
+                  statusFilter === 'all'
+                    ? 'bg-primary-600 text-white'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                All
+              </button>
+            </div>
+
+            <select
+              value={severityFilter}
+              onChange={(e) => {
+                setSeverityFilter(e.target.value);
+                setPage(1);
+              }}
+              className="bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-primary-500"
+            >
+              <option value="">All Severities</option>
+              <option value="Critical">Critical</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+            </select>
+
+            <button
+              type="submit"
+              className="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-500 text-white text-xs font-semibold"
+            >
+              Filter
+            </button>
+          </div>
+        </form>
       </div>
 
       {/* Alerts Feed */}
@@ -162,8 +219,8 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
         ) : alerts.length === 0 ? (
           <div className="p-12 text-center text-slate-400 bg-surface rounded-xl border border-surfaceBorder">
             <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2 opacity-80" />
-            <p className="text-sm font-semibold text-slate-200">No active alerts</p>
-            <p className="text-xs text-slate-500 mt-1">All scanned assets are currently operating within safe thresholds.</p>
+            <p className="text-sm font-semibold text-slate-200">No alerts found</p>
+            <p className="text-xs text-slate-500 mt-1">No alerts match the selected filters.</p>
           </div>
         ) : (
           alerts.map((al) => {
@@ -238,6 +295,69 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
             );
           })
         )}
+      </div>
+
+      {/* Pagination Bar */}
+      <div className="p-4 rounded-xl bg-surface border border-surfaceBorder flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+        <div className="flex items-center gap-4">
+          <span>
+            Showing <span className="font-semibold text-slate-200">{total === 0 ? 0 : (page - 1) * pageSize + 1}</span> to{' '}
+            <span className="font-semibold text-slate-200">{Math.min(page * pageSize, total)}</span> of{' '}
+            <span className="font-semibold text-slate-200">{total}</span> alerts
+          </span>
+          <div className="flex items-center gap-1.5">
+            <span>Per page:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setPage(1);
+              }}
+              className="bg-slate-950 border border-surfaceBorder rounded px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-primary-500"
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPage(1)}
+            disabled={page <= 1 || isLoading}
+            className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-40 border border-surfaceBorder text-slate-300 font-medium transition-colors"
+          >
+            First
+          </button>
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1 || isLoading}
+            className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-40 border border-surfaceBorder text-slate-300 transition-colors"
+            title="Previous Page"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <span className="px-3 py-1 font-mono text-slate-200 font-medium">
+            Page {page} of {totalPages}
+          </span>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages || isLoading}
+            className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-40 border border-surfaceBorder text-slate-300 transition-colors"
+            title="Next Page"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setPage(totalPages)}
+            disabled={page >= totalPages || isLoading}
+            className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-40 border border-surfaceBorder text-slate-300 font-medium transition-colors"
+          >
+            Last
+          </button>
+        </div>
       </div>
     </div>
   );

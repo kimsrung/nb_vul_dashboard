@@ -340,11 +340,12 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
 
       {/* Asset Table with User Draggable Column Resizing */}
       <div className="p-4 rounded-xl bg-surface border border-surfaceBorder overflow-hidden space-y-2">
-        {/* <div className="flex items-center justify-between text-xs text-slate-400 pb-1">
+        <div className="flex items-center justify-between text-xs text-slate-400 pb-1">
           <span className="text-[11px] text-slate-500">
             Tip: Drag column header dividers to resize column widths
           </span>
           <button
+            type="button"
             onClick={resetColumnWidths}
             className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-sky-400 px-2 py-0.5 rounded bg-slate-900 border border-surfaceBorder hover:border-slate-700 transition-colors"
             title="Reset all column widths to default"
@@ -352,7 +353,7 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
             <RotateCcw className="w-3 h-3" />
             Reset Widths
           </button>
-        </div> */}
+        </div>
 
         <div className="overflow-x-auto">
           <table

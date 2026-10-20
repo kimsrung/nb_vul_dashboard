@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel
 
@@ -18,3 +18,12 @@ class AlertItem(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class PaginatedAlertsResponse(BaseModel):
+    items: List[AlertItem]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
