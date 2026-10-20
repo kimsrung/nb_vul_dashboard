@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Search, RefreshCw, Server, User, ChevronLeft, ChevronRight, RotateCcw, 
-  Trash2, AlertTriangle, X, CheckCircle2 
+  Trash2, AlertTriangle, X, CheckCircle2, AlertCircle 
 } from 'lucide-react';
 import { AssetListItem, PaginatedAssetsResponse, OwnerOption, apiClient } from '../api/client';
 import { RiskBadge } from '../components/common/RiskBadge';
@@ -65,6 +65,11 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
   const [deleteReason, setDeleteReason] = useState<string>('');
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [deleteSuccessMsg, setDeleteSuccessMsg] = useState<string | null>(null);
+
+  // Qualys Sync state (Admin Only)
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+  const [isSyncError, setIsSyncError] = useState<boolean>(false);
 
   // Column width state for drag-and-drop resizing
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>(getInitialColumnWidths);
@@ -187,6 +192,52 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
     }
   };
 
+  const handleSyncNow = async () => {
+    setIsSyncing(true);
+    setIsSyncError(false);
+    setSyncFeedback('Initiating Qualys host detection & KnowledgeBase sync...');
+
+    try {
+      await apiClient.post('/dashboard/sync');
+
+      // Poll sync status until finished or error
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusRes = await apiClient.get('/dashboard/sync-status');
+          const data = statusRes.data;
+          if (data.status === 'Idle') {
+            clearInterval(pollInterval);
+            setIsSyncing(false);
+            setIsSyncError(false);
+            setSyncFeedback(data.message || 'Sync completed successfully');
+            fetchAssets();
+            setTimeout(() => setSyncFeedback(null), 6000);
+          } else if (data.status === 'Error') {
+            clearInterval(pollInterval);
+            setIsSyncing(false);
+            setIsSyncError(true);
+            setSyncFeedback(data.message || 'Qualys sync failed');
+          } else {
+            setSyncFeedback(data.message || 'Sync in progress...');
+          }
+        } catch {
+          // ignore poll error
+        }
+      }, 1500);
+
+      // Safety timeout after 2 minutes
+      setTimeout(() => {
+        clearInterval(pollInterval);
+        setIsSyncing(false);
+      }, 120000);
+    } catch (err: any) {
+      setIsSyncing(false);
+      setIsSyncError(true);
+      setSyncFeedback(err.response?.data?.detail || 'Failed to start sync');
+      setTimeout(() => setSyncFeedback(null), 6000);
+    }
+  };
+
   const handleResizeStart = (e: React.MouseEvent, colId: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -248,7 +299,7 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
   const totalTableWidth = Object.values(columnWidths).reduce((a, b) => a + b, 0);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-6 max-w-8xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -273,13 +324,49 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
               fetchOwners();
             }}
             disabled={isLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition-colors"
           >
             <RefreshCw className={`w-3.5 h-3.5 text-sky-400 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </button>
+          {isAdmin && (
+            <button
+              onClick={handleSyncNow}
+              disabled={isSyncing}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-xs font-bold text-white shadow-md shadow-sky-600/20 transition-all disabled:opacity-50"
+              title="Trigger real-time Qualys Host Detection & KnowledgeBase sync"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+              <span>{isSyncing ? 'Syncing...' : 'Sync Now'}</span>
+            </button>
+          )}
         </div>
       </div>
+
+      {syncFeedback && (
+        <div
+          className={`p-3 rounded-lg border text-xs flex items-center justify-between animate-in fade-in duration-200 ${
+            isSyncError
+              ? 'bg-red-950/60 text-red-300 border-red-800/80'
+              : 'bg-sky-950/60 text-sky-300 border-sky-800/80'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {isSyncError ? (
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 text-sky-400 shrink-0" />
+            )}
+            <span>{syncFeedback}</span>
+          </div>
+          <button
+            onClick={() => setSyncFeedback(null)}
+            className="text-slate-400 hover:text-slate-200 p-0.5 rounded"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {deleteSuccessMsg && (
         <div className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-800 text-emerald-400 text-xs font-semibold flex items-center gap-2 animate-in fade-in">

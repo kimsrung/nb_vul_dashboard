@@ -19,6 +19,9 @@ export default {
           700: '#0369a1',
         },
       },
+      maxWidth: {
+        '8xl': '90rem',
+      },
     },
   },
   plugins: [],

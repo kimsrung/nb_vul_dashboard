@@ -30,7 +30,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const riskyPercent = summary.total_assets > 0 ? Math.round((summary.risky_assets / summary.total_assets) * 100) : 0;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-6 max-w-8xl mx-auto space-y-6">
       {/* Welcome Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900/90 to-sky-950/40 border border-surfaceBorder shadow-xl">
         <div>
