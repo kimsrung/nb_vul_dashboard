@@ -111,14 +111,16 @@ docker compose down
 
 ---
 
-## 🔐 Default Login Credentials
+## 🔐 Default Login Credentials & Multi-Role RBAC
 
-| Role | Username | Password | Privileges |
+| Role | Username | Password | Privileges & Scoping |
 |---|---|---|---|
-| **Admin** | `admin` | `admin123` | Full access: manual sync, edit remediation status, manage settings, test Telegram |
-| **Viewer** | `viewer` | `viewer123` | Read-only audit access: view metrics, inspect assets, view KB fix guidance |
+| **Admin** | `admin` | `admin123` | Full access: manual sync, user account management, assign server owners, edit settings, test Telegram |
+| **Analyst** | `analyst` | `analyst123` | Security Operations: triage all infrastructure, assign server owners, update remediation status, resolve alerts |
+| **Owner** | `owner_appcore` | `owner123` | Scoped Host Ownership: **only** sees and remediates vulnerabilities on their assigned servers (e.g. `bk-appcore-sit`) |
+| **Viewer** | `viewer` | `viewer123` | Read-only audit access: view metrics, inspect assets, view KB fix guidance without edit privileges |
 
-*Note: On the login page, you can click the quick-login demo buttons (**Admin Role** or **Viewer Role**) to sign in instantly.*
+*Note: On the login page, you can click any of the 4 quick-login demo buttons (**Admin**, **Analyst**, **Server Owner**, or **Viewer**) to sign in instantly.*
 
 ---
 

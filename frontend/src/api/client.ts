@@ -35,6 +35,25 @@ apiClient.interceptors.response.use(
 );
 
 // Types
+export type UserRole = 'admin' | 'analyst' | 'owner' | 'viewer';
+
+export interface UserItem {
+  id: number;
+  username: string;
+  email: string;
+  full_name: string | null;
+  role: UserRole;
+  is_active: boolean;
+  assigned_assets_count?: number;
+}
+
+export interface OwnerOption {
+  id: number;
+  username: string;
+  full_name: string | null;
+  email: string;
+}
+
 export interface AssetListItem {
   id: number;
   qualys_id: string;
@@ -42,6 +61,9 @@ export interface AssetListItem {
   ipv6_address: string | null;
   fqdn: string | null;
   netbios_name: string | null;
+  server_name: string | null;
+  owner_id: number | null;
+  owner_username: string | null;
   os_name: string | null;
   os_family: string | null;
   tags: string[];
@@ -52,6 +74,14 @@ export interface AssetListItem {
   total_vulns: number;
   critical_vulns: number;
   high_vulns: number;
+}
+
+export interface PaginatedAssetsResponse {
+  items: AssetListItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
 }
 
 export interface KnowledgeBaseItem {

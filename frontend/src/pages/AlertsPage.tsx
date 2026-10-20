@@ -8,7 +8,9 @@ interface AlertsPageProps {
 }
 
 export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isAnalyst, isOwner } = useAuth();
+  const canResolve = isAdmin || isAnalyst;
+
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [statusFilter, setStatusFilter] = useState<string>('unresolved');
@@ -48,14 +50,45 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
     }
   };
 
+  // Helper to ensure alert title follows `<Server Name>: <IP>` format
+  const formatCardTitle = (title: string, message: string) => {
+    if (title.includes('Risk Flagged:')) {
+      const ip = title.split('Risk Flagged:')[1]?.trim();
+      const match = message.match(/Asset\s+[\d\.]+\s+\(([^)]+)\)/);
+      const serverName = match && match[1] && match[1] !== 'None' ? match[1] : null;
+      if (serverName && ip) {
+        return `${serverName}: ${ip}`;
+      } else if (ip) {
+        return ip;
+      }
+    }
+    return title;
+  };
+
+  // Helper to shorten card description: e.g. "scored 361.0 with 4 Critical and 4 High vulnerabilities"
+  const formatCardMessage = (msg: string) => {
+    const idx = msg.indexOf('scored ');
+    if (idx !== -1) {
+      return msg.substring(idx);
+    }
+    return msg;
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-            <Bell className="w-5 h-5 text-red-400" /> Security Alert Center & Notification Dispatch
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+              <Bell className="w-5 h-5 text-red-400" /> Security Alert Center & Notification Dispatch
+            </h2>
+            {isOwner && (
+              <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-sky-950 text-sky-400 border border-sky-800">
+                Owner View (Scoped to your hosts)
+              </span>
+            )}
+          </div>
           <p className="text-xs text-slate-400 mt-1">
             Tracking assets flagged as high-risk, SLA breaches, and automated Telegram alerts.
           </p>
@@ -135,6 +168,7 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
         ) : (
           alerts.map((al) => {
             const isCrit = al.severity === 'Critical';
+            const cardTitle = formatCardTitle(al.title, al.message);
             return (
               <div
                 key={al.id}
@@ -152,14 +186,14 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
                       >
                         <ShieldAlert className="w-3 h-3" /> {al.severity}
                       </span>
-                      <h3 className="text-sm font-bold text-slate-100">{al.title}</h3>
+                      <h3 className="text-sm font-bold text-slate-100 font-mono">{cardTitle}</h3>
                       {al.is_resolved && (
                         <span className="px-2 py-0.5 rounded text-[11px] bg-emerald-950 text-emerald-400 border border-emerald-800 font-semibold">
                           Resolved
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-300 leading-relaxed">{al.message}</p>
+                    <p className="text-xs text-slate-300 leading-relaxed font-mono">{formatCardMessage(al.message)}</p>
                     <div className="flex items-center gap-4 text-[11px] text-slate-500 font-mono pt-1">
                       <span>Triggered: {new Date(al.created_at).toLocaleString()}</span>
                       {al.resolved_at && <span>Resolved: {new Date(al.resolved_at).toLocaleString()}</span>}
@@ -188,7 +222,7 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
                         </button>
                       )}
 
-                      {!al.is_resolved && isAdmin && (
+                      {!al.is_resolved && canResolve && (
                         <button
                           onClick={() => handleResolveAlert(al.id)}
                           disabled={resolvingId === al.id}

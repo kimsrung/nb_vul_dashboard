@@ -89,23 +89,39 @@ export const LoginPage: React.FC = () => {
         {/* Quick Demo Logins */}
         <div className="pt-4 border-t border-surfaceBorder space-y-2">
           <span className="text-[10px] font-semibold tracking-wider uppercase text-slate-500 block text-center">
-            Role-Based Demo Access
+            Role-Based Quick Access Demo
           </span>
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => handleQuickLogin('admin', 'admin123')}
-              className="px-3 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-[11px] font-semibold text-purple-300 border border-purple-900/40 text-center transition-colors"
+              className="p-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-[11px] font-semibold text-purple-300 border border-purple-900/40 text-center transition-colors"
             >
-              👑 Admin Role
-              <span className="block text-[9px] text-slate-500 font-normal">Full control & settings</span>
+              👑 Admin
+              <span className="block text-[9px] text-slate-500 font-normal">Full authority & users</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickLogin('analyst', 'analyst123')}
+              className="p-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-[11px] font-semibold text-indigo-300 border border-indigo-900/40 text-center transition-colors"
+            >
+              🛡️ Analyst
+              <span className="block text-[9px] text-slate-500 font-normal">Triage & assign owners</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickLogin('owner_appcore', 'owner123')}
+              className="p-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-[11px] font-semibold text-sky-300 border border-sky-900/40 text-center transition-colors"
+            >
+              💻 Server Owner
+              <span className="block text-[9px] text-slate-500 font-normal">Scoped to bk-appcore-sit</span>
             </button>
             <button
               type="button"
               onClick={() => handleQuickLogin('viewer', 'viewer123')}
-              className="px-3 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-[11px] font-semibold text-slate-300 border border-slate-800 text-center transition-colors"
+              className="p-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-[11px] font-semibold text-slate-300 border border-slate-800 text-center transition-colors"
             >
-              👁 Viewer Role
+              👁️ Viewer
               <span className="block text-[9px] text-slate-500 font-normal">Read-only audit view</span>
             </button>
           </div>

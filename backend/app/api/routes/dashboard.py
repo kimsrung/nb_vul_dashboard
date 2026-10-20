@@ -34,69 +34,75 @@ async def get_dashboard_summary(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_viewer),
 ):
-    # Total and risky assets
-    total_assets_res = await db.execute(select(func.count(Asset.id)))
-    total_assets = total_assets_res.scalar() or 0
+    # Base filter for owner role
+    is_owner = user.role == "owner"
+    owner_asset_filter = [Asset.owner_id == user.id] if is_owner else []
 
-    risky_assets_res = await db.execute(select(func.count(Asset.id)).where(Asset.is_risky == True))
-    risky_assets = risky_assets_res.scalar() or 0
+    # Total and risky assets
+    total_q = select(func.count(Asset.id))
+    risky_q = select(func.count(Asset.id)).where(Asset.is_risky == True)
+    if is_owner:
+        total_q = total_q.where(Asset.owner_id == user.id)
+        risky_q = risky_q.where(Asset.owner_id == user.id)
+
+    total_assets = (await db.execute(total_q)).scalar() or 0
+    risky_assets = (await db.execute(risky_q)).scalar() or 0
 
     # Risk distribution
-    crit_count = (await db.execute(select(func.count(Asset.id)).where(Asset.risk_level == "Critical"))).scalar() or 0
-    high_count = (await db.execute(select(func.count(Asset.id)).where(Asset.risk_level == "High"))).scalar() or 0
-    med_count = (await db.execute(select(func.count(Asset.id)).where(Asset.risk_level == "Medium"))).scalar() or 0
-    low_count = (await db.execute(select(func.count(Asset.id)).where(Asset.risk_level == "Low"))).scalar() or 0
+    def dist_q(level):
+        q = select(func.count(Asset.id)).where(Asset.risk_level == level)
+        if is_owner:
+            q = q.where(Asset.owner_id == user.id)
+        return q
+
+    crit_count = (await db.execute(dist_q("Critical"))).scalar() or 0
+    high_count = (await db.execute(dist_q("High"))).scalar() or 0
+    med_count = (await db.execute(dist_q("Medium"))).scalar() or 0
+    low_count = (await db.execute(dist_q("Low"))).scalar() or 0
 
     # Active detections count
-    active_vulns_res = await db.execute(
-        select(func.count(Detection.id)).where(
-            Detection.status.in_(["Active", "New", "Re-Opened"]),
-            Detection.remediation_status != "Resolved",
-        )
+    vulns_q = select(func.count(Detection.id)).join(Asset, Asset.id == Detection.asset_id).where(
+        Detection.status.in_(["Active", "New", "Re-Opened"]),
+        Detection.remediation_status != "Resolved",
     )
-    total_vulns = active_vulns_res.scalar() or 0
+    if is_owner:
+        vulns_q = vulns_q.where(Asset.owner_id == user.id)
 
-    crit_vulns_res = await db.execute(
-        select(func.count(Detection.id)).where(
-            Detection.status.in_(["Active", "New", "Re-Opened"]),
-            Detection.severity == 5,
-            Detection.remediation_status != "Resolved",
-        )
-    )
-    critical_vulns = crit_vulns_res.scalar() or 0
-
-    high_vulns_res = await db.execute(
-        select(func.count(Detection.id)).where(
-            Detection.status.in_(["Active", "New", "Re-Opened"]),
-            Detection.severity == 4,
-            Detection.remediation_status != "Resolved",
-        )
-    )
-    high_vulns = high_vulns_res.scalar() or 0
+    total_vulns = (await db.execute(vulns_q)).scalar() or 0
+    critical_vulns = (await db.execute(vulns_q.where(Detection.severity == 5))).scalar() or 0
+    high_vulns = (await db.execute(vulns_q.where(Detection.severity == 4))).scalar() or 0
 
     # Active Alerts
-    active_alerts_res = await db.execute(
-        select(func.count(Alert.id)).where(Alert.is_resolved == False)
-    )
-    active_alerts = active_alerts_res.scalar() or 0
+    alerts_q = select(func.count(Alert.id)).join(Asset, Asset.id == Alert.asset_id).where(Alert.is_resolved == False)
+    if is_owner:
+        alerts_q = alerts_q.where(Asset.owner_id == user.id)
+    active_alerts = (await db.execute(alerts_q)).scalar() or 0
 
     # OS Breakdown
-    os_res = await db.execute(
+    os_q = (
         select(Asset.os_family, func.count(Asset.id))
         .group_by(Asset.os_family)
         .order_by(func.count(Asset.id).desc())
     )
+    if is_owner:
+        os_q = os_q.where(Asset.owner_id == user.id)
+    os_res = await db.execute(os_q)
     top_os = [OSFamilyBreakdown(name=row[0] or "Unknown", count=row[1]) for row in os_res.all()]
 
     # Threat Intel / RTI flags across active detections
-    ti_res = await db.execute(
+    ti_q = (
         select(KnowledgeBase.threat_intel_flags)
         .join(Detection, Detection.qid == KnowledgeBase.qid)
+        .join(Asset, Asset.id == Detection.asset_id)
         .where(
             Detection.status.in_(["Active", "New", "Re-Opened"]),
             Detection.remediation_status != "Resolved",
         )
     )
+    if is_owner:
+        ti_q = ti_q.where(Asset.owner_id == user.id)
+
+    ti_res = await db.execute(ti_q)
     ransomware_c = 0
     active_exp_c = 0
     public_exp_c = 0
@@ -114,19 +120,18 @@ async def get_dashboard_summary(
                 zero_day_c += 1
 
     # Recent risky assets
-    recent_risky_res = await db.execute(
-        select(Asset)
-        .where(Asset.is_risky == True)
-        .order_by(Asset.risk_score.desc())
-        .limit(5)
-    )
-    recent_risky = recent_risky_res.scalars().all()
+    recent_risky_q = select(Asset).where(Asset.is_risky == True)
+    if is_owner:
+        recent_risky_q = recent_risky_q.where(Asset.owner_id == user.id)
+    recent_risky_q = recent_risky_q.order_by(Asset.risk_score.desc()).limit(5)
+    recent_risky = (await db.execute(recent_risky_q)).scalars().all()
 
     # Recent alerts
-    recent_alerts_res = await db.execute(
-        select(Alert).order_by(Alert.created_at.desc()).limit(5)
-    )
-    recent_alerts = recent_alerts_res.scalars().all()
+    recent_alerts_q = select(Alert).join(Asset, Asset.id == Alert.asset_id)
+    if is_owner:
+        recent_alerts_q = recent_alerts_q.where(Asset.owner_id == user.id)
+    recent_alerts_q = recent_alerts_q.order_by(Alert.created_at.desc()).limit(5)
+    recent_alerts = (await db.execute(recent_alerts_q)).scalars().all()
 
     # Last sync time
     sync_setting = await db.get(SystemSetting, "last_sync_time")

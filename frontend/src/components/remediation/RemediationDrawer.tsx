@@ -18,7 +18,7 @@ export const RemediationDrawer: React.FC<RemediationDrawerProps> = ({
   onClose,
   onStatusUpdated,
 }) => {
-  const { isAdmin } = useAuth();
+  const { canRemediate } = useAuth();
   const [status, setStatus] = useState<string>(detection?.remediation_status || 'Open');
   const [notes, setNotes] = useState<string>(detection?.remediation_notes || '');
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -241,7 +241,7 @@ export const RemediationDrawer: React.FC<RemediationDrawerProps> = ({
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
-                  disabled={!isAdmin}
+                  disabled={!canRemediate}
                   className="w-full bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-primary-500 disabled:opacity-60"
                 >
                   <option value="Open">Open (Pending)</option>
@@ -258,9 +258,9 @@ export const RemediationDrawer: React.FC<RemediationDrawerProps> = ({
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                disabled={!isAdmin}
+                disabled={!canRemediate}
                 rows={3}
-                placeholder={isAdmin ? "Add patch schedule, ticket link (e.g. JIRA-1234), or reason for acknowledgment..." : "No notes added."}
+                placeholder={canRemediate ? "Add patch schedule, ticket link (e.g. JIRA-1234), or reason for acknowledgment..." : "No notes added."}
                 className="w-full bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-primary-500 disabled:opacity-60"
               />
             </div>
@@ -275,7 +275,7 @@ export const RemediationDrawer: React.FC<RemediationDrawerProps> = ({
               </div>
             )}
 
-            {isAdmin && (
+            {canRemediate && (
               <div className="flex justify-end pt-2">
                 <button
                   onClick={handleSave}
@@ -286,9 +286,9 @@ export const RemediationDrawer: React.FC<RemediationDrawerProps> = ({
                 </button>
               </div>
             )}
-            {!isAdmin && (
+            {!canRemediate && (
               <p className="text-[11px] text-slate-500 italic">
-                * Read-only mode. Only Admin accounts can update remediation statuses.
+                * Read-only mode. Only assigned Owners, Analysts, or Admins can update remediation statuses.
               </p>
             )}
           </section>

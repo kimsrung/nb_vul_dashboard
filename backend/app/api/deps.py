@@ -45,6 +45,15 @@ async def require_admin(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
+async def require_analyst_or_admin(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role not in ("admin", "analyst"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin or Security Analyst privileges required for this action",
+        )
+    return current_user
+
+
 async def require_viewer(current_user: User = Depends(get_current_user)) -> User:
-    # All authenticated users (viewer and admin) have read privileges
+    # All authenticated users (admin, analyst, owner, viewer) have read privileges within their scope
     return current_user

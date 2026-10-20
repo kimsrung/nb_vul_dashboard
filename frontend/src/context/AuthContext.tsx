@@ -1,12 +1,18 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { apiClient } from '../api/client';
+import { apiClient, UserRole } from '../api/client';
 
 interface AuthContextType {
   token: string | null;
   username: string | null;
-  role: 'admin' | 'viewer' | null;
+  role: UserRole | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isAnalyst: boolean;
+  isOwner: boolean;
+  isViewer: boolean;
+  canManageUsers: boolean;
+  canAssignOwner: boolean;
+  canRemediate: boolean;
   login: (username: string, password: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
 }
@@ -16,8 +22,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setToken] = useState<string | null>(localStorage.getItem('access_token'));
   const [username, setUsername] = useState<string | null>(localStorage.getItem('username'));
-  const [role, setRole] = useState<'admin' | 'viewer' | null>(
-    (localStorage.getItem('user_role') as 'admin' | 'viewer') || null
+  const [role, setRole] = useState<UserRole | null>(
+    (localStorage.getItem('user_role') as UserRole) || null
   );
 
   useEffect(() => {
@@ -68,6 +74,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     role,
     isAuthenticated: !!token,
     isAdmin: role === 'admin',
+    isAnalyst: role === 'analyst',
+    isOwner: role === 'owner',
+    isViewer: role === 'viewer',
+    canManageUsers: role === 'admin',
+    canAssignOwner: role === 'admin' || role === 'analyst',
+    canRemediate: role === 'admin' || role === 'analyst' || role === 'owner',
     login,
     logout,
   };

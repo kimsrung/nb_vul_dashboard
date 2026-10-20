@@ -178,12 +178,14 @@ docker compose logs -f
 
 ---
 
-## 5. Default Credentials
+## 5. Default Credentials & Role-Based Access Control (RBAC)
 
-| Role | Username | Password | Permissions |
+| Role | Username | Password | Permissions & Scoping |
 |---|---|---|---|
-| **Admin** | `admin` | `admin123` | Full access: trigger Qualys sync, update remediation status, edit settings, test Telegram |
-| **Viewer** | `viewer` | `viewer123` | Read-only audit access: view dashboard, inspect assets and KB remediation advice |
+| **Admin** | `admin` | `admin123` | Full access: trigger Qualys sync, manage user accounts & roles, assign server owners, edit settings, test Telegram |
+| **Analyst** | `analyst` | `analyst123` | Triage & SecOps: inspect all infrastructure, assign server owners, update remediation status, mark alerts resolved |
+| **Owner** | `owner_appcore` | `owner123` | Scoped Host Ownership: **only** sees and remediates vulnerabilities on their assigned servers (e.g. `bk-appcore-sit`) |
+| **Viewer** | `viewer` | `viewer123` | Read-only audit access: view dashboard, inspect all assets and KB remediation advice without edit permissions |
 
 ---
 

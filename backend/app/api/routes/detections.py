@@ -5,7 +5,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.api.deps import require_admin, require_viewer
+from app.api.deps import get_current_user, require_viewer
 from app.models.user import User
 from app.models.asset import Asset
 from app.models.detection import Detection
@@ -42,7 +42,7 @@ async def update_remediation(
     detection_id: int,
     remediation_in: RemediationUpdate,
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_admin),
+    user: User = Depends(get_current_user),
 ):
     valid_statuses = ["Open", "In_Progress", "Acknowledged", "False_Positive", "Resolved"]
     if remediation_in.remediation_status not in valid_statuses:
@@ -64,22 +64,35 @@ async def update_remediation(
             detail=f"Detection {detection_id} not found",
         )
 
-    now = datetime.now(timezone.utc)
-    det.remediation_status = remediation_in.remediation_status
-    if remediation_in.remediation_notes is not None:
-        det.remediation_notes = remediation_in.remediation_notes
-    det.updated_by = admin.username
-    det.updated_at = now
-
-    await db.flush()
-
-    # Recalculate parent asset's risk score
+    # Check authorization: Admin, Analyst, or Asset Owner
     asset_res = await db.execute(
         select(Asset)
         .options(selectinload(Asset.detections))
         .where(Asset.id == det.asset_id)
     )
     asset = asset_res.scalar_one_or_none()
+
+    if user.role == "viewer":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Read-only viewers cannot update remediation status",
+        )
+    if user.role == "owner" and (not asset or asset.owner_id != user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are only authorized to remediate assets assigned to you",
+        )
+
+    now = datetime.now(timezone.utc)
+    det.remediation_status = remediation_in.remediation_status
+    if remediation_in.remediation_notes is not None:
+        det.remediation_notes = remediation_in.remediation_notes
+    det.updated_by = user.username
+    det.updated_at = now
+
+    await db.flush()
+
+    # Recalculate parent asset's risk score
     if asset:
         # Load KB entries for these detections
         qids = [d.qid for d in asset.detections]

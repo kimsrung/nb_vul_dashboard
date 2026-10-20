@@ -277,10 +277,10 @@ MOCK_HOST_DETECTION_XML = """<?xml version="1.0" encoding="UTF-8" ?>
 
       <HOST>
         <ID>100103</ID>
-        <IP>10.0.1.5</IP>
+        <IP>10.20.6.190</IP>
         <TRACKING_METHOD>IP</TRACKING_METHOD>
-        <DNS>app-analytics.prod.corp</DNS>
-        <NETBIOS>APP-ANALYTICS</NETBIOS>
+        <DNS>bk-appcore-sit.internal.corp</DNS>
+        <NETBIOS>BK-APPCORE-SIT</NETBIOS>
         <OS>Red Hat Enterprise Linux 8.8</OS>
         <LAST_SCAN_DATETIME>2026-10-20T01:15:00Z</LAST_SCAN_DATETIME>
         <TAG_LIST>

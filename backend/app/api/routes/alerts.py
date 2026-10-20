@@ -5,9 +5,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.api.deps import require_viewer, require_admin
+from app.api.deps import require_viewer, require_analyst_or_admin
 from app.models.user import User
 from app.models.alert import Alert
+from app.models.asset import Asset
 from app.schemas.alert import AlertItem
 
 router = APIRouter(prefix="/alerts", tags=["Alerts"])
@@ -23,6 +24,11 @@ async def list_alerts(
     user: User = Depends(require_viewer),
 ):
     query = select(Alert)
+
+    # Scoping for owner role
+    if user.role == "owner":
+        query = query.join(Asset, Asset.id == Alert.asset_id).where(Asset.owner_id == user.id)
+
     if is_resolved is not None:
         query = query.where(Alert.is_resolved == is_resolved)
     if severity:
@@ -37,7 +43,7 @@ async def list_alerts(
 async def resolve_alert(
     alert_id: int,
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_admin),
+    admin_or_analyst: User = Depends(require_analyst_or_admin),
 ):
     alert = await db.get(Alert, alert_id)
     if not alert:
@@ -48,6 +54,9 @@ async def resolve_alert(
 
     alert.is_resolved = True
     alert.resolved_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(alert)
+    return alert
     await db.commit()
     await db.refresh(alert)
     return alert

@@ -7,6 +7,7 @@ import { AssetsPage } from './pages/AssetsPage';
 import { AssetDetailPage } from './pages/AssetDetailPage';
 import { AlertsPage } from './pages/AlertsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { UsersPage } from './pages/UsersPage';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardSummary, apiClient } from './api/client';
 
@@ -16,6 +17,17 @@ const MainApp: React.FC = () => {
   const [selectedAssetId, setSelectedAssetId] = useState<number | null>(null);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState<boolean>(true);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem('sidebar_collapsed') === 'true';
+  });
+
+  const handleToggleSidebar = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('sidebar_collapsed', String(next));
+      return next;
+    });
+  };
 
   const fetchSummary = async () => {
     if (!isAuthenticated) return;
@@ -52,9 +64,14 @@ const MainApp: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <Navbar onSyncTriggered={fetchSummary} syncStatus={summary?.sync_status} />
-      <div className="flex-1 flex overflow-hidden">
+    <div className="h-screen w-screen bg-background flex flex-col overflow-hidden">
+      <Navbar 
+        onSyncTriggered={fetchSummary} 
+        syncStatus={summary?.sync_status} 
+        isSidebarCollapsed={isSidebarCollapsed}
+        onToggleSidebar={handleToggleSidebar}
+      />
+      <div className="flex-1 flex overflow-hidden relative">
         <Sidebar
           currentTab={currentTab === 'asset-detail' ? 'assets' : currentTab}
           setCurrentTab={(tab) => {
@@ -62,8 +79,10 @@ const MainApp: React.FC = () => {
             setCurrentTab(tab);
           }}
           activeAlertCount={summary?.active_alerts}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={handleToggleSidebar}
         />
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 h-full overflow-y-auto">
           {currentTab === 'dashboard' && (
             <DashboardPage
               summary={summary}
@@ -90,6 +109,8 @@ const MainApp: React.FC = () => {
           {currentTab === 'alerts' && (
             <AlertsPage onSelectAsset={handleSelectAsset} />
           )}
+
+          {currentTab === 'users' && <UsersPage />}
 
           {currentTab === 'settings' && <SettingsPage />}
         </main>

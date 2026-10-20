@@ -286,7 +286,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 <tr key={asset.id} className="hover:bg-slate-800/40 transition-colors">
                   <td className="py-3 px-4">
                     <div className="font-mono font-bold text-slate-100">{asset.ip_address}</div>
-                    <div className="text-[11px] text-slate-400 font-mono">{asset.fqdn || 'No FQDN'}</div>
+                    <div className="text-[11px] text-sky-400 font-mono font-medium">{asset.server_name || asset.fqdn || 'No FQDN'}</div>
                   </td>
                   <td className="py-3 px-4 text-slate-300">{asset.os_name}</td>
                   <td className="py-3 px-4">

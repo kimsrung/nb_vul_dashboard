@@ -1,37 +1,89 @@
 import React, { useState } from 'react';
-import { Shield, RefreshCw, User, LogOut, CheckCircle2 } from 'lucide-react';
+import { Shield, RefreshCw, User, LogOut, CheckCircle2, AlertCircle, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { apiClient } from '../../api/client';
 
 interface NavbarProps {
   onSyncTriggered?: () => void;
   syncStatus?: string;
+  isSidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onSyncTriggered, syncStatus = 'Idle' }) => {
+export const Navbar: React.FC<NavbarProps> = ({ 
+  onSyncTriggered, 
+  syncStatus = 'Idle',
+  isSidebarCollapsed = false,
+  onToggleSidebar,
+}) => {
   const { username, role, logout, isAdmin } = useAuth();
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+  const [isError, setIsError] = useState<boolean>(false);
 
   const handleSyncNow = async () => {
     setIsSyncing(true);
-    setSyncFeedback(null);
+    setIsError(false);
+    setSyncFeedback('Initiating Qualys sync...');
+
     try {
-      const res = await apiClient.post('/dashboard/sync');
-      setSyncFeedback(res.data.message || 'Sync started');
-      if (onSyncTriggered) onSyncTriggered();
-      setTimeout(() => setSyncFeedback(null), 4000);
+      await apiClient.post('/dashboard/sync');
+
+      // Poll sync status until finished or error
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusRes = await apiClient.get('/dashboard/sync-status');
+          const data = statusRes.data;
+          if (data.status === 'Idle') {
+            clearInterval(pollInterval);
+            setIsSyncing(false);
+            setIsError(false);
+            setSyncFeedback(data.message || 'Sync completed successfully');
+            if (onSyncTriggered) onSyncTriggered();
+            setTimeout(() => setSyncFeedback(null), 6000);
+          } else if (data.status === 'Error') {
+            clearInterval(pollInterval);
+            setIsSyncing(false);
+            setIsError(true);
+            setSyncFeedback(data.message || 'Qualys sync failed');
+          } else {
+            setSyncFeedback(data.message || 'Sync in progress...');
+          }
+        } catch {
+          // ignore poll error
+        }
+      }, 1500);
+
+      // Safety timeout after 2 minutes
+      setTimeout(() => {
+        clearInterval(pollInterval);
+        setIsSyncing(false);
+      }, 120000);
     } catch (err: any) {
-      setSyncFeedback(err.response?.data?.detail || 'Sync failed to start');
-      setTimeout(() => setSyncFeedback(null), 4000);
-    } finally {
       setIsSyncing(false);
+      setIsError(true);
+      setSyncFeedback(err.response?.data?.detail || 'Failed to start sync');
+      setTimeout(() => setSyncFeedback(null), 6000);
     }
   };
 
   return (
-    <header className="h-16 border-b border-surfaceBorder bg-surface/80 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-40">
+    <header className="h-16 shrink-0 border-b border-surfaceBorder bg-surface/90 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between sticky top-0 z-40 select-none">
       <div className="flex items-center gap-3">
+        {onToggleSidebar && (
+          <button
+            onClick={onToggleSidebar}
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-100 hover:bg-slate-800/80 transition-colors border border-slate-800"
+            title={isSidebarCollapsed ? "Expand sidebar navigation" : "Collapse sidebar navigation"}
+            aria-label="Toggle navigation"
+          >
+            {isSidebarCollapsed ? (
+              <PanelLeftOpen className="w-4 h-4 text-sky-400" />
+            ) : (
+              <PanelLeftClose className="w-4 h-4 text-slate-400" />
+            )}
+          </button>
+        )}
         <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
           <Shield className="w-5 h-5 text-white" />
         </div>
@@ -49,8 +101,19 @@ export const Navbar: React.FC<NavbarProps> = ({ onSyncTriggered, syncStatus = 'I
       <div className="flex items-center gap-4">
         {/* Sync Status & Button */}
         {syncFeedback && (
-          <div className="text-xs text-sky-400 flex items-center gap-1 font-medium bg-sky-950/40 px-2.5 py-1 rounded-lg border border-sky-800/40 animate-fade-in">
-            <CheckCircle2 className="w-3.5 h-3.5" /> {syncFeedback}
+          <div
+            className={`text-xs flex items-center gap-1.5 font-medium px-3 py-1 rounded-lg border max-w-md truncate animate-fade-in ${
+              isError
+                ? 'bg-red-950/60 text-red-300 border-red-800/60'
+                : 'bg-sky-950/40 text-sky-300 border-sky-800/40'
+            }`}
+          >
+            {isError ? (
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 text-sky-400 shrink-0" />
+            )}
+            <span className="truncate">{syncFeedback}</span>
           </div>
         )}
 
@@ -74,7 +137,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onSyncTriggered, syncStatus = 'I
           <div className="text-left hidden sm:block">
             <div className="text-xs font-semibold text-slate-200">{username}</div>
             <div className="flex items-center gap-1">
-              <span className={`text-[10px] font-mono px-1.5 rounded uppercase font-semibold ${role === 'admin' ? 'bg-purple-950/50 text-purple-300 border border-purple-800/40' : 'bg-slate-800 text-slate-400'}`}>
+              <span
+                className={`text-[10px] font-mono px-1.5 rounded uppercase font-semibold ${
+                  role === 'admin'
+                    ? 'bg-purple-950/60 text-purple-300 border border-purple-800/40'
+                    : role === 'analyst'
+                    ? 'bg-indigo-950/60 text-indigo-300 border border-indigo-800/40'
+                    : role === 'owner'
+                    ? 'bg-sky-950/60 text-sky-300 border border-sky-800/40'
+                    : 'bg-slate-800 text-slate-400 border border-slate-700'
+                }`}
+              >
                 {role}
               </span>
             </div>

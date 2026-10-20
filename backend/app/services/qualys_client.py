@@ -82,29 +82,62 @@ class QualysApiClient:
                 "message": f"Connection error reaching {self.base_url}: {str(exc)}",
             }
 
-    async def fetch_knowledge_base_xml(self, details: str = "All") -> str:
+    async def fetch_knowledge_base_xml(
+        self,
+        qids: Optional[List[int]] = None,
+        details: str = "All",
+    ) -> str:
         """Fetch KnowledgeBase XML from live API or mock."""
         if self.mock_mode:
             logger.info("Using Qualys Mock KnowledgeBase XML")
             return MOCK_KB_XML
 
+        if qids is not None and len(qids) == 0:
+            return ""
+
         endpoint = f"{self.base_url}/api/2.0/fo/knowledge_base/vuln/"
-        params = {"action": "list", "details": details}
+        data: Dict[str, Any] = {"action": "list", "details": details}
+        if qids:
+            data["ids"] = ",".join(str(q) for q in qids)
+
         async with httpx.AsyncClient(timeout=60.0) as client:
-            resp = await client.get(
+            resp = await client.post(
                 endpoint,
-                params=params,
+                data=data,
                 auth=(self.username, self.password),
                 headers=self._get_headers(),
             )
             resp.raise_for_status()
             return resp.text
 
+    async def fetch_and_parse_kb_for_qids(self, qids: List[int]) -> List[Dict[str, Any]]:
+        """Fetch and parse KB details for a list of QIDs in batches."""
+        if not qids:
+            return []
+
+        if self.mock_mode:
+            xml_content = await self.fetch_knowledge_base_xml()
+            return self.parse_knowledge_base_xml(xml_content)
+
+        all_parsed = []
+        chunk_size = 50
+        for i in range(0, len(qids), chunk_size):
+            chunk = qids[i:i + chunk_size]
+            try:
+                xml_content = await self.fetch_knowledge_base_xml(qids=chunk)
+                if xml_content:
+                    items = self.parse_knowledge_base_xml(xml_content)
+                    all_parsed.extend(items)
+            except Exception as e:
+                logger.warning(f"Error fetching KB details for QID chunk {chunk}: {e}")
+
+        return all_parsed
+
     async def fetch_host_detections_xml(
         self,
         updated_since: Optional[str] = None,
         tag_set_include: Optional[str] = None,
-        severities: str = "3,4,5",
+        severities: str = "1,2,3,4,5",
     ) -> str:
         """Fetch Host VM Detections XML from live API or mock."""
         if self.mock_mode:
@@ -112,7 +145,7 @@ class QualysApiClient:
             return MOCK_HOST_DETECTION_XML
 
         endpoint = f"{self.base_url}/api/2.0/fo/asset/host/vm/detection/"
-        params: Dict[str, Any] = {
+        data: Dict[str, Any] = {
             "action": "list",
             "show_igs": "0",  # Don't pull information gathering by default
             "status": "Active,New,Re-Opened",
@@ -121,15 +154,15 @@ class QualysApiClient:
             "output_format": "XML",
         }
         if updated_since:
-            params["detection_updated_since"] = updated_since
+            data["detection_updated_since"] = updated_since
         if tag_set_include:
-            params["tag_set_by"] = "name"
-            params["tag_set_include"] = tag_set_include
+            data["tag_set_by"] = "name"
+            data["tag_set_include"] = tag_set_include
 
         async with httpx.AsyncClient(timeout=120.0) as client:
-            resp = await client.get(
+            resp = await client.post(
                 endpoint,
-                params=params,
+                data=data,
                 auth=(self.username, self.password),
                 headers=self._get_headers(),
             )
@@ -215,10 +248,26 @@ class QualysApiClient:
 
     def parse_host_detections_xml(self, xml_content: str) -> List[Dict[str, Any]]:
         """Parse Qualys Host Detection XML into hosts with nested detections."""
+        if not xml_content or not xml_content.strip():
+            return []
+
         root = ET.fromstring(xml_content)
+
+        # Check for Qualys error responses
+        code_el = root.find(".//CODE")
+        text_el = root.find(".//TEXT")
+        hosts = root.findall(".//HOST")
+        if not hosts and code_el is not None and text_el is not None:
+            err_code = code_el.text or ""
+            err_text = text_el.text or ""
+            if "no host" in err_text.lower() or "no matching" in err_text.lower():
+                logger.info(f"Qualys returned info: {err_text}")
+                return []
+            raise ValueError(f"Qualys API returned error code {err_code}: {err_text}")
+
         parsed_hosts = []
 
-        for host_el in root.findall(".//HOST"):
+        for host_el in hosts:
             qualys_id = host_el.findtext("ID")
             if not qualys_id:
                 continue
@@ -242,11 +291,26 @@ class QualysApiClient:
                 elif "cisco" in os_lower or "juniper" in os_lower or "network" in os_lower:
                     os_family = "Network"
 
-            # Parse tags
+            # Parse tags and remove Cloud Agent and tag_set tags
             tags = []
+            excluded_patterns = ["cloud agent", "cloud-agent", "tag_set", "tag-set", "tagset"]
             for tag_el in host_el.findall(".//TAG/NAME"):
                 if tag_el.text:
-                    tags.append(tag_el.text.strip())
+                    tag_clean = tag_el.text.strip()
+                    if not any(p in tag_clean.lower() for p in excluded_patterns):
+                        tags.append(tag_clean)
+
+            # Derive server name: priority to clean environment tag (e.g. Bakong DC, Calypso SIT, etc.)
+            server_name = None
+            if tags:
+                env_tag = next((t for t in tags if any(k in t.upper() for k in ["DC", "DR", "SIT", "PROD", "CORE", "BANK", "AIX", "NCS", "IPS"])), None)
+                server_name = env_tag if env_tag else tags[0]
+            elif fqdn:
+                server_name = fqdn.split(".")[0].strip()
+            elif netbios_name:
+                server_name = netbios_name.strip()
+            elif ip_address:
+                server_name = ip_address
 
             # Last scan datetime
             scan_dt_str = host_el.findtext("LAST_SCAN_DATETIME")
@@ -319,6 +383,7 @@ class QualysApiClient:
 
             parsed_hosts.append({
                 "qualys_id": qualys_id,
+                "server_name": server_name,
                 "ip_address": ip_address,
                 "ipv6_address": ipv6_address,
                 "fqdn": fqdn,

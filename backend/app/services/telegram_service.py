@@ -61,15 +61,16 @@ class TelegramService:
         tags = [html.escape(t) for t in (asset.tags or [])]
         tags_str = ", ".join([f"<code>{t}</code>" for t in tags]) if tags else "<i>None</i>"
 
+        server_name = html.escape(getattr(asset, "server_name", None) or (asset.fqdn.split(".")[0] if asset.fqdn else "Unknown-Server"))
         icon = "🚨" if risk_level == "CRITICAL" else "⚠️"
 
         lines = [
-            f"{icon} <b>QUALYS RISK ALERT: Asset Flagged as {risk_level}</b>",
+            f"{icon} <b>QUALYS RISK ALERT: {server_name} ({ip})</b>",
             "",
-            f"🖥 <b>Host:</b> <code>{ip}</code> ({fqdn})",
+            f"🖥 <b>Server Name:</b> <code>{server_name}</code>",
+            f"🌐 <b>IP Address:</b> <code>{ip}</code> ({fqdn})",
             f"💻 <b>OS:</b> {os_name}",
-            f"🏷 <b>Tags:</b> {tags_str}",
-            f"📊 <b>Risk Score:</b> <b>{risk_score}</b>",
+            f"📊 <b>Risk Score:</b> <b>{risk_score}</b> (Level: {risk_level})",
             "",
             "<b>Top Critical / High Detections:</b>",
         ]
