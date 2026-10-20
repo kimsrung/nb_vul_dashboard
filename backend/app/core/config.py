@@ -50,6 +50,14 @@ class Settings(BaseSettings):
     TELEGRAM_CHAT_ID: str = ""
     TELEGRAM_COOLDOWN_HOURS: int = 6
 
+    # MISP Threat Intelligence (FS-ISAC Feed) Configuration
+    MISP_URL: str = "https://misp.internal.corp"
+    MISP_API_KEY: str = ""
+    MISP_FEED_TAG: str = "FS-ISAC"
+    MISP_ENABLED: bool = True
+    MISP_MOCK_MODE: bool = True  # Mock mode enabled by default for safe offline testing
+    MISP_SYNC_INTERVAL_HOURS: int = 2
+
     # Risk Scoring Configuration
     RISK_THRESHOLD_CRITICAL: int = 80
     RISK_THRESHOLD_HIGH: int = 40

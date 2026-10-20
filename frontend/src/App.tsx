@@ -8,6 +8,7 @@ import { AssetDetailPage } from './pages/AssetDetailPage';
 import { AlertsPage } from './pages/AlertsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { UsersPage } from './pages/UsersPage';
+import { MispFeedPage } from './pages/MispFeedPage';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardSummary, apiClient } from './api/client';
 
@@ -108,6 +109,10 @@ const MainApp: React.FC = () => {
 
           {currentTab === 'alerts' && (
             <AlertsPage onSelectAsset={handleSelectAsset} />
+          )}
+
+          {currentTab === 'misp' && (
+            <MispFeedPage onSelectAsset={handleSelectAsset} />
           )}
 
           {currentTab === 'users' && <UsersPage />}

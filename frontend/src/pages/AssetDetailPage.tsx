@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Server, Bug, RefreshCw, Wrench } from 'lucide-react';
-import { AssetDetail, DetectionItem, apiClient } from '../api/client';
+import { ArrowLeft, Server, Bug, RefreshCw, Wrench, Package } from 'lucide-react';
+import { AssetDetail, DetectionItem, SoftwareItem, apiClient } from '../api/client';
 import { RiskBadge } from '../components/common/RiskBadge';
 import { SeverityTag } from '../components/common/SeverityTag';
 import { RemediationStatusBadge } from '../components/common/RemediationStatusBadge';
@@ -13,6 +13,7 @@ interface AssetDetailPageProps {
 
 export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId, onBack }) => {
   const [asset, setAsset] = useState<AssetDetail | null>(null);
+  const [softwareList, setSoftwareList] = useState<SoftwareItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedDetection, setSelectedDetection] = useState<DetectionItem | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
@@ -20,8 +21,12 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId, onBac
   const fetchAssetDetail = async () => {
     setIsLoading(true);
     try {
-      const res = await apiClient.get(`/assets/${assetId}`);
-      setAsset(res.data);
+      const [assetRes, swRes] = await Promise.all([
+        apiClient.get(`/assets/${assetId}`),
+        apiClient.get(`/assets/${assetId}/software`).catch(() => ({ data: [] })),
+      ]);
+      setAsset(assetRes.data);
+      setSoftwareList(swRes.data);
     } catch (err) {
       console.error('Failed to load asset details', err);
     } finally {
@@ -239,6 +244,60 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId, onBac
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Installed Software Inventory (Proactive MISP Match Target) */}
+      <div className="p-6 rounded-2xl bg-surface border border-surfaceBorder space-y-4">
+        <div>
+          <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+            <Package className="w-4 h-4 text-sky-400" /> Installed Software & Packages Inventory
+          </h3>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Software packages discovered on this host, used for proactive MISP (FS-ISAC) pre-scan vulnerability assessments.
+          </p>
+        </div>
+
+        {softwareList.length === 0 ? (
+          <div className="p-6 text-center text-slate-500 rounded-xl bg-slate-900/40 border border-slate-800 text-xs italic">
+            No software packages cataloged for this host yet.
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-surfaceBorder">
+            <table className="w-full text-left text-xs text-slate-300">
+              <thead className="bg-slate-900/80 text-[11px] uppercase tracking-wider text-slate-400 border-b border-surfaceBorder">
+                <tr>
+                  <th className="py-3 px-4">Product Name</th>
+                  <th className="py-3 px-4">Installed Version</th>
+                  <th className="py-3 px-4">Package Name</th>
+                  <th className="py-3 px-4">Binary / Path</th>
+                  <th className="py-3 px-4">Port</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surfaceBorder">
+                {softwareList.map((sw) => (
+                  <tr key={sw.id} className="hover:bg-slate-800/40 transition-colors">
+                    <td className="py-3 px-4 font-bold text-sky-300 font-mono">
+                      {sw.product_name}
+                      {sw.vendor && <span className="text-[10px] text-slate-500 font-normal block">{sw.vendor}</span>}
+                    </td>
+                    <td className="py-3 px-4 font-mono font-semibold text-slate-100">
+                      v{sw.version}
+                    </td>
+                    <td className="py-3 px-4 font-mono text-slate-300">
+                      {sw.package_name || '—'}
+                    </td>
+                    <td className="py-3 px-4 font-mono text-slate-400 text-[11px]">
+                      {sw.install_path || 'system default'}
+                    </td>
+                    <td className="py-3 px-4 font-mono text-slate-300">
+                      {sw.port ? `TCP/${sw.port}` : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Slide-over Remediation Drawer */}

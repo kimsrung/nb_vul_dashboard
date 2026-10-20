@@ -98,3 +98,71 @@ class TelegramService:
         ])
 
         return "\n".join(lines)
+
+    @classmethod
+    def format_misp_assessment_alert(cls, assessment: Any) -> str:
+        """Format an FS-ISAC proactive threat intelligence assessment alert for Telegram."""
+        cve_id = html.escape(getattr(assessment, "cve_id", "CVE-UNKNOWN"))
+        title = html.escape(getattr(assessment, "title", "FS-ISAC Threat Advisory"))
+        severity = getattr(assessment, "severity", "High").upper()
+        cvss = getattr(assessment, "cvss_score", None)
+        cvss_str = f" (CVSS: {cvss})" if cvss else ""
+        match_type = getattr(assessment, "match_type", "INVENTORY_PROACTIVE")
+        report = getattr(assessment, "assessment_report", {}) or {}
+        affected_assets = report.get("affected_assets", [])
+        product = html.escape(getattr(assessment, "affected_product", "software"))
+        vuln_ver = html.escape(getattr(assessment, "vulnerable_versions", ""))
+        rec_action = html.escape(report.get("recommended_actions", "Apply security update."))
+        verification_cmd = html.escape(report.get("verification_command", ""))
+
+        if match_type == "QUALYS_CONFIRMED":
+            badge = "🛡️ <b>[QUALYS SCANNER CONFIRMED]</b>"
+            status_desc = "Qualys scanner has already detected this vulnerability on active hosts."
+        elif match_type == "INVENTORY_PROACTIVE":
+            badge = "⚡ <b>[PROACTIVE PRE-SCAN MATCH]</b>"
+            status_desc = "⚠️ <b>Warning:</b> Qualys has not flagged this yet! Identified proactively via server software inventory."
+        else:
+            badge = "ℹ️ <b>[CLEAN / NO EXPOSURE]</b>"
+            status_desc = "No assets running vulnerable versions."
+
+        sev_icon = "🔴" if severity == "CRITICAL" else ("🟠" if severity == "HIGH" else "🟡")
+
+        lines = [
+            "🛡️ <b>[FS-ISAC THREAT INTELLIGENCE ADVISORY]</b>",
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            f"<b>Advisory:</b> <code>{cve_id}</code>",
+            f"<b>Threat:</b> {title}",
+            f"<b>Severity:</b> {sev_icon} <b>{severity}{cvss_str}</b>",
+            f"<b>Assessment Status:</b> {badge}",
+            f"<i>{status_desc}</i>",
+            "",
+            f"📦 <b>Target Product:</b> <code>{product}</code> (Criteria: <code>{vuln_ver}</code>)",
+            f"💻 <b>Affected Infrastructure ({len(affected_assets)} Server{'s' if len(affected_assets) != 1 else ''}):</b>",
+        ]
+
+        for a in affected_assets[:4]:
+            s_name = html.escape(a.get("server_name") or a.get("ip_address") or "Server")
+            ip = html.escape(a.get("ip_address") or "N/A")
+            ev = html.escape(a.get("evidence") or "")
+            conf = html.escape(a.get("confidence") or "High")
+            lines.append(f"• <b>{s_name}</b> (<code>{ip}</code>)")
+            lines.append(f"  └ <i>Evidence:</i> {ev}")
+            lines.append(f"  └ <i>Confidence:</i> <b>{conf}</b>")
+
+        if len(affected_assets) > 4:
+            lines.append(f"<i>...and {len(affected_assets) - 4} more server(s). Check dashboard.</i>")
+
+        if verification_cmd:
+            lines.extend([
+                "",
+                "🔍 <b>Recommended Verification Command:</b>",
+                f"<code>{verification_cmd}</code>",
+            ])
+
+        lines.extend([
+            "",
+            f"🔧 <b>Remediation Guidance:</b> {rec_action}",
+            "🛡 <i>Qualys & FS-ISAC Proactive Threat Engine</i>",
+        ])
+
+        return "\n".join(lines)

@@ -6,14 +6,15 @@ Welcome to the **Risk Alert Dashboard & KnowledgeBase Remediation Platform**. Th
 
 ## 1. Project Mission & Core Capabilities
 
-The platform monitors infrastructure security posture by integrating with the **Qualys Cloud Platform**:
+The platform monitors infrastructure security posture by integrating with the **Qualys Cloud Platform** and **MISP (FS-ISAC) Threat Intelligence**:
 1. **Host Detection Ingestion**: Queries `/api/2.0/fo/asset/host/vm/detection/?action=list` to pull scanned assets, network metadata, operating systems, asset tags, and vulnerability detections.
 2. **KnowledgeBase (KB) Mapping**: Queries `/api/2.0/fo/knowledge_base/vuln/?action=list&details=All` to enrich findings with step-by-step fix guidance, vendor patch links, temporary workarounds, CVE references, and scanner diagnostic proof.
-3. **Composite Risk Scoring Engine**: Calculates real-time asset risk based on Qualys Severity 1–5, Real-Time Threat Intel (RTI: Ransomware, Active in Wild, Zero-Day, RCE, Public Exploit), and SLA age breach penalties.
-4. **Remediation Action Tracking**: Interactive slide-over drawer allowing security teams to update vulnerability status (`Open`, `In Progress`, `Acknowledged`, `False Positive`, `Resolved`). Status changes automatically recalculate the parent asset's risk score in real-time.
-5. **Telegram Alerting**: Dispatches formatted HTML alert cards to a designated Telegram channel/group with built-in anti-spam cooldown logic.
-6. **Role-Based Access Control (RBAC)**: JWT authentication enforcing `Admin` (full write & sync) and `Viewer` (read-only audit) permissions.
-7. **Dual Mode Operation**: Built-in mock mode (`QUALYS_MOCK_MODE=true`) for offline development/demo without live Qualys API credentials.
+3. **MISP (FS-ISAC) Proactive Threat Assessment**: Ingests emergency CVE advisories filtered strictly for `FS-ISAC`. Assesses exposure even when Qualys has not detected them yet by comparing vulnerable software and version criteria against server software inventory (`AssetSoftware`), producing evidence, confidence ratings, and shell verification commands.
+4. **Composite Risk Scoring Engine**: Calculates real-time asset risk based on Qualys Severity 1–5, Real-Time Threat Intel (RTI: Ransomware, Active in Wild, Zero-Day, RCE, Public Exploit), and SLA age breach penalties.
+5. **Remediation Action Tracking**: Interactive slide-over drawer allowing security teams to update vulnerability status (`Open`, `In Progress`, `Acknowledged`, `False Positive`, `Resolved`). Status changes automatically recalculate the parent asset's risk score in real-time.
+6. **Telegram Alerting**: Dispatches formatted HTML alert cards for both Qualys risk breaches and MISP FS-ISAC proactive threat advisories to designated Telegram channels.
+7. **Role-Based Access Control (RBAC)**: Multi-role JWT authentication (`Admin`, `Analyst`, `Owner`, `Viewer`) with host ownership scoping.
+8. **Dual Mode Operation**: Built-in mock mode (`QUALYS_MOCK_MODE=true`, `MISP_MOCK_MODE=true`) for offline development/demo without live external credentials.
 
 ---
 
@@ -52,15 +53,19 @@ dashboard_alert/
 │       │   ├── database.py         # Async engine & sessionmaker (SQLite / PostgreSQL)
 │       │   └── security.py         # Bcrypt password hashing & JWT encoding/decoding
 │       ├── models/                 # SQLAlchemy async models
-│       │   ├── user.py             # User model (username, email, role: admin/viewer)
-│       │   ├── asset.py            # Asset model (IP, FQDN, OS, tags, risk score)
+│       │   ├── user.py             # User model (admin, analyst, owner, viewer)
+│       │   ├── asset.py            # Asset model (IP, FQDN, OS, tags, risk score, owner)
+│       │   ├── software.py         # AssetSoftware model (installed packages, versions, ports)
+│       │   ├── misp_feed.py        # MispCveAssessment model (FS-ISAC advisories, reports)
 │       │   ├── knowledge_base.py   # KnowledgeBase model (QID, title, solution, patches)
 │       │   ├── detection.py        # Detection model (QID, severity, status, proof, remediation)
 │       │   ├── alert.py            # Alert model (risk alerts, telegram dispatch logs)
 │       │   └── setting.py          # SystemSetting model (key-value config store)
 │       ├── schemas/                # Pydantic validation schemas
 │       │   ├── auth.py             # Login, Token, User schemas
-│       │   ├── asset.py            # AssetListItem, AssetDetail, filters
+│       │   ├── asset.py            # AssetListItem, PaginatedAssetsResponse, filters
+│       │   ├── software.py         # SoftwareItem, SoftwareCreate
+│       │   ├── misp.py             # MispAssessmentListItem, MispAssessmentDetail, reports
 │       │   ├── detection.py        # DetectionItem, RemediationUpdate
 │       │   ├── knowledge_base.py   # KnowledgeBaseItem
 │       │   ├── alert.py            # AlertItem
@@ -69,16 +74,21 @@ dashboard_alert/
 │       ├── services/
 │       │   ├── qualys_client.py    # Qualys API v2 client & streaming XML parser
 │       │   ├── qualys_mock.py      # High-fidelity mock XML generator
+│       │   ├── misp_client.py      # MISP REST API client scoped to FS-ISAC
+│       │   ├── misp_mock.py        # FS-ISAC emergency advisory mock generator
+│       │   ├── proactive_assessment_engine.py # Pre-scan inventory matcher & evaluator
 │       │   ├── risk_engine.py      # Composite risk scoring computation
 │       │   ├── sync_service.py     # Ingestion & delta synchronization coordinator
-│       │   ├── telegram_service.py # Telegram bot HTML dispatch & anti-spam cooldown
+│       │   ├── telegram_service.py # Telegram bot HTML dispatch (Qualys + FS-ISAC alerts)
 │       │   └── scheduler.py        # Background periodic sync runner (APScheduler)
 │       └── api/
-│           ├── deps.py             # Auth dependencies & RBAC (require_admin, require_viewer)
+│           ├── deps.py             # Auth dependencies & RBAC (admin, analyst, viewer)
 │           └── routes/
-│               ├── auth.py         # POST /auth/login, GET /auth/me, users management
+│               ├── auth.py         # POST /auth/login, user CRUD, GET /auth/owners
 │               ├── dashboard.py    # GET /dashboard/summary, POST /dashboard/sync
-│               ├── assets.py       # GET /assets, GET /assets/{id}
+│               ├── assets.py       # GET /assets (paginated), GET /assets/{id}, PATCH owner
+│               ├── software.py     # GET /assets/{id}/software inventory management
+│               ├── misp.py         # GET /misp/feed, GET /misp/summary, POST /misp/sync
 │               ├── detections.py   # GET /detections/{id}, PATCH /detections/{id}/remediation
 │               ├── knowledge_base.py# GET /kb/{qid}
 │               ├── alerts.py       # GET /alerts, POST /alerts/{id}/resolve
@@ -93,7 +103,7 @@ dashboard_alert/
     ├── index.html                  # HTML template
     └── src/
         ├── main.tsx                # React DOM root entrypoint
-        ├── App.tsx                 # Root component orchestrating tab routing
+        ├── App.tsx                 # Root component orchestrating fixed layout & tab routing
         ├── index.css               # Global styles & Tailwind directives
         ├── api/
         │   └── client.ts           # Axios client with JWT interceptor & data interfaces
@@ -101,8 +111,8 @@ dashboard_alert/
         │   └── AuthContext.tsx     # Session state, login, logout, and role helpers
         ├── components/
         │   ├── layout/
-        │   │   ├── Navbar.tsx      # Top bar with sync trigger & user session
-        │   │   └── Sidebar.tsx     # Navigation links & alert badges
+        │   │   ├── Navbar.tsx      # Fixed top bar with collapse toggle & user session
+        │   │   └── Sidebar.tsx     # Collapsible sidebar nav (w-64 <-> w-16)
         │   ├── common/
         │   │   ├── RiskBadge.tsx   # Visual indicator for Critical/High/Medium/Low
         │   │   ├── SeverityTag.tsx # Qualys Severity 1 to 5 badges
@@ -111,9 +121,11 @@ dashboard_alert/
         │       └── RemediationDrawer.tsx # Slide-over drawer with KB solutions & action form
         └── pages/
             ├── DashboardPage.tsx   # Executive overview, KPI widgets, RTI metrics
-            ├── AssetsPage.tsx      # Filterable asset inventory table & search
-            ├── AssetDetailPage.tsx # Host dossier with all findings & proof
+            ├── AssetsPage.tsx      # Paginated inventory table with server name & owner assignment
+            ├── AssetDetailPage.tsx # Host dossier with detections & installed software
+            ├── MispFeedPage.tsx    # FS-ISAC threat intel & proactive assessment drawer
             ├── AlertsPage.tsx      # Security alert center & Telegram dispatch log
+            ├── UsersPage.tsx       # User role management (Admin, Analyst, Owner, Viewer)
             ├── SettingsPage.tsx    # Connection tester & settings editor
             └── LoginPage.tsx       # Sign-in page with preset demo credentials
 ```

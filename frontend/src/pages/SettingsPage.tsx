@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Shield, Send, CheckCircle2, AlertCircle, RefreshCw, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Settings, Shield, Send, CheckCircle2, AlertCircle, RefreshCw, ToggleLeft, ToggleRight, Radio } from 'lucide-react';
 import { SystemSettings, apiClient } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
@@ -10,7 +10,7 @@ export const SettingsPage: React.FC = () => {
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
 
-  // Form states
+  // Form states - Qualys
   const [qualysUrl, setQualysUrl] = useState<string>('');
   const [qualysUsername, setQualysUsername] = useState<string>('');
   const [qualysPassword, setQualysPassword] = useState<string>('');
@@ -18,11 +18,21 @@ export const SettingsPage: React.FC = () => {
   const [syncInterval, setSyncInterval] = useState<number>(6);
   const [tagFilter, setTagFilter] = useState<string>('');
 
+  // Form states - MISP (FS-ISAC)
+  const [mispUrl, setMispUrl] = useState<string>('');
+  const [mispApiKey, setMispApiKey] = useState<string>('');
+  const [mispFeedTag, setMispFeedTag] = useState<string>('FS-ISAC');
+  const [mispEnabled, setMispEnabled] = useState<boolean>(true);
+  const [mispMockMode, setMispMockMode] = useState<boolean>(true);
+  const [mispSyncInterval, setMispSyncInterval] = useState<number>(2);
+
+  // Form states - Telegram
   const [telegramEnabled, setTelegramEnabled] = useState<boolean>(false);
   const [telegramToken, setTelegramToken] = useState<string>('');
   const [telegramChatId, setTelegramChatId] = useState<string>('');
   const [telegramCooldown, setTelegramCooldown] = useState<number>(6);
 
+  // Form states - Risk & SLA
   const [riskCritThreshold, setRiskCritThreshold] = useState<number>(80);
   const [riskHighThreshold, setRiskHighThreshold] = useState<number>(40);
   const [slaCritDays, setSlaCritDays] = useState<number>(14);
@@ -31,6 +41,9 @@ export const SettingsPage: React.FC = () => {
   // Test states
   const [testingQualys, setTestingQualys] = useState<boolean>(false);
   const [qualysTestResult, setQualysTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  const [testingMisp, setTestingMisp] = useState<boolean>(false);
+  const [mispTestResult, setMispTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const [testingTelegram, setTestingTelegram] = useState<boolean>(false);
   const [telegramTestResult, setTelegramTestResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -47,6 +60,12 @@ export const SettingsPage: React.FC = () => {
       setQualysMockMode(data.qualys_mock_mode);
       setSyncInterval(data.qualys_sync_interval_hours);
       setTagFilter(data.qualys_tag_filter || '');
+
+      setMispUrl(data.misp_url || '');
+      setMispFeedTag(data.misp_feed_tag || 'FS-ISAC');
+      setMispEnabled(data.misp_enabled ?? true);
+      setMispMockMode(data.misp_mock_mode ?? true);
+      setMispSyncInterval(data.misp_sync_interval_hours ?? 2);
 
       setTelegramEnabled(data.telegram_enabled);
       setTelegramChatId(data.telegram_chat_id || '');
@@ -79,6 +98,11 @@ export const SettingsPage: React.FC = () => {
         qualys_mock_mode: qualysMockMode,
         qualys_sync_interval_hours: Number(syncInterval),
         qualys_tag_filter: tagFilter,
+        misp_url: mispUrl,
+        misp_feed_tag: mispFeedTag,
+        misp_enabled: mispEnabled,
+        misp_mock_mode: mispMockMode,
+        misp_sync_interval_hours: Number(mispSyncInterval),
         telegram_enabled: telegramEnabled,
         telegram_chat_id: telegramChatId,
         telegram_cooldown_hours: Number(telegramCooldown),
@@ -90,6 +114,9 @@ export const SettingsPage: React.FC = () => {
 
       if (qualysPassword.trim()) {
         payload.qualys_password = qualysPassword;
+      }
+      if (mispApiKey.trim()) {
+        payload.misp_api_key = mispApiKey;
       }
       if (telegramToken.trim()) {
         payload.telegram_bot_token = telegramToken;
@@ -124,6 +151,27 @@ export const SettingsPage: React.FC = () => {
       });
     } finally {
       setTestingQualys(false);
+    }
+  };
+
+  const handleTestMisp = async () => {
+    setTestingMisp(true);
+    setMispTestResult(null);
+    try {
+      const res = await apiClient.post('/settings/test-misp', {
+        misp_url: mispUrl,
+        misp_api_key: mispApiKey || undefined,
+        misp_feed_tag: mispFeedTag,
+        misp_mock_mode: mispMockMode,
+      });
+      setMispTestResult(res.data);
+    } catch (err: any) {
+      setMispTestResult({
+        success: false,
+        message: err.response?.data?.detail || 'MISP connection test failed',
+      });
+    } finally {
+      setTestingMisp(false);
     }
   };
 
@@ -162,7 +210,7 @@ export const SettingsPage: React.FC = () => {
           <Settings className="w-5 h-5 text-sky-400" /> System Configuration & Integrations
         </h2>
         <p className="text-xs text-slate-400 mt-1">
-          Manage Qualys API credentials, Telegram alert bot, risk thresholds, and sync intervals.
+          Manage Qualys API credentials, MISP (FS-ISAC) threat intelligence, Telegram alert bot, and risk calculation thresholds.
         </p>
       </div>
 
@@ -273,7 +321,130 @@ export const SettingsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Section 2: Telegram Bot Integration */}
+        {/* Section 2: MISP Threat Intelligence (FS-ISAC Feed) */}
+        <div className="p-6 rounded-2xl bg-surface border border-surfaceBorder space-y-4">
+          <div className="flex items-center justify-between border-b border-surfaceBorder pb-3">
+            <div className="flex items-center gap-2">
+              <Radio className="w-4 h-4 text-purple-400" />
+              <div>
+                <h3 className="text-sm font-bold text-slate-100">MISP Threat Intelligence (FS-ISAC Feed)</h3>
+              </div>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-purple-400">
+              <input
+                type="checkbox"
+                checked={mispEnabled}
+                onChange={(e) => setMispEnabled(e.target.checked)}
+                disabled={!isAdmin}
+                className="sr-only"
+              />
+              {mispEnabled ? (
+                <ToggleRight className="w-6 h-6 text-purple-400" />
+              ) : (
+                <ToggleLeft className="w-6 h-6 text-slate-600" />
+              )}
+              <span>{mispEnabled ? 'Feed Enabled' : 'Disabled'}</span>
+            </label>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1">MISP API Endpoint (Base URL)</label>
+              <input
+                type="text"
+                value={mispUrl}
+                onChange={(e) => setMispUrl(e.target.value)}
+                disabled={!isAdmin || !mispEnabled}
+                placeholder="https://misp.internal.corp"
+                className="w-full bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-100 font-mono focus:outline-none focus:border-primary-500 disabled:opacity-50"
+              />
+              <span className="text-[10px] text-slate-500 mt-1 block">
+                Internal MISP instance URL hosting FS-ISAC threat events
+              </span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1">MISP Auth Key / API Key</label>
+              <input
+                type="password"
+                value={mispApiKey}
+                onChange={(e) => setMispApiKey(e.target.value)}
+                disabled={!isAdmin || !mispEnabled}
+                placeholder={settings?.misp_api_key_masked || "•••••••••••• (Leave blank to keep existing)"}
+                className="w-full bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-100 font-mono focus:outline-none focus:border-primary-500 disabled:opacity-50"
+              />
+              <span className="text-[10px] text-slate-500 mt-1 block">API user authentication key for REST queries</span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1">Feed Tag Filter</label>
+              <input
+                type="text"
+                value={mispFeedTag}
+                onChange={(e) => setMispFeedTag(e.target.value)}
+                disabled={!isAdmin || !mispEnabled}
+                placeholder="FS-ISAC"
+                className="w-full bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-primary-500 disabled:opacity-50 font-mono"
+              />
+              <span className="text-[10px] text-slate-500 mt-1 block">
+                Strictly queries threat events tagged with this label (Default: FS-ISAC)
+              </span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1">Assessment Sync Interval (Hours)</label>
+              <input
+                type="number"
+                min={1}
+                max={48}
+                value={mispSyncInterval}
+                onChange={(e) => setMispSyncInterval(Number(e.target.value))}
+                disabled={!isAdmin || !mispEnabled}
+                className="w-full bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-primary-500 disabled:opacity-50"
+              />
+              <span className="text-[10px] text-slate-500 mt-1 block">Frequency of proactive inventory matching background job</span>
+            </div>
+
+            <div className="flex items-center gap-3 md:col-span-2 pt-2">
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-200">
+                <input
+                  type="checkbox"
+                  checked={mispMockMode}
+                  onChange={(e) => setMispMockMode(e.target.checked)}
+                  disabled={!isAdmin || !mispEnabled}
+                  className="rounded border-slate-700 text-purple-600 focus:ring-0 bg-slate-900 w-4 h-4"
+                />
+                <span>Enable Mock / Offline Demo Feed (Simulates FS-ISAC emergency CVE advisories and pre-scan matches)</span>
+              </label>
+            </div>
+          </div>
+
+          <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-surfaceBorder">
+            <button
+              type="button"
+              onClick={handleTestMisp}
+              disabled={testingMisp || !isAdmin || !mispEnabled}
+              className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-purple-400 text-xs font-semibold border border-slate-700 transition-colors disabled:opacity-50 self-start"
+            >
+              {testingMisp ? 'Connecting to MISP...' : 'Test MISP Connection'}
+            </button>
+
+            {mispTestResult && (
+              <div
+                className={`text-xs px-3 py-1.5 rounded-lg border flex items-center gap-1.5 ${
+                  mispTestResult.success
+                    ? 'bg-emerald-950/40 text-emerald-400 border-emerald-800'
+                    : 'bg-red-950/40 text-red-400 border-red-800'
+                }`}
+              >
+                {mispTestResult.success ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
+                {mispTestResult.message}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Section 3: Telegram Bot Integration */}
         <div className="p-6 rounded-2xl bg-surface border border-surfaceBorder space-y-4">
           <div className="flex items-center justify-between border-b border-surfaceBorder pb-3">
             <div className="flex items-center gap-2">

@@ -37,3 +37,4 @@ class Asset(Base):
     owner = relationship("User", back_populates="assets", foreign_keys=[owner_id])
     detections = relationship("Detection", back_populates="asset", cascade="all, delete-orphan")
     alerts = relationship("Alert", back_populates="asset", cascade="all, delete-orphan")
+    software_items = relationship("AssetSoftware", back_populates="asset", cascade="all, delete-orphan")

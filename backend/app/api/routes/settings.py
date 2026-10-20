@@ -10,9 +10,11 @@ from app.schemas.settings import (
     SystemSettingsResponse,
     SystemSettingsUpdate,
     QualysTestRequest,
+    MispTestRequest,
     TelegramTestRequest,
 )
 from app.services.qualys_client import QualysApiClient
+from app.services.misp_client import MispClient
 from app.services.telegram_service import TelegramService
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
@@ -32,6 +34,12 @@ async def get_settings(user: User = Depends(require_viewer)):
         qualys_mock_mode=settings.QUALYS_MOCK_MODE,
         qualys_sync_interval_hours=settings.QUALYS_SYNC_INTERVAL_HOURS,
         qualys_tag_filter=settings.QUALYS_TAG_FILTER,
+        misp_url=settings.MISP_URL,
+        misp_api_key_masked=_mask_token(settings.MISP_API_KEY),
+        misp_feed_tag=settings.MISP_FEED_TAG,
+        misp_enabled=settings.MISP_ENABLED,
+        misp_mock_mode=settings.MISP_MOCK_MODE,
+        misp_sync_interval_hours=settings.MISP_SYNC_INTERVAL_HOURS,
         telegram_enabled=settings.TELEGRAM_ENABLED,
         telegram_bot_token_masked=_mask_token(settings.TELEGRAM_BOT_TOKEN),
         telegram_chat_id=settings.TELEGRAM_CHAT_ID,
@@ -62,6 +70,19 @@ async def update_settings(
     if settings_in.qualys_tag_filter is not None:
         settings.QUALYS_TAG_FILTER = settings_in.qualys_tag_filter.strip()
 
+    if settings_in.misp_url is not None:
+        settings.MISP_URL = settings_in.misp_url.strip().rstrip("/")
+    if settings_in.misp_api_key is not None and settings_in.misp_api_key.strip():
+        settings.MISP_API_KEY = settings_in.misp_api_key.strip()
+    if settings_in.misp_feed_tag is not None:
+        settings.MISP_FEED_TAG = settings_in.misp_feed_tag.strip()
+    if settings_in.misp_enabled is not None:
+        settings.MISP_ENABLED = settings_in.misp_enabled
+    if settings_in.misp_mock_mode is not None:
+        settings.MISP_MOCK_MODE = settings_in.misp_mock_mode
+    if settings_in.misp_sync_interval_hours is not None:
+        settings.MISP_SYNC_INTERVAL_HOURS = settings_in.misp_sync_interval_hours
+
     if settings_in.telegram_enabled is not None:
         settings.TELEGRAM_ENABLED = settings_in.telegram_enabled
     if settings_in.telegram_bot_token is not None and settings_in.telegram_bot_token.strip():
@@ -88,6 +109,12 @@ async def update_settings(
         "qualys_mock_mode": "true" if settings.QUALYS_MOCK_MODE else "false",
         "qualys_sync_interval_hours": str(settings.QUALYS_SYNC_INTERVAL_HOURS),
         "qualys_tag_filter": settings.QUALYS_TAG_FILTER,
+        "misp_url": settings.MISP_URL,
+        "misp_api_key": settings.MISP_API_KEY,
+        "misp_feed_tag": settings.MISP_FEED_TAG,
+        "misp_enabled": "true" if settings.MISP_ENABLED else "false",
+        "misp_mock_mode": "true" if settings.MISP_MOCK_MODE else "false",
+        "misp_sync_interval_hours": str(settings.MISP_SYNC_INTERVAL_HOURS),
         "telegram_enabled": "true" if settings.TELEGRAM_ENABLED else "false",
         "telegram_bot_token": settings.TELEGRAM_BOT_TOKEN,
         "telegram_chat_id": settings.TELEGRAM_CHAT_ID,
@@ -112,6 +139,12 @@ async def update_settings(
         qualys_mock_mode=settings.QUALYS_MOCK_MODE,
         qualys_sync_interval_hours=settings.QUALYS_SYNC_INTERVAL_HOURS,
         qualys_tag_filter=settings.QUALYS_TAG_FILTER,
+        misp_url=settings.MISP_URL,
+        misp_api_key_masked=_mask_token(settings.MISP_API_KEY),
+        misp_feed_tag=settings.MISP_FEED_TAG,
+        misp_enabled=settings.MISP_ENABLED,
+        misp_mock_mode=settings.MISP_MOCK_MODE,
+        misp_sync_interval_hours=settings.MISP_SYNC_INTERVAL_HOURS,
         telegram_enabled=settings.TELEGRAM_ENABLED,
         telegram_bot_token_masked=_mask_token(settings.TELEGRAM_BOT_TOKEN),
         telegram_chat_id=settings.TELEGRAM_CHAT_ID,
@@ -133,6 +166,21 @@ async def test_qualys_connection(
         username=test_req.qualys_username,
         password=test_req.qualys_password,
         mock_mode=test_req.qualys_mock_mode,
+    )
+    result = await client.test_connection()
+    return result
+
+
+@router.post("/test-misp")
+async def test_misp_connection(
+    test_req: MispTestRequest,
+    admin: User = Depends(require_admin),
+):
+    client = MispClient(
+        base_url=test_req.misp_url,
+        api_key=test_req.misp_api_key,
+        feed_tag=test_req.misp_feed_tag,
+        mock_mode=test_req.misp_mock_mode,
     )
     result = await client.test_connection()
     return result

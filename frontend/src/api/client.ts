@@ -171,6 +171,12 @@ export interface SystemSettings {
   qualys_mock_mode: boolean;
   qualys_sync_interval_hours: number;
   qualys_tag_filter: string;
+  misp_url: string;
+  misp_api_key_masked: string;
+  misp_feed_tag: string;
+  misp_enabled: boolean;
+  misp_mock_mode: boolean;
+  misp_sync_interval_hours: number;
   telegram_enabled: boolean;
   telegram_bot_token_masked: string;
   telegram_chat_id: string;
@@ -179,4 +185,78 @@ export interface SystemSettings {
   risk_threshold_high: number;
   sla_critical_days: number;
   sla_high_days: number;
+}
+
+export interface SoftwareItem {
+  id: number;
+  asset_id: number;
+  product_name: string;
+  vendor: string | null;
+  version: string;
+  package_name: string | null;
+  install_path: string | null;
+  port: number | null;
+  cpe: string | null;
+  created_at: string;
+}
+
+export interface AffectedAssetDetail {
+  asset_id: number;
+  server_name: string | null;
+  ip_address: string | null;
+  os_name: string | null;
+  evidence: string;
+  installed_version: string | null;
+  confidence: string;
+  recommended_verification: string | null;
+}
+
+export interface MispAssessmentItem {
+  id: number;
+  cve_id: string;
+  source: string;
+  title: string;
+  description: string;
+  severity: string;
+  cvss_score: number | null;
+  affected_product: string;
+  vulnerable_versions: string;
+  fixed_versions: string | null;
+  match_type: 'QUALYS_CONFIRMED' | 'INVENTORY_PROACTIVE' | 'NO_ASSETS_AFFECTED';
+  confidence: string;
+  affected_assets_count: number;
+  dispatched_telegram: boolean;
+  telegram_sent_at: string | null;
+  status: 'Pending' | 'Acknowledged' | 'Remediated' | 'False_Positive';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MispAssessmentDetail extends MispAssessmentItem {
+  assessment_report: {
+    summary: string;
+    affected_assets: AffectedAssetDetail[];
+    recommended_actions?: string;
+    verification_command?: string;
+    matched_qid?: number | null;
+    vulnerable_versions?: string;
+    affected_product?: string;
+  };
+}
+
+export interface MispSummary {
+  total_advisories: number;
+  pre_scan_matches: number;
+  qualys_confirmed: number;
+  at_risk_assets: number;
+  last_sync_time: string | null;
+}
+
+export interface MispSyncResponse {
+  success: boolean;
+  message: string;
+  assessments_run: number;
+  pre_scan_matches: number;
+  qualys_confirmed: number;
+  clean_cves: number;
 }

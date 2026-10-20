@@ -9,6 +9,13 @@ class SystemSettingsResponse(BaseModel):
     qualys_sync_interval_hours: int
     qualys_tag_filter: str
     
+    misp_url: str
+    misp_api_key_masked: str
+    misp_feed_tag: str
+    misp_enabled: bool
+    misp_mock_mode: bool
+    misp_sync_interval_hours: int
+
     telegram_enabled: bool
     telegram_bot_token_masked: str
     telegram_chat_id: str
@@ -28,6 +35,13 @@ class SystemSettingsUpdate(BaseModel):
     qualys_sync_interval_hours: Optional[int] = None
     qualys_tag_filter: Optional[str] = None
     
+    misp_url: Optional[str] = None
+    misp_api_key: Optional[str] = None
+    misp_feed_tag: Optional[str] = None
+    misp_enabled: Optional[bool] = None
+    misp_mock_mode: Optional[bool] = None
+    misp_sync_interval_hours: Optional[int] = None
+
     telegram_enabled: Optional[bool] = None
     telegram_bot_token: Optional[str] = None
     telegram_chat_id: Optional[str] = None
@@ -44,6 +58,13 @@ class QualysTestRequest(BaseModel):
     qualys_username: Optional[str] = None
     qualys_password: Optional[str] = None
     qualys_mock_mode: Optional[bool] = None
+
+
+class MispTestRequest(BaseModel):
+    misp_url: Optional[str] = None
+    misp_api_key: Optional[str] = None
+    misp_feed_tag: Optional[str] = None
+    misp_mock_mode: Optional[bool] = None
 
 
 class TelegramTestRequest(BaseModel):
