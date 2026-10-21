@@ -1,6 +1,6 @@
 import re
 import logging
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Tuple
 from datetime import datetime, timezone
 from sqlalchemy import select, or_
 from sqlalchemy.orm import selectinload
@@ -97,8 +97,53 @@ PRODUCT_ALIASES: Dict[str, List[str]] = {
 }
 
 
+KNOWN_CVE_INTEL = {
+    "CVE-2021-44228": {"cvss": 10.0, "severity": "Critical"},
+    "CVE-2023-44487": {"cvss": 7.5, "severity": "Critical"},
+    "CVE-2020-1472": {"cvss": 10.0, "severity": "Critical"},
+    "CVE-2023-3519": {"cvss": 9.8, "severity": "Critical"},
+    "CVE-2023-20198": {"cvss": 10.0, "severity": "Critical"},
+    "CVE-2023-20273": {"cvss": 7.2, "severity": "High"},
+    "CVE-2024-6387": {"cvss": 8.1, "severity": "Critical"},
+    "CVE-2025-7771": {"cvss": 7.8, "severity": "High"},
+}
+
+
 class ProactiveAssessmentEngine:
     """Evaluates newly published CVEs against Qualys detections and server software inventory."""
+
+    @classmethod
+    async def _check_inventory_os(
+        cls, db: AsyncSession, product: str, vuln_versions: str
+    ) -> List[Tuple[Asset, str]]:
+        """Match product name against Asset.os_name."""
+        if not product or product.lower() in ("software", "unknown", "n/a"):
+            return []
+
+        os_map = {
+            "windows": ["windows"],
+            "windows server": ["windows server"],
+            "microsoft": ["windows"],
+            "esxi": ["esxi", "vmware"],
+            "linux": ["linux", "centos", "red hat", "oracle linux", "ubuntu"],
+            "solaris": ["solaris", "sunos"],
+            "aix": ["aix"],
+        }
+        prod_lower = product.lower()
+        terms = os_map.get(prod_lower)
+        if not terms:
+            for k, v in os_map.items():
+                if k in prod_lower:
+                    terms = v
+                    break
+        if not terms:
+            return []
+
+        conditions = [Asset.os_name.ilike(f"%{t}%") for t in terms]
+        query = select(Asset).where(or_(*conditions))
+        res = await db.execute(query)
+        assets = res.scalars().all()
+        return [(a, a.os_name or "Unknown OS") for a in assets]
 
     @classmethod
     async def assess_cve(cls, db: AsyncSession, advisory: Dict[str, Any]) -> MispCveAssessment:
@@ -117,6 +162,7 @@ class ProactiveAssessmentEngine:
         qualys_matches = await cls._check_qualys_detections(db, cve_id)
 
         affected_assets_data: List[Dict[str, Any]] = []
+        seen_asset_ids = set()
         match_type = "NO_ASSETS_AFFECTED"
         confidence = "None"
         matched_qid = None
@@ -125,6 +171,22 @@ class ProactiveAssessmentEngine:
             match_type = "QUALYS_CONFIRMED"
             confidence = "High (Scanner Verified)"
             for asset, det, kb in qualys_matches:
+                if kb:
+                    if getattr(kb, "severity", None) == 5:
+                        advisory["severity"] = "Critical"
+                    elif getattr(kb, "severity", None) == 4 and advisory.get("severity") != "Critical":
+                        advisory["severity"] = "High"
+                    if getattr(kb, "solution", None) and not advisory.get("recommended_actions"):
+                        advisory["recommended_actions"] = kb.solution
+                    if getattr(kb, "cvss_v3", None) and not advisory.get("cvss_score"):
+                        advisory["cvss_score"] = kb.cvss_v3
+                    elif getattr(kb, "cvss_v2", None) and not advisory.get("cvss_score"):
+                        advisory["cvss_score"] = kb.cvss_v2
+
+            for asset, det, kb in qualys_matches:
+                if asset.id in seen_asset_ids:
+                    continue
+                seen_asset_ids.add(asset.id)
                 matched_qid = det.qid
                 evidence_text = det.scanner_results or f"Qualys Scanner confirmed active detection for QID {det.qid}"
                 affected_assets_data.append({
@@ -138,37 +200,67 @@ class ProactiveAssessmentEngine:
                     "recommended_verification": f"Qualys active detection on port {det.port or 'default'}. Apply vendor patch: {kb.solution or 'Vendor patch required'}",
                 })
 
+        # Enrich with known threat intel CVSS and severity
+        intel = KNOWN_CVE_INTEL.get(cve_id)
+        if intel:
+            if not advisory.get("cvss_score"):
+                advisory["cvss_score"] = intel["cvss"]
+            if advisory.get("severity") in ("Low", None):
+                advisory["severity"] = intel["severity"]
+
         # =========================================================================
-        # STEP 2: If NOT detected by Qualys, run proactive inventory-based assessment
+        # STEP 2: Also check software inventory & OS platform
         # =========================================================================
-        if not affected_assets_data:
-            inventory_matches = await cls._check_inventory_software(db, product, vuln_versions)
-            if inventory_matches:
-                match_type = "INVENTORY_PROACTIVE"
-                confidence = "High"
-                for asset, sw in inventory_matches:
-                    port_str = f" (listening on port {sw.port})" if sw.port else ""
-                    evidence_text = f"Installed package '{sw.package_name or sw.product_name}' v{sw.version} at {sw.install_path or 'system path'}{port_str}"
-                    affected_assets_data.append({
-                        "asset_id": asset.id,
-                        "server_name": asset.server_name or asset.fqdn or asset.ip_address,
-                        "ip_address": asset.ip_address,
-                        "os_name": asset.os_name,
-                        "evidence": evidence_text,
-                        "installed_version": sw.version,
-                        "confidence": "High",
-                        "recommended_verification": verification_cmd,
-                    })
+        inventory_matches = await cls._check_inventory_software(db, product, vuln_versions)
+        for asset, sw in inventory_matches:
+            if asset.id not in seen_asset_ids:
+                seen_asset_ids.add(asset.id)
+                if match_type == "NO_ASSETS_AFFECTED":
+                    match_type = "INVENTORY_PROACTIVE"
+                    confidence = "High"
+                port_str = f" (listening on port {sw.port})" if sw.port else ""
+                evidence_text = f"Installed package '{sw.package_name or sw.product_name}' v{sw.version} at {sw.install_path or 'system path'}{port_str}"
+                affected_assets_data.append({
+                    "asset_id": asset.id,
+                    "server_name": asset.server_name or asset.fqdn or asset.ip_address,
+                    "ip_address": asset.ip_address,
+                    "os_name": asset.os_name,
+                    "evidence": evidence_text,
+                    "installed_version": sw.version,
+                    "confidence": "High",
+                    "recommended_verification": verification_cmd,
+                })
+
+        # Check OS matches if product corresponds to an operating system
+        os_matches = await cls._check_inventory_os(db, product, vuln_versions)
+        for asset, os_info in os_matches:
+            if asset.id not in seen_asset_ids:
+                seen_asset_ids.add(asset.id)
+                if match_type == "NO_ASSETS_AFFECTED":
+                    match_type = "INVENTORY_PROACTIVE"
+                    confidence = "Medium (OS Platform Match)"
+                evidence_text = f"Host operating system matches target platform: '{os_info}'"
+                affected_assets_data.append({
+                    "asset_id": asset.id,
+                    "server_name": asset.server_name or asset.fqdn or asset.ip_address,
+                    "ip_address": asset.ip_address,
+                    "os_name": asset.os_name,
+                    "evidence": evidence_text,
+                    "installed_version": os_info,
+                    "confidence": "Medium",
+                    "recommended_verification": verification_cmd,
+                })
 
         # Generate summary description
         if match_type == "QUALYS_CONFIRMED":
-            summary = f"Qualys Scanner has already confirmed active detection of {cve_id} across {len(affected_assets_data)} server(s)."
+            summary = f"Qualys Scanner has confirmed active detection of {cve_id} across {len(affected_assets_data)} server(s)."
         elif match_type == "INVENTORY_PROACTIVE":
-            summary = f"Proactive pre-scan evaluation identified {len(affected_assets_data)} server(s) running vulnerable software '{product}' matching criteria '{vuln_versions}' before Qualys detection."
+            summary = f"Proactive pre-scan evaluation identified {len(affected_assets_data)} server(s) running vulnerable software or platform '{product}' matching {cve_id}."
         else:
             summary = f"Assessment complete: No servers in the inventory are running vulnerable software matching {cve_id} ({product} {vuln_versions})."
 
         report_data = {
+            "misp_event_id": advisory.get("misp_event_id") or "",
             "summary": summary,
             "affected_assets": affected_assets_data,
             "recommended_actions": advisory.get("recommended_actions", "Apply security patches or upgrade affected software package."),
@@ -206,13 +298,26 @@ class ProactiveAssessmentEngine:
             db.add(record)
             await db.flush()
         else:
-            record.match_type = match_type
-            record.confidence = confidence
-            record.affected_assets_count = len(affected_assets_data)
-            record.assessment_report = report_data
-            record.severity = advisory.get("severity", record.severity)
-            record.cvss_score = advisory.get("cvss_score", record.cvss_score)
-            record.updated_at = now
+            # Preserve existing positive match if new advisory has 0 matches
+            if len(affected_assets_data) == 0 and record.affected_assets_count > 0:
+                logger.info(f"Preserving existing positive match for {cve_id} ({record.affected_assets_count} assets, {record.match_type}) instead of overwriting with 0 matches.")
+            else:
+                # If existing was QUALYS_CONFIRMED and new is not, keep QUALYS_CONFIRMED unless new has more assets
+                if record.match_type == "QUALYS_CONFIRMED" and match_type != "QUALYS_CONFIRMED" and len(affected_assets_data) <= record.affected_assets_count:
+                    logger.info(f"Preserving QUALYS_CONFIRMED match for {cve_id} over proactive pre-scan.")
+                else:
+                    record.match_type = match_type
+                    record.confidence = confidence
+                    record.affected_assets_count = len(affected_assets_data)
+                    record.assessment_report = report_data
+
+                if product and product != "software":
+                    record.affected_product = product
+                if vuln_versions:
+                    record.vulnerable_versions = vuln_versions
+                record.severity = advisory.get("severity", record.severity)
+                record.cvss_score = advisory.get("cvss_score", record.cvss_score)
+                record.updated_at = now
 
         # =========================================================================
         # STEP 3: Dispatch Telegram Alert for affected servers

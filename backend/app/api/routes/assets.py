@@ -1,5 +1,5 @@
 import math
-from typing import List, Optional
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Request
 from sqlalchemy import select, func, or_, String
 from sqlalchemy.orm import selectinload

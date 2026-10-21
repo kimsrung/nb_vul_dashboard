@@ -59,11 +59,11 @@ async def scheduled_misp_sync_job():
                 logger.info("No FS-ISAC advisories fetched from MISP.")
                 return
 
-            proactive_matches = 0
+            threat_matches = 0
             for adv in advisories:
                 record = await ProactiveAssessmentEngine.assess_cve(session, adv)
-                if record.match_type == "INVENTORY_PROACTIVE" and record.affected_assets_count > 0:
-                    proactive_matches += 1
+                if record.affected_assets_count > 0:
+                    threat_matches += 1
                     if (
                         settings.TELEGRAM_ENABLED
                         and (record.severity or "").upper() in ("CRITICAL", "HIGH")
@@ -83,7 +83,7 @@ async def scheduled_misp_sync_job():
             else:
                 session.add(SystemSetting(key="misp_last_sync_time", value=now_str, description="Timestamp of last MISP FS-ISAC sync"))
             await session.commit()
-            logger.info(f"Scheduled MISP FS-ISAC sync completed: {len(advisories)} advisories evaluated, {proactive_matches} active proactive alert(s).")
+            logger.info(f"Scheduled MISP FS-ISAC sync completed: {len(advisories)} advisories evaluated, {threat_matches} active threat alert(s) affecting inventory.")
         except Exception as e:
             logger.error(f"Error in scheduled MISP sync job: {e}", exc_info=True)
 

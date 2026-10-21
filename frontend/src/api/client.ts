@@ -137,6 +137,7 @@ export interface AffectedServerItem {
 
 export interface AlertItem {
   id: number;
+  misp_event_id?: string;
   cve_id: string;
   title: string;
   description: string;
@@ -232,75 +233,6 @@ export interface SoftwareItem {
   port: number | null;
   cpe: string | null;
   created_at: string;
-}
-
-export interface AffectedAssetDetail {
-  asset_id: number;
-  server_name: string | null;
-  ip_address: string | null;
-  os_name: string | null;
-  evidence: string;
-  installed_version: string | null;
-  confidence: string;
-  recommended_verification: string | null;
-}
-
-export interface MispAssessmentItem {
-  id: number;
-  cve_id: string;
-  source: string;
-  title: string;
-  description: string;
-  severity: string;
-  cvss_score: number | null;
-  affected_product: string;
-  vulnerable_versions: string;
-  fixed_versions: string | null;
-  match_type: 'QUALYS_CONFIRMED' | 'INVENTORY_PROACTIVE' | 'NO_ASSETS_AFFECTED';
-  confidence: string;
-  affected_assets_count: number;
-  dispatched_telegram: boolean;
-  telegram_sent_at: string | null;
-  status: 'Pending' | 'Acknowledged' | 'Remediated' | 'False_Positive';
-  created_at: string;
-  updated_at: string;
-}
-
-export interface MispAssessmentDetail extends MispAssessmentItem {
-  assessment_report: {
-    summary: string;
-    affected_assets: AffectedAssetDetail[];
-    recommended_actions?: string;
-    verification_command?: string;
-    matched_qid?: number | null;
-    vulnerable_versions?: string;
-    affected_product?: string;
-  };
-}
-
-export interface MispSummary {
-  total_advisories: number;
-  pre_scan_matches: number;
-  qualys_confirmed: number;
-  at_risk_assets: number;
-  last_sync_time: string | null;
-}
-
-export interface MispSyncResponse {
-  success: boolean;
-  message: string;
-  assessments_run: number;
-  pre_scan_matches: number;
-  qualys_confirmed: number;
-  clean_cves: number;
-}
-
-export interface AssetDeleteResponse {
-  success: boolean;
-  message: string;
-  deleted_asset_id: number;
-  server_name: string | null;
-  ip_address: string | null;
 }
 
 export interface AuditLogItem {

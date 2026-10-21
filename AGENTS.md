@@ -127,8 +127,7 @@ dashboard_alert/
             ├── DashboardPage.tsx   # Executive overview, KPI widgets, RTI metrics
             ├── AssetsPage.tsx      # Paginated inventory table with server name, drag-resize, owner assignment, & admin delete
             ├── AssetDetailPage.tsx # Host dossier with detections, installed software, & admin delete
-            ├── MispFeedPage.tsx    # FS-ISAC threat intel & proactive assessment drawer
-            ├── AlertsPage.tsx      # Security alert center & Telegram dispatch log (paginated)
+            ├── AlertsPage.tsx      # Threat alert center & FS-ISAC assessment report drawer (paginated)
             ├── AuditLogsPage.tsx   # Security audit trail & administrative history logs
             ├── UsersPage.tsx       # User role management (Admin, Analyst, Owner, Viewer)
             ├── SettingsPage.tsx    # Connection tester & settings editor

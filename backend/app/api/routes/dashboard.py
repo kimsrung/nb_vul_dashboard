@@ -1,6 +1,5 @@
-from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, BackgroundTasks
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db, AsyncSessionLocal
@@ -9,7 +8,6 @@ from app.models.user import User
 from app.models.asset import Asset
 from app.models.detection import Detection
 from app.models.knowledge_base import KnowledgeBase
-from app.models.alert import Alert
 from app.models.misp_feed import MispCveAssessment
 from app.models.setting import SystemSetting
 from app.schemas.dashboard import (
@@ -19,7 +17,6 @@ from app.schemas.dashboard import (
     ThreatIntelBreakdown,
 )
 from app.schemas.asset import AssetListItem
-from app.schemas.alert import AlertItem
 from app.services.sync_service import SyncService
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
@@ -73,9 +70,8 @@ async def get_dashboard_summary(
     critical_vulns = (await db.execute(vulns_q.where(Detection.severity == 5))).scalar() or 0
     high_vulns = (await db.execute(vulns_q.where(Detection.severity == 4))).scalar() or 0
 
-    # Active Proactive Alerts (FS-ISAC CVEs affecting asset inventory, pre-scan)
+    # Active Threat Alerts (FS-ISAC CVEs affecting asset inventory)
     alerts_q = select(MispCveAssessment).where(
-        MispCveAssessment.match_type == "INVENTORY_PROACTIVE",
         MispCveAssessment.affected_assets_count > 0,
         MispCveAssessment.status.in_(["Pending", "Acknowledged"]),
     )
@@ -137,13 +133,12 @@ async def get_dashboard_summary(
     recent_risky_q = recent_risky_q.order_by(Asset.risk_score.desc()).limit(5)
     recent_risky = (await db.execute(recent_risky_q)).scalars().all()
 
-    # Recent proactive FS-ISAC alerts affecting inventory
+    # Recent FS-ISAC alerts affecting inventory
     from app.api.routes.alerts import _map_assessment_to_alert
-    proactive_recent_q = select(MispCveAssessment).where(
-        MispCveAssessment.match_type == "INVENTORY_PROACTIVE",
+    recent_alerts_q = select(MispCveAssessment).where(
         MispCveAssessment.affected_assets_count > 0,
     ).order_by(MispCveAssessment.created_at.desc()).limit(5)
-    recent_assessments = (await db.execute(proactive_recent_q)).scalars().all()
+    recent_assessments = (await db.execute(recent_alerts_q)).scalars().all()
     if is_owner:
         owned_asset_ids = set((await db.execute(select(Asset.id).where(Asset.owner_id == user.id))).scalars().all())
         recent_assessments = [

@@ -8,6 +8,7 @@ import { RemediationStatusBadge } from '../components/common/RemediationStatusBa
 import { RemediationDrawer } from '../components/remediation/RemediationDrawer';
 import { useAuth } from '../context/AuthContext';
 import { TablePagination } from '../components/common/TablePagination';
+import { formatDateYMD } from '../utils/date';
 
 interface AssetDetailPageProps {
   assetId?: number;
@@ -274,7 +275,7 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId: propA
           <div>
             <span className="text-slate-400 block mb-0.5">Last Qualys VM Scan</span>
             <span className="text-slate-200 font-mono">
-              {asset.last_scan_date ? new Date(asset.last_scan_date).toLocaleString() : 'N/A'}
+              {formatDateYMD(asset.last_scan_date, 'N/A')}
             </span>
           </div>
           <div>

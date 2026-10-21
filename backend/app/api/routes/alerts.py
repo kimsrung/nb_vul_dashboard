@@ -1,6 +1,6 @@
 import math
 import logging
-from typing import List, Optional, Dict, Any
+from typing import Optional
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Request
 from sqlalchemy import select, func, or_
@@ -50,8 +50,11 @@ def _map_assessment_to_alert(a: MispCveAssessment) -> AlertItem:
     solution = report.get("recommended_actions") or "Upgrade to the latest vendor patched release or apply recommended workarounds."
     verif_cmd = report.get("verification_command")
 
+    misp_eid = str(report.get("misp_event_id") or a.id)
+
     return AlertItem(
         id=a.id,
+        misp_event_id=misp_eid,
         cve_id=a.cve_id,
         title=a.title,
         description=a.description,
@@ -81,20 +84,22 @@ async def list_alerts(
     status_filter: Optional[str] = Query(None, alias="status", description="Filter by status (Pending, Acknowledged, Remediated, False_Positive)"),
     is_resolved: Optional[bool] = Query(None, description="Filter by resolved status"),
     severity: Optional[str] = Query(None, description="Filter by severity (Critical, High, Medium, Low)"),
+    match_type: Optional[str] = Query(None, description="Filter by match type (QUALYS_CONFIRMED, INVENTORY_PROACTIVE)"),
     search: Optional[str] = Query(None, description="Search by CVE ID, title, product, or server name"),
     sort_by: Optional[str] = Query("created_at", description="Sort by created_at, severity, affected_assets_count, cve_id"),
     sort_order: Optional[str] = Query("desc", description="Sort direction (asc, desc)"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_viewer),
 ):
-    """Retrieve proactive FS-ISAC CVE threat alerts affecting the asset inventory.
-    Excludes CVEs already detected by the Qualys scanner.
+    """Retrieve FS-ISAC CVE threat alerts affecting the asset inventory.
+    Includes both Qualys scanner confirmed detections and proactive pre-scan matches.
     """
-    # Strictly query FS-ISAC proactive matches that affect asset inventory
+    # Query FS-ISAC matches that affect asset inventory
     base_query = select(MispCveAssessment).where(
-        MispCveAssessment.match_type == "INVENTORY_PROACTIVE",
         MispCveAssessment.affected_assets_count > 0,
     )
+    if match_type:
+        base_query = base_query.where(MispCveAssessment.match_type.ilike(match_type))
 
     if status_filter:
         base_query = base_query.where(MispCveAssessment.status.ilike(status_filter))
@@ -153,6 +158,14 @@ async def list_alerts(
             scoped_matches.sort(key=lambda x: x.affected_assets_count, reverse=reverse)
         elif sort_by == "cve_id":
             scoped_matches.sort(key=lambda x: x.cve_id.lower(), reverse=reverse)
+        elif sort_by == "id":
+            scoped_matches.sort(key=lambda x: x.id, reverse=reverse)
+        elif sort_by == "title":
+            scoped_matches.sort(key=lambda x: (x.title or "").lower(), reverse=reverse)
+        elif sort_by == "match_type":
+            scoped_matches.sort(key=lambda x: (x.match_type or "").lower(), reverse=reverse)
+        elif sort_by == "status":
+            scoped_matches.sort(key=lambda x: (x.status or "").lower(), reverse=reverse)
         else:
             scoped_matches.sort(key=lambda x: x.created_at, reverse=reverse)
 
@@ -198,6 +211,14 @@ async def list_alerts(
         order_col = MispCveAssessment.cve_id
     elif sort_by == "title":
         order_col = MispCveAssessment.title
+    elif sort_by == "id":
+        order_col = MispCveAssessment.id
+    elif sort_by == "severity":
+        order_col = MispCveAssessment.severity
+    elif sort_by == "match_type":
+        order_col = MispCveAssessment.match_type
+    elif sort_by == "status":
+        order_col = MispCveAssessment.status
 
     order_expr = order_col.asc() if (sort_order or "").lower() == "asc" else order_col.desc()
     skip = (page - 1) * page_size
@@ -264,6 +285,42 @@ async def update_alert_status(
     return _map_assessment_to_alert(assessment)
 
 
+@router.get("/{alert_id}", response_model=AlertItem)
+async def get_alert_detail(
+    alert_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_viewer),
+):
+    """Retrieve full detail for a specific threat alert assessment."""
+    assessment = await db.get(MispCveAssessment, alert_id)
+    if not assessment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Alert {alert_id} not found",
+        )
+    return _map_assessment_to_alert(assessment)
+
+
+@router.post("/{alert_id}/telegram")
+async def dispatch_telegram_alert(
+    alert_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_analyst_or_admin),
+):
+    """Manually dispatch / test Telegram notification for a threat alert."""
+    assessment = await db.get(MispCveAssessment, alert_id)
+    if not assessment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Alert not found")
+
+    text = TelegramService.format_misp_assessment_alert(assessment)
+    result = await TelegramService.send_message(text)
+    if result.get("success"):
+        assessment.dispatched_telegram = True
+        assessment.telegram_sent_at = datetime.now(timezone.utc)
+        await db.commit()
+    return result
+
+
 @router.post("/sync")
 async def sync_misp_and_assess(
     request: Request,
@@ -303,12 +360,18 @@ async def sync_misp_and_assess(
 
     alerts_created = 0
     qualys_confirmed = 0
+    proactive_matches = 0
     clean_count = 0
 
     for adv in advisories:
         record = await ProactiveAssessmentEngine.assess_cve(db, adv)
-        if record.match_type == "INVENTORY_PROACTIVE" and record.affected_assets_count > 0:
+        if record.affected_assets_count > 0:
             alerts_created += 1
+            if record.match_type == "QUALYS_CONFIRMED":
+                qualys_confirmed += 1
+            else:
+                proactive_matches += 1
+
             if (
                 settings.TELEGRAM_ENABLED
                 and (record.severity or "").upper() in ("CRITICAL", "HIGH")
@@ -320,8 +383,6 @@ async def sync_misp_and_assess(
                     record.dispatched_telegram = True
                 except Exception as te:
                     logger.error(f"Telegram dispatch failed: {te}")
-        elif record.match_type == "QUALYS_CONFIRMED":
-            qualys_confirmed += 1
         else:
             clean_count += 1
 
@@ -336,9 +397,10 @@ async def sync_misp_and_assess(
 
     return {
         "success": True,
-        "message": f"Synced {len(advisories)} FS-ISAC advisories: {alerts_created} active proactive alerts, {qualys_confirmed} already scanned by Qualys, {clean_count} clean.",
+        "message": f"Synced {len(advisories)} FS-ISAC advisories: {alerts_created} active threat alerts ({qualys_confirmed} Qualys-confirmed, {proactive_matches} proactive pre-scan), {clean_count} clean.",
         "alerts_created": alerts_created,
         "qualys_confirmed": qualys_confirmed,
+        "proactive_matches": proactive_matches,
         "clean_count": clean_count,
     }
 
@@ -377,7 +439,7 @@ async def misp_push_webhook(
     alerts_created = 0
     for adv in parsed_advisories:
         record = await ProactiveAssessmentEngine.assess_cve(db, adv)
-        if record.match_type == "INVENTORY_PROACTIVE" and record.affected_assets_count > 0:
+        if record.affected_assets_count > 0:
             alerts_created += 1
             if (
                 settings.TELEGRAM_ENABLED
@@ -395,6 +457,6 @@ async def misp_push_webhook(
 
     return {
         "success": True,
-        "message": f"Processed {len(parsed_advisories)} advisories from push webhook. {alerts_created} new proactive alert(s) logged in Alert Center.",
+        "message": f"Processed {len(parsed_advisories)} advisories from push webhook. {alerts_created} matching alert(s) logged in Alert Center.",
         "alerts_created": alerts_created,
     }

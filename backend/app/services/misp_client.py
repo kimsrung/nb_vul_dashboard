@@ -98,7 +98,7 @@ class MispClient:
                 "message": f"Connection error reaching {self.base_url}: {str(exc)}",
             }
 
-    async def fetch_fs_isac_events(self, limit: int = 50) -> List[Dict[str, Any]]:
+    async def fetch_fs_isac_events(self, limit: int = 100) -> List[Dict[str, Any]]:
         """Fetch threat intelligence advisories from MISP using /events/restSearch filtered by Creator Org & CVE tags."""
         if self.mock_mode:
             logger.info("Using MISP Mock FS-ISAC Threat Intelligence Feed")
@@ -190,7 +190,22 @@ class MispClient:
                         desc = attr.get("value", "")
                         break
 
-            product = ev.get("affected_product", "software")
+            product = ev.get("affected_product")
+            if not product or product.lower() == "software":
+                full_text = f"{title} {desc} {' '.join(tag_names)}".lower()
+                for candidate in [
+                    "log4j", "log4shell", "openssh", "openssl", "nginx", "apache",
+                    "php", "postgresql", "mysql", "oracle", "cisco", "fortios",
+                    "exchange", "sharepoint", "confluence", "netscaler", "sonicos",
+                    "winrar", "windows", "microsoft", "esxi", "vmware", "screenconnect", "citrix",
+                    "solaris", "aix", "linux", "kernel", "sudo", "curl", "bind", "check point"
+                ]:
+                    if candidate in full_text:
+                        product = candidate
+                        break
+            if not product:
+                product = "software"
+
             vuln_ver = ev.get("vulnerable_versions", "")
             fixed_ver = ev.get("fixed_versions", "")
 
@@ -211,9 +226,12 @@ class MispClient:
             rec_actions = ev.get("recommended_actions", "Apply latest vendor patches or workarounds.")
             verif_cmd = ev.get("verification_command", f"# Verify {product} package version on host")
 
+            m_event_id = str(ev.get("id") or "")
+
             # Assess each distinct CVE tagged in the event
             for cve_id in cve_ids:
                 parsed_advisories.append({
+                    "misp_event_id": m_event_id,
                     "cve_id": cve_id,
                     "source": "FS-ISAC",
                     "title": title,

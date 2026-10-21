@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel
 
@@ -16,6 +16,7 @@ class AffectedServerItem(BaseModel):
 
 class AlertItem(BaseModel):
     id: int
+    misp_event_id: Optional[str] = None
     cve_id: str
     title: str
     description: str

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { 
-  Search, RefreshCw, Server, User, RotateCcw, 
+import {
+  Search, RefreshCw, Server, User, RotateCcw,
   Trash2, AlertTriangle, X, CheckCircle2, AlertCircle, ArrowUp, ArrowDown,
   Calendar, ShieldAlert, Tag, Activity, ArrowUpRight
 } from 'lucide-react';
@@ -9,6 +9,7 @@ import { AssetListItem, PaginatedAssetsResponse, OwnerOption, apiClient } from '
 import { RiskBadge } from '../components/common/RiskBadge';
 import { useAuth } from '../context/AuthContext';
 import { TablePagination } from '../components/common/TablePagination';
+import { formatDateYMD } from '../utils/date';
 
 interface AssetsPageProps {
   onSelectAsset?: (assetId: number) => void;
@@ -252,7 +253,7 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
               title="Trigger real-time Qualys Host Detection & KnowledgeBase sync"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-              <span>{isSyncing ? 'Syncing...' : 'Sync Now'}</span>
+              <span>{isSyncing ? 'Syncing...' : 'Sync Qualys'}</span>
             </button>
           )}
         </div>
@@ -486,14 +487,9 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
                         {asset.server_name || asset.ip_address}
                       </h3>
                     </div>
-                    <span className="font-mono text-xs text-sky-400 bg-sky-950/60 border border-sky-800/60 px-2 py-0.5 rounded">
+                    <span className="font-mono text-xs text-sky-300 bg-sky-950/60 border border-sky-500/30 px-2 py-0.5 rounded">
                       {asset.ip_address}
                     </span>
-                    {asset.fqdn && (
-                      <span className="text-[11px] text-slate-400 font-mono truncate max-w-xs" title={asset.fqdn}>
-                        {asset.fqdn}
-                      </span>
-                    )}
                     {asset.is_risky && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-950 text-red-400 border border-red-800">
                         Flagged Risky
@@ -507,7 +503,7 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
                       <Calendar className="w-3.5 h-3.5 text-slate-500" />
                       <span>Last Scanned:</span>
                       <span className="text-slate-200 font-semibold">
-                        {asset.last_scan_date ? new Date(asset.last_scan_date).toLocaleDateString() : 'N/A'}
+                        {formatDateYMD(asset.last_scan_date, 'N/A')}
                       </span>
                     </div>
                   </div>
@@ -576,23 +572,6 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
                     </div>
                   </div>
                 </div>
-
-                {/* Tags Row if present */}
-                {asset.tags && asset.tags.length > 0 && (
-                  <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                    <span className="text-[11px] text-slate-500 flex items-center gap-1">
-                      <Tag className="w-3 h-3 text-slate-500" /> Tags:
-                    </span>
-                    {asset.tags.map((t) => (
-                      <span
-                        key={t}
-                        className="px-2 py-0.5 rounded-md bg-slate-900 text-[10px] text-slate-300 border border-slate-800"
-                      >
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                )}
 
                 {/* Footer / Action Row */}
                 <div className="flex items-center justify-between pt-2 border-t border-surfaceBorder">

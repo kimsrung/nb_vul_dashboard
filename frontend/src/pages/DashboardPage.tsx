@@ -4,6 +4,7 @@ import { ShieldAlert, Server, AlertTriangle, Bug, Flame, ArrowUpRight, Activity,
 import { DashboardSummary, AssetListItem } from '../api/client';
 import { RiskBadge } from '../components/common/RiskBadge';
 import { TablePagination } from '../components/common/TablePagination';
+import { formatDateYMD } from '../utils/date';
 
 interface DashboardPageProps {
   summary: DashboardSummary | null;
@@ -104,7 +105,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <div className="text-right">
             <div className="text-[11px] text-slate-400">Last Qualys Sync</div>
             <div className="text-xs font-mono font-semibold text-slate-200">
-              {summary.last_sync_time ? new Date(summary.last_sync_time).toLocaleString() : 'Never'}
+              {formatDateYMD(summary.last_sync_time, 'Never')}
             </div>
           </div>
           <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />

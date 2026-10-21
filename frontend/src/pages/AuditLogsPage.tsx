@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { AuditLogItem, PaginatedAuditLogsResponse, apiClient } from '../api/client';
 import { TablePagination } from '../components/common/TablePagination';
+import { formatDateYMD } from '../utils/date';
 
 export const AuditLogsPage: React.FC = () => {
   const [logs, setLogs] = useState<AuditLogItem[]>([]);
@@ -279,9 +280,9 @@ export const AuditLogsPage: React.FC = () => {
               ) : (
                 logs.map((log) => (
                   <tr key={log.id} className="hover:bg-slate-800/40 transition-colors">
-                    {/* Timestamp */}
-                    <td className="py-3 px-4 text-slate-400 text-[11px] whitespace-nowrap">
-                      {new Date(log.created_at).toLocaleString()}
+                    {/* Timestamp (Consistent yyyy-mm-dd format) */}
+                    <td className="py-3 px-4 text-slate-400 text-[11px] whitespace-nowrap font-mono">
+                      {formatDateYMD(log.created_at)}
                     </td>
 
                     {/* Action */}
@@ -384,8 +385,8 @@ export const AuditLogsPage: React.FC = () => {
                   <span className="text-slate-300">{inspectedLog.ip_address || '—'}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-[10px]">Timestamp:</span>
-                  <span className="text-slate-300">{new Date(inspectedLog.created_at).toLocaleString()}</span>
+                  <span className="text-slate-500 block text-[10px]">Date:</span>
+                  <span className="text-slate-300 font-mono">{formatDateYMD(inspectedLog.created_at)}</span>
                 </div>
               </div>
 
