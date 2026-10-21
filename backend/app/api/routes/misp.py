@@ -1,9 +1,11 @@
+import logging
 from datetime import datetime, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.api.deps import require_viewer, require_analyst_or_admin, require_admin
 from app.models.user import User
@@ -19,6 +21,8 @@ from app.schemas.misp import (
 from app.services.misp_client import MispClient
 from app.services.proactive_assessment_engine import ProactiveAssessmentEngine
 from app.services.telegram_service import TelegramService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/misp", tags=["MISP Threat Intelligence"])
 
@@ -151,6 +155,18 @@ async def sync_misp_fs_isac_feed(
             qualys_confirmed += 1
         else:
             clean_cves += 1
+
+        # Dispatch Telegram alert for affected servers on Critical or High advisories
+        if (
+            settings.TELEGRAM_ENABLED
+            and record.affected_assets_count > 0
+            and (record.severity or "").upper() in ("CRITICAL", "HIGH")
+        ):
+            try:
+                tg_text = TelegramService.format_misp_assessment_alert(record)
+                await TelegramService.send_message(tg_text)
+            except Exception as e:
+                logger.error(f"Failed to dispatch Telegram alert for MISP assessment {record.cve_id}: {e}")
 
     # Record sync timestamp
     now_str = datetime.now().isoformat()

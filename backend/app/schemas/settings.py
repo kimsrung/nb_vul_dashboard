@@ -11,6 +11,8 @@ class SystemSettingsResponse(BaseModel):
     
     misp_url: str
     misp_api_key_masked: str
+    misp_creator_org: str = "FS-ISAC"
+    misp_tag_filter: str = "vulnerability:CVE%"
     misp_feed_tag: str
     misp_enabled: bool
     misp_mock_mode: bool
@@ -37,6 +39,8 @@ class SystemSettingsUpdate(BaseModel):
     
     misp_url: Optional[str] = None
     misp_api_key: Optional[str] = None
+    misp_creator_org: Optional[str] = None
+    misp_tag_filter: Optional[str] = None
     misp_feed_tag: Optional[str] = None
     misp_enabled: Optional[bool] = None
     misp_mock_mode: Optional[bool] = None
@@ -63,6 +67,8 @@ class QualysTestRequest(BaseModel):
 class MispTestRequest(BaseModel):
     misp_url: Optional[str] = None
     misp_api_key: Optional[str] = None
+    misp_creator_org: Optional[str] = None
+    misp_tag_filter: Optional[str] = None
     misp_feed_tag: Optional[str] = None
     misp_mock_mode: Optional[bool] = None
 

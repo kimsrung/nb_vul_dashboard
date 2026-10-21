@@ -124,18 +124,38 @@ export interface AssetDetail extends AssetListItem {
   detections: DetectionItem[];
 }
 
+export interface AffectedServerItem {
+  asset_id: number;
+  server_name?: string;
+  ip_address?: string;
+  os_name?: string;
+  evidence: string;
+  installed_version?: string;
+  confidence: string;
+  recommended_verification?: string;
+}
+
 export interface AlertItem {
   id: number;
-  asset_id: number;
-  alert_type: string;
+  cve_id: string;
   title: string;
-  message: string;
+  description: string;
   severity: string;
+  cvss_score?: number;
+  affected_product: string;
+  vulnerable_versions: string;
+  fixed_versions?: string;
+  affected_assets_count: number;
+  affected_assets: AffectedServerItem[];
+  suggested_solution: string;
+  verification_command?: string;
+  match_type: string;
+  confidence: string;
+  status: string;
   is_resolved: boolean;
-  dispatched_to_telegram: boolean;
-  telegram_sent_at: string | null;
-  created_at: string;
-  resolved_at: string | null;
+  dispatched_telegram: boolean;
+  date_detected: string;
+  updated_at: string;
 }
 
 export interface PaginatedAlertsResponse {
@@ -144,6 +164,10 @@ export interface PaginatedAlertsResponse {
   page: number;
   page_size: number;
   total_pages: number;
+  critical_count: number;
+  high_count: number;
+  active_count: number;
+  total_exposed_servers: number;
 }
 
 export interface DashboardSummary {
@@ -181,6 +205,8 @@ export interface SystemSettings {
   qualys_tag_filter: string;
   misp_url: string;
   misp_api_key_masked: string;
+  misp_creator_org: string;
+  misp_tag_filter: string;
   misp_feed_tag: string;
   misp_enabled: boolean;
   misp_mock_mode: boolean;

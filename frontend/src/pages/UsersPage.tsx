@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Users, UserPlus, Edit2, Trash2, CheckCircle2, 
-  X, AlertCircle, RefreshCw 
+  X, AlertCircle, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown 
 } from 'lucide-react';
 import { UserItem, UserRole, apiClient } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { TablePagination } from '../components/common/TablePagination';
 
 export const UsersPage: React.FC = () => {
   const { username: currentUsername } = useAuth();
@@ -32,6 +33,42 @@ export const UsersPage: React.FC = () => {
   const [editRole, setEditRole] = useState<UserRole>('owner');
   const [editPassword, setEditPassword] = useState<string>('');
   const [editIsActive, setEditIsActive] = useState<boolean>(true);
+
+  // Sorting & Pagination
+  const [sortField, setSortField] = useState<string>('id');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+    setCurrentPage(1);
+  };
+
+  const sortedUsers = [...users].sort((a, b) => {
+    let aVal: any = a[sortField as keyof UserItem];
+    let bVal: any = b[sortField as keyof UserItem];
+
+    if (typeof aVal === 'string') {
+      aVal = aVal.toLowerCase();
+      bVal = (bVal || '').toLowerCase();
+    } else if (typeof aVal === 'boolean') {
+      aVal = aVal ? 1 : 0;
+      bVal = bVal ? 1 : 0;
+    }
+
+    if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
+    if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(sortedUsers.length / pageSize));
+  const paginatedUsers = sortedUsers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const fetchUsers = async () => {
     setIsLoading(true);
@@ -253,17 +290,77 @@ export const UsersPage: React.FC = () => {
       </div>
 
       {/* Users Table */}
-      <div className="p-4 rounded-xl bg-surface border border-surfaceBorder overflow-hidden">
+      <div className="p-4 rounded-xl bg-surface border border-surfaceBorder overflow-hidden space-y-3">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-300">
-            <thead className="bg-slate-900/80 text-[11px] uppercase tracking-wider text-slate-400 border-b border-surfaceBorder">
+            <thead className="bg-slate-900/80 text-[11px] uppercase tracking-wider text-slate-400 border-b border-surfaceBorder select-none">
               <tr>
-                <th className="py-3 px-4">User</th>
-                <th className="py-3 px-4">Email</th>
-                <th className="py-3 px-4">Role</th>
-                <th className="py-3 px-4">Assigned Assets</th>
-                <th className="py-3 px-4">Account Status</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+                <th
+                  onClick={() => handleSort('username')}
+                  className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                >
+                  <div className="inline-flex items-center gap-1 font-semibold">
+                    <span>User</span>
+                    {sortField === 'username' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-400" /> : <ArrowDown className="w-3 h-3 text-sky-400" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('email')}
+                  className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                >
+                  <div className="inline-flex items-center gap-1 font-semibold">
+                    <span>Email</span>
+                    {sortField === 'email' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-400" /> : <ArrowDown className="w-3 h-3 text-sky-400" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('role')}
+                  className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                >
+                  <div className="inline-flex items-center gap-1 font-semibold">
+                    <span>Role</span>
+                    {sortField === 'role' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-400" /> : <ArrowDown className="w-3 h-3 text-sky-400" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('assigned_assets_count')}
+                  className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                >
+                  <div className="inline-flex items-center gap-1 font-semibold">
+                    <span>Assigned Assets</span>
+                    {sortField === 'assigned_assets_count' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-400" /> : <ArrowDown className="w-3 h-3 text-sky-400" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('is_active')}
+                  className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                >
+                  <div className="inline-flex items-center gap-1 font-semibold">
+                    <span>Account Status</span>
+                    {sortField === 'is_active' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-400" /> : <ArrowDown className="w-3 h-3 text-sky-400" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                    )}
+                  </div>
+                </th>
+                <th className="py-3 px-4 text-right font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surfaceBorder">
@@ -276,14 +373,14 @@ export const UsersPage: React.FC = () => {
                     </div>
                   </td>
                 </tr>
-              ) : users.length === 0 ? (
+              ) : paginatedUsers.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-slate-400">
                     No users registered.
                   </td>
                 </tr>
               ) : (
-                users.map((u) => (
+                paginatedUsers.map((u) => (
                   <tr key={u.id} className="hover:bg-slate-800/40 transition-colors">
                     <td className="py-3 px-4">
                       <div className="font-semibold text-slate-100 flex items-center gap-2">
@@ -346,6 +443,17 @@ export const UsersPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Bar */}
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={sortedUsers.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          label="operators"
+        />
       </div>
 
       {/* Modal: Add New User */}

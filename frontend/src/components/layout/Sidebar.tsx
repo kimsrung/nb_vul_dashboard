@@ -1,33 +1,41 @@
 import React from 'react';
-import { LayoutDashboard, Server, Bell, Settings, ShieldCheck, Users, ChevronLeft, ChevronRight, Radio, History } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, Server, Bell, Settings, ShieldCheck, Users, ChevronLeft, ChevronRight, History } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface SidebarProps {
-  currentTab: string;
-  setCurrentTab: (tab: string) => void;
+  currentTab?: string;
+  setCurrentTab?: (tab: string) => void;
   activeAlertCount?: number;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
-  currentTab, 
   setCurrentTab, 
   activeAlertCount = 0,
   isCollapsed = false,
   onToggleCollapse,
 }) => {
   const { isAdmin } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const navItems = [
-    { id: 'dashboard', label: 'Executive Overview', icon: LayoutDashboard },
-    { id: 'assets', label: 'Asset Inventory', icon: Server },
-    { id: 'alerts', label: 'Alert Center', icon: Bell, badge: activeAlertCount > 0 ? activeAlertCount : undefined },
-    { id: 'misp', label: 'FS-ISAC Threat Intel', icon: Radio },
-    ...(isAdmin ? [{ id: 'users', label: 'User Management', icon: Users }] : []),
-    { id: 'audit-logs', label: 'Audit & History Logs', icon: History },
-    { id: 'settings', label: 'Admin Settings', icon: Settings },
+    { id: 'dashboard', path: '/dashboard', label: 'Executive Overview', icon: LayoutDashboard },
+    { id: 'assets', path: '/assets', label: 'Asset Inventory', icon: Server, matchPrefix: true },
+    { id: 'alerts', path: '/alerts', label: 'Alert Center', icon: Bell, badge: activeAlertCount > 0 ? activeAlertCount : undefined },
+    ...(isAdmin ? [{ id: 'users', path: '/users', label: 'User Management', icon: Users }] : []),
+    { id: 'audit-logs', path: '/audit-logs', label: 'Audit & History Logs', icon: History },
+    { id: 'settings', path: '/settings', label: 'Admin Settings', icon: Settings },
   ];
+
+  const handleNavClick = (item: typeof navItems[0]) => {
+    if (setCurrentTab) {
+      setCurrentTab(item.id);
+    }
+    navigate(item.path);
+  };
 
   return (
     <aside 
@@ -45,11 +53,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <nav className="mt-2 space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = currentTab === item.id;
+              const isActive = item.matchPrefix
+                ? location.pathname.startsWith(item.path)
+                : (location.pathname === item.path || (item.id === 'dashboard' && location.pathname === '/'));
+
               return (
                 <button
                   key={item.id}
-                  onClick={() => setCurrentTab(item.id)}
+                  onClick={() => handleNavClick(item)}
                   title={isCollapsed ? item.label : undefined}
                   className={`w-full relative flex items-center ${
                     isCollapsed ? 'justify-center h-10 px-0' : 'justify-between px-3 py-2.5'

@@ -20,6 +20,8 @@ async def list_audit_logs(
     action: Optional[str] = Query(None, description="Filter by action (e.g., DELETE_ASSET, RESOLVE_ALERT)"),
     target_type: Optional[str] = Query(None, description="Filter by target type (e.g., Asset, Alert)"),
     search: Optional[str] = Query(None, description="Search by target name, actor, or details"),
+    sort_by: Optional[str] = Query("created_at", description="Sort column (created_at, action, target_name, actor_username, ip_address)"),
+    sort_order: Optional[str] = Query("desc", description="Sort direction (asc, desc)"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_viewer),
 ):
@@ -47,9 +49,22 @@ async def list_audit_logs(
     total_res = await db.execute(count_query)
     total = total_res.scalar() or 0
 
-    # Paginate
+    # Paginate and sort
     skip = (page - 1) * page_size
-    query = base_query.order_by(AuditLog.created_at.desc()).offset(skip).limit(page_size)
+    order_col = AuditLog.created_at
+    if sort_by == "action":
+        order_col = AuditLog.action
+    elif sort_by in ("target", "target_name"):
+        order_col = AuditLog.target_name
+    elif sort_by in ("actor", "actor_username"):
+        order_col = AuditLog.actor_username
+    elif sort_by == "ip_address":
+        order_col = AuditLog.ip_address
+    elif sort_by == "created_at":
+        order_col = AuditLog.created_at
+
+    order_expr = order_col.asc() if (sort_order or "").lower() == "asc" else order_col.desc()
+    query = base_query.order_by(order_expr, AuditLog.id.desc()).offset(skip).limit(page_size)
     res = await db.execute(query)
     items = res.scalars().all()
     total_pages = max(1, math.ceil(total / page_size))

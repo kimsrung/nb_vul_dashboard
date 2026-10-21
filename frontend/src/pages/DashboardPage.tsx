@@ -1,13 +1,15 @@
-import React from 'react';
-import { ShieldAlert, Server, AlertTriangle, Bug, Flame, ArrowUpRight, Activity } from 'lucide-react';
-import { DashboardSummary } from '../api/client';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ShieldAlert, Server, AlertTriangle, Bug, Flame, ArrowUpRight, Activity, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { DashboardSummary, AssetListItem } from '../api/client';
 import { RiskBadge } from '../components/common/RiskBadge';
+import { TablePagination } from '../components/common/TablePagination';
 
 interface DashboardPageProps {
   summary: DashboardSummary | null;
   isLoading: boolean;
-  onSelectAsset: (assetId: number) => void;
-  onNavigateTab: (tab: string) => void;
+  onSelectAsset?: (assetId: number) => void;
+  onNavigateTab?: (tab: string) => void;
 }
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({
@@ -16,6 +18,37 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   onSelectAsset,
   onNavigateTab,
 }) => {
+  const navigate = useNavigate();
+  const handleSelectAsset = (assetId: number) => {
+    if (onSelectAsset) {
+      onSelectAsset(assetId);
+    } else {
+      navigate(`/assets/${assetId}`);
+    }
+  };
+  const handleNavigateTab = (tab: string) => {
+    if (onNavigateTab) {
+      onNavigateTab(tab);
+    } else {
+      navigate(`/${tab}`);
+    }
+  };
+
+  const [sortField, setSortField] = useState<string>('risk_score');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(5);
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortOrder(field === 'risk_score' || field === 'critical_vulns' ? 'desc' : 'asc');
+    }
+    setCurrentPage(1);
+  };
+
   if (isLoading || !summary) {
     return (
       <div className="p-8 flex items-center justify-center min-h-[400px]">
@@ -26,6 +59,29 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       </div>
     );
   }
+
+  const riskyAssets = summary?.recent_risky_assets || [];
+  const sortedAssets = [...riskyAssets].sort((a, b) => {
+    let aVal: any = a[sortField as keyof AssetListItem];
+    let bVal: any = b[sortField as keyof AssetListItem];
+
+    if (sortField === 'server_name') {
+      aVal = a.server_name || a.fqdn || '';
+      bVal = b.server_name || b.fqdn || '';
+    }
+
+    if (typeof aVal === 'string') {
+      aVal = aVal.toLowerCase();
+      bVal = (bVal || '').toLowerCase();
+    }
+
+    if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
+    if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(sortedAssets.length / pageSize));
+  const paginatedAssets = sortedAssets.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const riskyPercent = summary.total_assets > 0 ? Math.round((summary.risky_assets / summary.total_assets) * 100) : 0;
 
@@ -113,7 +169,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <div className="text-[11px] text-slate-400 mt-1 flex items-center justify-between">
             <span>Pending remediation</span>
             <button
-              onClick={() => onNavigateTab('alerts')}
+              onClick={() => handleNavigateTab('alerts')}
               className="text-primary-400 hover:text-primary-300 font-semibold"
             >
               View Feed &rarr;
@@ -262,7 +318,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </p>
           </div>
           <button
-            onClick={() => onNavigateTab('assets')}
+            onClick={() => handleNavigateTab('assets')}
             className="text-xs font-semibold text-primary-400 hover:text-primary-300 flex items-center gap-1"
           >
             View All Assets <ArrowUpRight className="w-3.5 h-3.5" />
@@ -271,53 +327,123 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
         <div className="overflow-x-auto rounded-xl border border-surfaceBorder">
           <table className="w-full text-left text-xs text-slate-300">
-            <thead className="bg-slate-900/80 text-[11px] uppercase tracking-wider text-slate-400 border-b border-surfaceBorder">
+            <thead className="bg-slate-900/80 text-[11px] uppercase tracking-wider text-slate-400 border-b border-surfaceBorder select-none">
               <tr>
-                <th className="py-3 px-4">Host IP & Name</th>
-                <th className="py-3 px-4">Operating System</th>
-                <th className="py-3 px-4">Tags</th>
-                <th className="py-3 px-4">Critical / High</th>
-                <th className="py-3 px-4">Risk Tier & Score</th>
-                <th className="py-3 px-4 text-right">Action</th>
+                <th
+                  onClick={() => handleSort('ip_address')}
+                  className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                >
+                  <div className="inline-flex items-center gap-1 font-semibold">
+                    <span>Host IP & Name</span>
+                    {sortField === 'ip_address' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-400" /> : <ArrowDown className="w-3 h-3 text-sky-400" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('os_name')}
+                  className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                >
+                  <div className="inline-flex items-center gap-1 font-semibold">
+                    <span>Operating System</span>
+                    {sortField === 'os_name' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-400" /> : <ArrowDown className="w-3 h-3 text-sky-400" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                    )}
+                  </div>
+                </th>
+                <th className="py-3 px-4 font-semibold">Tags</th>
+                <th
+                  onClick={() => handleSort('critical_vulns')}
+                  className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                >
+                  <div className="inline-flex items-center gap-1 font-semibold">
+                    <span>Critical / High</span>
+                    {sortField === 'critical_vulns' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-400" /> : <ArrowDown className="w-3 h-3 text-sky-400" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('risk_score')}
+                  className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                >
+                  <div className="inline-flex items-center gap-1 font-semibold">
+                    <span>Risk Tier & Score</span>
+                    {sortField === 'risk_score' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-400" /> : <ArrowDown className="w-3 h-3 text-sky-400" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                    )}
+                  </div>
+                </th>
+                <th className="py-3 px-4 text-right font-semibold">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surfaceBorder">
-              {summary.recent_risky_assets.map((asset) => (
-                <tr key={asset.id} className="hover:bg-slate-800/40 transition-colors">
-                  <td className="py-3 px-4">
-                    <div className="font-mono font-bold text-slate-100">{asset.ip_address}</div>
-                    <div className="text-[11px] text-sky-400 font-mono font-medium">{asset.server_name || asset.fqdn || 'No FQDN'}</div>
-                  </td>
-                  <td className="py-3 px-4 text-slate-300">{asset.os_name}</td>
-                  <td className="py-3 px-4">
-                    <div className="flex flex-wrap gap-1">
-                      {asset.tags.map((t) => (
-                        <span key={t} className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 border border-slate-700">
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 font-mono">
-                    <span className="text-red-400 font-bold">{asset.critical_vulns} Crit</span> /{' '}
-                    <span className="text-amber-400 font-bold">{asset.high_vulns} High</span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <RiskBadge level={asset.risk_level} score={asset.risk_score} />
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <button
-                      onClick={() => onSelectAsset(asset.id)}
-                      className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-400 hover:text-sky-300 font-semibold border border-slate-700 transition-colors text-[11px]"
-                    >
-                      Inspect Findings
-                    </button>
+              {paginatedAssets.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-slate-400">
+                    No flagged risky assets at this time.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                paginatedAssets.map((asset) => (
+                  <tr key={asset.id} className="hover:bg-slate-800/40 transition-colors">
+                    <td className="py-3 px-4">
+                      <div className="font-mono font-bold text-slate-100">{asset.ip_address}</div>
+                      <div className="text-[11px] text-sky-400 font-mono font-medium">{asset.server_name || asset.fqdn || 'No FQDN'}</div>
+                    </td>
+                    <td className="py-3 px-4 text-slate-300">{asset.os_name}</td>
+                    <td className="py-3 px-4">
+                      <div className="flex flex-wrap gap-1">
+                        {asset.tags.map((t) => (
+                          <span key={t} className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 border border-slate-700">
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 font-mono">
+                      <span className="text-red-400 font-bold">{asset.critical_vulns} Crit</span> /{' '}
+                      <span className="text-amber-400 font-bold">{asset.high_vulns} High</span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <RiskBadge level={asset.risk_level} score={asset.risk_score} />
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <button
+                        onClick={() => handleSelectAsset(asset.id)}
+                        className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-400 hover:text-sky-300 font-semibold border border-slate-700 transition-colors text-[11px]"
+                      >
+                        Inspect Findings
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
+
+        {/* Dashboard Pagination */}
+        {riskyAssets.length > 5 && (
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={sortedAssets.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            pageSizeOptions={[5, 10, 20]}
+            label="risky servers"
+          />
+        )}
       </div>
     </div>
   );

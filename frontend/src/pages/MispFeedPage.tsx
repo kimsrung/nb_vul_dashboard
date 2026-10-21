@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Radio, Zap, CheckCircle2, 
   RefreshCw, Search, Send, ExternalLink, X, Copy, Check, 
-  Terminal, Server, Shield
+  Terminal, Server, Shield, ArrowUpDown, ArrowUp, ArrowDown, Calendar, Hash
 } from 'lucide-react';
 import { 
   MispAssessmentItem, 
@@ -12,6 +12,7 @@ import {
   apiClient 
 } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { TablePagination } from '../components/common/TablePagination';
 
 interface MispFeedPageProps {
   onSelectAsset?: (assetId: number) => void;
@@ -37,6 +38,46 @@ export const MispFeedPage: React.FC<MispFeedPageProps> = ({ onSelectAsset }) => 
   const [copiedCmd, setCopiedCmd] = useState<boolean>(false);
   const [telegramSending, setTelegramSending] = useState<boolean>(false);
   const [telegramFeedback, setTelegramFeedback] = useState<string | null>(null);
+
+  // Sorting & Pagination
+  const [sortField, setSortField] = useState<string>('id');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortOrder(field === 'created_at' || field === 'id' || field === 'severity' || field === 'affected_assets_count' ? 'desc' : 'asc');
+    }
+    setCurrentPage(1);
+  };
+
+  const sortedAssessments = [...assessments].sort((a, b) => {
+    let aVal: any = a[sortField as keyof MispAssessmentItem];
+    let bVal: any = b[sortField as keyof MispAssessmentItem];
+
+    if (sortField === 'severity') {
+      const rank: Record<string, number> = { Critical: 4, High: 3, Medium: 2, Low: 1 };
+      aVal = rank[a.severity] || 0;
+      bVal = rank[b.severity] || 0;
+    } else if (sortField === 'created_at') {
+      aVal = new Date(a.created_at).getTime();
+      bVal = new Date(b.created_at).getTime();
+    } else if (typeof aVal === 'string') {
+      aVal = aVal.toLowerCase();
+      bVal = (bVal || '').toLowerCase();
+    }
+
+    if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
+    if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(sortedAssessments.length / pageSize));
+  const paginatedAssessments = sortedAssessments.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -310,43 +351,132 @@ export const MispFeedPage: React.FC<MispFeedPageProps> = ({ onSelectAsset }) => 
       </div>
 
       {/* Advisory Feed Table */}
-      <div className="p-4 rounded-xl bg-surface border border-surfaceBorder overflow-hidden">
+      <div className="p-4 rounded-xl bg-surface border border-surfaceBorder overflow-hidden space-y-3">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-300">
-            <thead className="bg-slate-900/80 text-[11px] uppercase tracking-wider text-slate-400 border-b border-surfaceBorder">
+            <thead className="bg-slate-900/80 text-[11px] uppercase tracking-wider text-slate-400 border-b border-surfaceBorder select-none">
               <tr>
-                <th className="py-3 px-4">Advisory & CVE</th>
-                <th className="py-3 px-4">Threat Name & Target Product</th>
-                <th className="py-3 px-4">Assessment Status</th>
-                <th className="py-3 px-4">Affected Servers</th>
-                <th className="py-3 px-4">Confidence</th>
-                <th className="py-3 px-4">Telegram</th>
-                <th className="py-3 px-4 text-right">Action</th>
+                {/* ID Column */}
+                <th
+                  onClick={() => handleSort('id')}
+                  className="py-3 px-3 cursor-pointer hover:text-slate-100 transition-colors"
+                >
+                  <div className="inline-flex items-center gap-1 font-semibold">
+                    <Hash className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>ID</span>
+                    {sortField === 'id' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-400" /> : <ArrowDown className="w-3 h-3 text-indigo-400" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                    )}
+                  </div>
+                </th>
+
+                {/* Date Column */}
+                <th
+                  onClick={() => handleSort('created_at')}
+                  className="py-3 px-3 cursor-pointer hover:text-slate-100 transition-colors"
+                >
+                  <div className="inline-flex items-center gap-1 font-semibold">
+                    <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Date</span>
+                    {sortField === 'created_at' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-400" /> : <ArrowDown className="w-3 h-3 text-indigo-400" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                    )}
+                  </div>
+                </th>
+
+                {/* Advisory & CVE */}
+                <th
+                  onClick={() => handleSort('cve_id')}
+                  className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                >
+                  <div className="inline-flex items-center gap-1 font-semibold">
+                    <span>Advisory & CVE</span>
+                    {sortField === 'cve_id' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-400" /> : <ArrowDown className="w-3 h-3 text-indigo-400" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                    )}
+                  </div>
+                </th>
+
+                {/* Threat Name & Product */}
+                <th
+                  onClick={() => handleSort('title')}
+                  className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                >
+                  <div className="inline-flex items-center gap-1 font-semibold">
+                    <span>Threat & Product</span>
+                    {sortField === 'title' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-400" /> : <ArrowDown className="w-3 h-3 text-indigo-400" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                    )}
+                  </div>
+                </th>
+
+                {/* Assessment Status & Affected Servers */}
+                <th
+                  onClick={() => handleSort('match_type')}
+                  className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                >
+                  <div className="inline-flex items-center gap-1 font-semibold">
+                    <span>Assessment Status</span>
+                    {sortField === 'match_type' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-400" /> : <ArrowDown className="w-3 h-3 text-indigo-400" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                    )}
+                  </div>
+                </th>
+
+                {/* Action */}
+                <th className="py-3 px-4 text-right font-semibold">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surfaceBorder">
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                  <td colSpan={6} className="py-12 text-center text-slate-400">
                     <div className="flex items-center justify-center gap-2">
                       <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
                       Evaluating MISP FS-ISAC intelligence against server inventory...
                     </div>
                   </td>
                 </tr>
-              ) : assessments.length === 0 ? (
+              ) : paginatedAssessments.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                  <td colSpan={6} className="py-12 text-center text-slate-400">
                     No FS-ISAC advisories matching the selected filters.
                   </td>
                 </tr>
               ) : (
-                assessments.map((a) => {
+                paginatedAssessments.map((a) => {
                   const isCrit = a.severity === 'Critical';
                   const isProactive = a.match_type === 'INVENTORY_PROACTIVE';
                   const isConfirmed = a.match_type === 'QUALYS_CONFIRMED';
                   return (
                     <tr key={a.id} className="hover:bg-slate-800/40 transition-colors">
+                      {/* ID */}
+                      <td className="py-3 px-3">
+                        <span className="font-mono text-slate-300 font-bold bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded text-[11px]">
+                          #{a.id}
+                        </span>
+                      </td>
+
+                      {/* Date */}
+                      <td className="py-3 px-3 whitespace-nowrap">
+                        <div className="font-mono text-slate-200 text-xs font-semibold">
+                          {new Date(a.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-mono">
+                          {new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </td>
+
                       {/* CVE ID & Severity */}
                       <td className="py-3 px-4">
                         <div className="font-mono font-bold text-slate-100 flex items-center gap-1.5">
@@ -369,7 +499,7 @@ export const MispFeedPage: React.FC<MispFeedPageProps> = ({ onSelectAsset }) => 
                       </td>
 
                       {/* Threat Name & Product */}
-                      <td className="py-3 px-4 max-w-xs">
+                      <td className="py-3 px-4 max-w-sm">
                         <div className="font-medium text-slate-200 line-clamp-1">{a.title}</div>
                         <div className="text-[11px] text-slate-400 font-mono mt-0.5">
                           Target: <span className="text-sky-300 font-semibold">{a.affected_product}</span> ({a.vulnerable_versions})
@@ -378,56 +508,35 @@ export const MispFeedPage: React.FC<MispFeedPageProps> = ({ onSelectAsset }) => 
 
                       {/* Assessment Match Status */}
                       <td className="py-3 px-4">
-                        {isProactive ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-950/80 text-amber-300 border border-amber-800 animate-pulse">
-                            <Zap className="w-3 h-3 text-amber-400" /> Pre-Scan Proactive
-                          </span>
-                        ) : isConfirmed ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-sky-950/80 text-sky-300 border border-sky-800">
-                            <Shield className="w-3 h-3 text-sky-400" /> Qualys Confirmed
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-800 text-slate-400 border border-slate-700">
-                            <CheckCircle2 className="w-3 h-3 text-slate-400" /> Clean / No Assets
-                          </span>
-                        )}
-                      </td>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {isProactive ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-950/80 text-amber-300 border border-amber-800 animate-pulse">
+                              <Zap className="w-3 h-3 text-amber-400" /> Pre-Scan Proactive
+                            </span>
+                          ) : isConfirmed ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-sky-950/80 text-sky-300 border border-sky-800">
+                              <Shield className="w-3 h-3 text-sky-400" /> Qualys Confirmed
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-800 text-slate-400 border border-slate-700">
+                              <CheckCircle2 className="w-3 h-3 text-slate-400" /> Clean
+                            </span>
+                          )}
 
-                      {/* Affected Servers Count */}
-                      <td className="py-3 px-4 font-mono">
-                        {a.affected_assets_count > 0 ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-red-950/60 text-red-400 border border-red-800/60">
-                            <Server className="w-3 h-3" /> {a.affected_assets_count} server{a.affected_assets_count > 1 ? 's' : ''}
-                          </span>
-                        ) : (
-                          <span className="text-slate-500 font-normal">0 servers</span>
-                        )}
-                      </td>
+                          {a.affected_assets_count > 0 ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-red-950/60 text-red-400 border border-red-800/60 font-mono">
+                              <Server className="w-3 h-3" /> {a.affected_assets_count} server{a.affected_assets_count > 1 ? 's' : ''}
+                            </span>
+                          ) : (
+                            <span className="text-slate-500 font-normal text-[11px]">0 servers</span>
+                          )}
 
-                      {/* Confidence */}
-                      <td className="py-3 px-4">
-                        <span
-                          className={`text-[11px] font-semibold ${
-                            a.confidence.startsWith('High')
-                              ? 'text-emerald-400'
-                              : a.confidence === 'Medium'
-                              ? 'text-amber-400'
-                              : 'text-slate-500'
-                          }`}
-                        >
-                          {a.confidence}
-                        </span>
-                      </td>
-
-                      {/* Telegram Dispatched */}
-                      <td className="py-3 px-4">
-                        {a.dispatched_telegram ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-sky-950 text-sky-400 border border-sky-800">
-                            <Send className="w-3 h-3" /> Sent
-                          </span>
-                        ) : (
-                          <span className="text-[11px] text-slate-500 font-mono">—</span>
-                        )}
+                          {a.dispatched_telegram && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-sky-950 text-sky-400 border border-sky-800" title="Alert dispatched to Telegram">
+                              <Send className="w-2.5 h-2.5" /> Telegram
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Action */}
@@ -446,6 +555,17 @@ export const MispFeedPage: React.FC<MispFeedPageProps> = ({ onSelectAsset }) => 
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Bar */}
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={sortedAssessments.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          label="advisories"
+        />
       </div>
 
       {/* Slide-over Drawer for Assessment Report */}

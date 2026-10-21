@@ -10,6 +10,7 @@ from app.models.asset import Asset
 from app.models.detection import Detection
 from app.models.knowledge_base import KnowledgeBase
 from app.models.alert import Alert
+from app.models.misp_feed import MispCveAssessment
 from app.models.setting import SystemSetting
 from app.schemas.dashboard import (
     DashboardSummaryResponse,
@@ -72,11 +73,21 @@ async def get_dashboard_summary(
     critical_vulns = (await db.execute(vulns_q.where(Detection.severity == 5))).scalar() or 0
     high_vulns = (await db.execute(vulns_q.where(Detection.severity == 4))).scalar() or 0
 
-    # Active Alerts
-    alerts_q = select(func.count(Alert.id)).join(Asset, Asset.id == Alert.asset_id).where(Alert.is_resolved == False)
+    # Active Proactive Alerts (FS-ISAC CVEs affecting asset inventory, pre-scan)
+    alerts_q = select(MispCveAssessment).where(
+        MispCveAssessment.match_type == "INVENTORY_PROACTIVE",
+        MispCveAssessment.affected_assets_count > 0,
+        MispCveAssessment.status.in_(["Pending", "Acknowledged"]),
+    )
+    all_advs = (await db.execute(alerts_q)).scalars().all()
     if is_owner:
-        alerts_q = alerts_q.where(Asset.owner_id == user.id)
-    active_alerts = (await db.execute(alerts_q)).scalar() or 0
+        owned_asset_ids = set((await db.execute(select(Asset.id).where(Asset.owner_id == user.id))).scalars().all())
+        active_alerts = sum(
+            1 for adv in all_advs
+            if any(a.get("asset_id") in owned_asset_ids for a in (adv.assessment_report or {}).get("affected_assets", []))
+        )
+    else:
+        active_alerts = len(all_advs)
 
     # OS Breakdown
     os_q = (
@@ -126,12 +137,20 @@ async def get_dashboard_summary(
     recent_risky_q = recent_risky_q.order_by(Asset.risk_score.desc()).limit(5)
     recent_risky = (await db.execute(recent_risky_q)).scalars().all()
 
-    # Recent alerts
-    recent_alerts_q = select(Alert).join(Asset, Asset.id == Alert.asset_id)
+    # Recent proactive FS-ISAC alerts affecting inventory
+    from app.api.routes.alerts import _map_assessment_to_alert
+    proactive_recent_q = select(MispCveAssessment).where(
+        MispCveAssessment.match_type == "INVENTORY_PROACTIVE",
+        MispCveAssessment.affected_assets_count > 0,
+    ).order_by(MispCveAssessment.created_at.desc()).limit(5)
+    recent_assessments = (await db.execute(proactive_recent_q)).scalars().all()
     if is_owner:
-        recent_alerts_q = recent_alerts_q.where(Asset.owner_id == user.id)
-    recent_alerts_q = recent_alerts_q.order_by(Alert.created_at.desc()).limit(5)
-    recent_alerts = (await db.execute(recent_alerts_q)).scalars().all()
+        owned_asset_ids = set((await db.execute(select(Asset.id).where(Asset.owner_id == user.id))).scalars().all())
+        recent_assessments = [
+            adv for adv in recent_assessments
+            if any(a.get("asset_id") in owned_asset_ids for a in (adv.assessment_report or {}).get("affected_assets", []))
+        ]
+    recent_alerts_items = [_map_assessment_to_alert(al) for al in recent_assessments]
 
     # Last sync time
     sync_setting = await db.get(SystemSetting, "last_sync_time")
@@ -159,8 +178,8 @@ async def get_dashboard_summary(
             public_exploit=public_exp_c,
             zero_day=zero_day_c,
         ),
-        recent_risky_assets=[AssetListItem.from_orm(a) for a in recent_risky],
-        recent_alerts=[AlertItem.from_orm(al) for al in recent_alerts],
+        recent_risky_assets=[AssetListItem.model_validate(a) for a in recent_risky],
+        recent_alerts=recent_alerts_items,
         last_sync_time=last_sync,
         sync_status=sync_status.get("status", "Idle"),
     )

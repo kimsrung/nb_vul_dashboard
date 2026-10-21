@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     QUALYS_API_URL: str = "https://qualysapi.qualys.com"
     QUALYS_USERNAME: str = ""
     QUALYS_PASSWORD: str = ""
-    QUALYS_MOCK_MODE: bool = True  # Enabled by default for immediate testing and demonstration
+    QUALYS_MOCK_MODE: bool = False  # Disabled by default; connects to real Qualys API
     QUALYS_SYNC_INTERVAL_HOURS: int = 6
     QUALYS_TAG_FILTER: str = ""
 
@@ -53,9 +53,11 @@ class Settings(BaseSettings):
     # MISP Threat Intelligence (FS-ISAC Feed) Configuration
     MISP_URL: str = "https://misp.internal.corp"
     MISP_API_KEY: str = ""
+    MISP_CREATOR_ORG: str = "FS-ISAC"
+    MISP_TAG_FILTER: str = "vulnerability:CVE%"
     MISP_FEED_TAG: str = "FS-ISAC"
     MISP_ENABLED: bool = True
-    MISP_MOCK_MODE: bool = True  # Mock mode enabled by default for safe offline testing
+    MISP_MOCK_MODE: bool = False  # Disabled by default; connects to live MISP server
     MISP_SYNC_INTERVAL_HOURS: int = 2
 
     # Risk Scoring Configuration

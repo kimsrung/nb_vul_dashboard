@@ -1,18 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Server, Bug, RefreshCw, Wrench, Package, Trash2, AlertTriangle, X } from 'lucide-react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, Server, Bug, RefreshCw, Wrench, Package, Trash2, AlertTriangle, X, ArrowUpDown, ArrowUp, ArrowDown, Search } from 'lucide-react';
 import { AssetDetail, DetectionItem, SoftwareItem, apiClient } from '../api/client';
 import { RiskBadge } from '../components/common/RiskBadge';
 import { SeverityTag } from '../components/common/SeverityTag';
 import { RemediationStatusBadge } from '../components/common/RemediationStatusBadge';
 import { RemediationDrawer } from '../components/remediation/RemediationDrawer';
 import { useAuth } from '../context/AuthContext';
+import { TablePagination } from '../components/common/TablePagination';
 
 interface AssetDetailPageProps {
-  assetId: number;
-  onBack: () => void;
+  assetId?: number;
+  onBack?: () => void;
 }
 
-export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId, onBack }) => {
+export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId: propAssetId, onBack: propOnBack }) => {
+  const navigate = useNavigate();
+  const params = useParams<{ id: string }>();
+  const assetId = propAssetId ?? (params.id ? parseInt(params.id, 10) : 0);
+  const onBack = propOnBack ?? (() => navigate('/assets'));
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlCve = searchParams.get('cve') || '';
+
   const { isAdmin } = useAuth();
   const [asset, setAsset] = useState<AssetDetail | null>(null);
   const [softwareList, setSoftwareList] = useState<SoftwareItem[]>([]);
@@ -24,6 +33,104 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId, onBac
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
   const [deleteReason, setDeleteReason] = useState<string>('');
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
+
+  // Detections Search & Filter
+  const [detSearch, setDetSearch] = useState<string>(urlCve);
+
+  useEffect(() => {
+    const qCve = searchParams.get('cve');
+    if (qCve !== null && qCve !== detSearch) {
+      setDetSearch(qCve);
+      setDetPage(1);
+    }
+  }, [searchParams]);
+
+  // Detections Sorting & Pagination
+  const [detSortField, setDetSortField] = useState<string>('severity');
+  const [detSortOrder, setDetSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [detPage, setDetPage] = useState<number>(1);
+  const [detPageSize, setDetPageSize] = useState<number>(10);
+
+  const handleDetSort = (field: string) => {
+    if (detSortField === field) {
+      setDetSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setDetSortField(field);
+      setDetSortOrder(field === 'severity' || field === 'qid' ? 'desc' : 'asc');
+    }
+    setDetPage(1);
+  };
+
+  const filteredDetections = (asset?.detections || []).filter((d) => {
+    if (!detSearch.trim()) return true;
+    const q = detSearch.trim().toLowerCase();
+    const cveMatch = d.knowledge_base?.cve_list?.some((c: string) => c.toLowerCase().includes(q));
+    const titleMatch = (d.knowledge_base?.title || '').toLowerCase().includes(q);
+    const qidMatch = String(d.qid).includes(q);
+    const diagMatch = (d.scanner_results || '').toLowerCase().includes(q);
+    return cveMatch || titleMatch || qidMatch || diagMatch;
+  });
+
+  const sortedDetections = [...filteredDetections].sort((a, b) => {
+    let aVal: any = a[detSortField as keyof DetectionItem];
+    let bVal: any = b[detSortField as keyof DetectionItem];
+
+    if (detSortField === 'title') {
+      aVal = a.knowledge_base?.title || '';
+      bVal = b.knowledge_base?.title || '';
+    } else if (detSortField === 'category') {
+      aVal = a.knowledge_base?.category || '';
+      bVal = b.knowledge_base?.category || '';
+    } else if (detSortField === 'status') {
+      aVal = a.remediation_status || '';
+      bVal = b.remediation_status || '';
+    }
+
+    if (typeof aVal === 'string') {
+      aVal = aVal.toLowerCase();
+      bVal = (bVal || '').toLowerCase();
+    }
+
+    if (aVal < bVal) return detSortOrder === 'asc' ? -1 : 1;
+    if (aVal > bVal) return detSortOrder === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const totalDetPages = Math.max(1, Math.ceil(sortedDetections.length / detPageSize));
+  const paginatedDetections = sortedDetections.slice((detPage - 1) * detPageSize, detPage * detPageSize);
+
+  // Software Sorting & Pagination
+  const [swSortField, setSwSortField] = useState<string>('product_name');
+  const [swSortOrder, setSwSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [swPage, setSwPage] = useState<number>(1);
+  const [swPageSize, setSwPageSize] = useState<number>(10);
+
+  const handleSwSort = (field: string) => {
+    if (swSortField === field) {
+      setSwSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSwSortField(field);
+      setSwSortOrder('asc');
+    }
+    setSwPage(1);
+  };
+
+  const sortedSoftware = [...softwareList].sort((a, b) => {
+    let aVal: any = a[swSortField as keyof SoftwareItem];
+    let bVal: any = b[swSortField as keyof SoftwareItem];
+
+    if (typeof aVal === 'string') {
+      aVal = aVal.toLowerCase();
+      bVal = (bVal || '').toLowerCase();
+    }
+
+    if (aVal < bVal) return swSortOrder === 'asc' ? -1 : 1;
+    if (aVal > bVal) return swSortOrder === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const totalSwPages = Math.max(1, Math.ceil(sortedSoftware.length / swPageSize));
+  const paginatedSoftware = sortedSoftware.slice((swPage - 1) * swPageSize, swPage * swPageSize);
 
   const fetchAssetDetail = async () => {
     setIsLoading(true);
@@ -129,9 +236,12 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId, onBac
           </div>
 
           <div className="flex items-center gap-6 bg-slate-950/60 px-5 py-3 rounded-xl border border-slate-800">
-            <div className="text-center">
+            <div className="text-center" title="Scale: Low (<15), Medium (15-39), High (40-79), Critical (≥80)">
               <div className="text-[10px] uppercase font-semibold text-slate-400">Risk Score</div>
-              <div className="text-xl font-bold font-mono text-red-400">{asset.risk_score}</div>
+              <div className="text-xl font-bold font-mono text-rose-400">{asset.risk_score}</div>
+              <div className="text-[10px] text-slate-500 font-mono">
+                {asset.risk_score >= 80 ? '≥80 Crit' : asset.risk_score >= 40 ? '≥40 High' : asset.risk_score >= 15 ? '≥15 Med' : '<15 Low'}
+              </div>
             </div>
             <div className="w-px h-8 bg-slate-800" />
             <div className="text-center">
@@ -185,36 +295,152 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId, onBac
 
       {/* Detections & Remediation Section */}
       <div className="p-6 rounded-2xl bg-surface border border-surfaceBorder space-y-4">
-        <div>
-          <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
-            <Bug className="w-4 h-4 text-red-400" /> Detected Vulnerabilities & KnowledgeBase Remediation Guidance
-          </h3>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Select any finding to inspect Qualys KB solutions, vendor patch links, CVE references, and scanner proof.
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+              <Bug className="w-4 h-4 text-red-400" /> Detected Vulnerabilities & KnowledgeBase Remediation Guidance
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Select any finding to inspect Qualys KB solutions, vendor patch links, CVE references, and scanner proof.
+            </p>
+          </div>
+
+          {/* Detections Search / CVE Filter Input */}
+          <div className="relative w-full sm:w-72">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <input
+              type="text"
+              placeholder="Filter findings by CVE, QID, or title..."
+              value={detSearch}
+              onChange={(e) => {
+                const val = e.target.value;
+                setDetSearch(val);
+                setDetPage(1);
+                setSearchParams((prev) => {
+                  if (val.trim()) {
+                    prev.set('cve', val.trim());
+                  } else {
+                    prev.delete('cve');
+                  }
+                  return prev;
+                });
+              }}
+              className="w-full bg-slate-950 border border-surfaceBorder rounded-lg pl-9 pr-7 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 font-mono"
+            />
+            {detSearch && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDetSearch('');
+                  setSearchParams((prev) => {
+                    prev.delete('cve');
+                    return prev;
+                  });
+                  setDetPage(1);
+                }}
+                className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-200"
+                title="Clear finding filter"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
+
+        {detSearch && (
+          <div className="flex items-center justify-between p-2.5 rounded-lg bg-sky-950/40 border border-sky-800/60 text-sky-300 text-xs font-medium">
+            <div className="flex items-center gap-2">
+              <Bug className="w-4 h-4 text-sky-400 shrink-0" />
+              <span>
+                Filtering findings matching <strong className="font-mono text-white underline decoration-sky-500">{detSearch}</strong> ({filteredDetections.length} of {asset.detections.length} findings)
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setDetSearch('');
+                setSearchParams((prev) => {
+                  prev.delete('cve');
+                  return prev;
+                });
+                setDetPage(1);
+              }}
+              className="text-xs text-slate-300 hover:text-white px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors"
+            >
+              Show All Findings
+            </button>
+          </div>
+        )}
 
         <div className="overflow-x-auto rounded-xl border border-surfaceBorder">
           <table className="w-full text-left text-xs text-slate-300">
-            <thead className="bg-slate-900/80 text-[11px] uppercase tracking-wider text-slate-400 border-b border-surfaceBorder">
+            <thead className="bg-slate-900/80 text-[11px] uppercase tracking-wider text-slate-400 border-b border-surfaceBorder select-none">
               <tr>
-                <th className="py-3 px-4">Severity & QID</th>
-                <th className="py-3 px-4">Vulnerability Title</th>
-                <th className="py-3 px-4">Category & Port</th>
-                <th className="py-3 px-4">Threat Intel Flags (RTI)</th>
-                <th className="py-3 px-4">Remediation Status</th>
-                <th className="py-3 px-4 text-right">Fix Guidance</th>
+                <th
+                  onClick={() => handleDetSort('severity')}
+                  className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                >
+                  <div className="inline-flex items-center gap-1 font-semibold">
+                    <span>Severity & QID</span>
+                    {detSortField === 'severity' ? (
+                      detSortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-400" /> : <ArrowDown className="w-3 h-3 text-sky-400" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleDetSort('title')}
+                  className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                >
+                  <div className="inline-flex items-center gap-1 font-semibold">
+                    <span>Vulnerability Title</span>
+                    {detSortField === 'title' ? (
+                      detSortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-400" /> : <ArrowDown className="w-3 h-3 text-sky-400" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleDetSort('category')}
+                  className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                >
+                  <div className="inline-flex items-center gap-1 font-semibold">
+                    <span>Category & Port</span>
+                    {detSortField === 'category' ? (
+                      detSortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-400" /> : <ArrowDown className="w-3 h-3 text-sky-400" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                    )}
+                  </div>
+                </th>
+                <th className="py-3 px-4 font-semibold">Threat Intel Flags (RTI)</th>
+                <th
+                  onClick={() => handleDetSort('status')}
+                  className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                >
+                  <div className="inline-flex items-center gap-1 font-semibold">
+                    <span>Remediation Status</span>
+                    {detSortField === 'status' ? (
+                      detSortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-400" /> : <ArrowDown className="w-3 h-3 text-sky-400" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                    )}
+                  </div>
+                </th>
+                <th className="py-3 px-4 text-right font-semibold">Fix Guidance</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surfaceBorder">
-              {asset.detections.length === 0 ? (
+              {paginatedDetections.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-slate-400">
                     No active detections on this asset.
                   </td>
                 </tr>
               ) : (
-                asset.detections.map((det) => {
+                paginatedDetections.map((det) => {
                   const kb = det.knowledge_base;
                   const ti = kb?.threat_intel_flags || {};
 
@@ -282,6 +508,18 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId, onBac
             </tbody>
           </table>
         </div>
+
+        {/* Detections Pagination */}
+        <TablePagination
+          currentPage={detPage}
+          totalPages={totalDetPages}
+          totalItems={sortedDetections.length}
+          pageSize={detPageSize}
+          onPageChange={setDetPage}
+          onPageSizeChange={setDetPageSize}
+          pageSizeOptions={[10, 25, 50]}
+          label="detections"
+        />
       </div>
 
       {/* Installed Software Inventory (Proactive MISP Match Target) */}
@@ -302,17 +540,77 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId, onBac
         ) : (
           <div className="overflow-x-auto rounded-xl border border-surfaceBorder">
             <table className="w-full text-left text-xs text-slate-300">
-              <thead className="bg-slate-900/80 text-[11px] uppercase tracking-wider text-slate-400 border-b border-surfaceBorder">
+              <thead className="bg-slate-900/80 text-[11px] uppercase tracking-wider text-slate-400 border-b border-surfaceBorder select-none">
                 <tr>
-                  <th className="py-3 px-4">Product Name</th>
-                  <th className="py-3 px-4">Installed Version</th>
-                  <th className="py-3 px-4">Package Name</th>
-                  <th className="py-3 px-4">Binary / Path</th>
-                  <th className="py-3 px-4">Port</th>
+                  <th
+                    onClick={() => handleSwSort('product_name')}
+                    className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                  >
+                    <div className="inline-flex items-center gap-1 font-semibold">
+                      <span>Product Name</span>
+                      {swSortField === 'product_name' ? (
+                        swSortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-400" /> : <ArrowDown className="w-3 h-3 text-sky-400" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSwSort('version')}
+                    className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                  >
+                    <div className="inline-flex items-center gap-1 font-semibold">
+                      <span>Installed Version</span>
+                      {swSortField === 'version' ? (
+                        swSortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-400" /> : <ArrowDown className="w-3 h-3 text-sky-400" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSwSort('package_name')}
+                    className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                  >
+                    <div className="inline-flex items-center gap-1 font-semibold">
+                      <span>Package Name</span>
+                      {swSortField === 'package_name' ? (
+                        swSortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-400" /> : <ArrowDown className="w-3 h-3 text-sky-400" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSwSort('install_path')}
+                    className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                  >
+                    <div className="inline-flex items-center gap-1 font-semibold">
+                      <span>Binary / Path</span>
+                      {swSortField === 'install_path' ? (
+                        swSortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-400" /> : <ArrowDown className="w-3 h-3 text-sky-400" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSwSort('port')}
+                    className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                  >
+                    <div className="inline-flex items-center gap-1 font-semibold">
+                      <span>Port</span>
+                      {swSortField === 'port' ? (
+                        swSortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-400" /> : <ArrowDown className="w-3 h-3 text-sky-400" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                      )}
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-surfaceBorder">
-                {softwareList.map((sw) => (
+                {paginatedSoftware.map((sw) => (
                   <tr key={sw.id} className="hover:bg-slate-800/40 transition-colors">
                     <td className="py-3 px-4 font-bold text-sky-300 font-mono">
                       {sw.product_name}
@@ -335,6 +633,20 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId, onBac
               </tbody>
             </table>
           </div>
+        )}
+
+        {/* Software Pagination */}
+        {softwareList.length > 0 && (
+          <TablePagination
+            currentPage={swPage}
+            totalPages={totalSwPages}
+            totalItems={sortedSoftware.length}
+            pageSize={swPageSize}
+            onPageChange={setSwPage}
+            onPageSizeChange={setSwPageSize}
+            pageSizeOptions={[10, 25, 50]}
+            label="packages"
+          />
         )}
       </div>
 

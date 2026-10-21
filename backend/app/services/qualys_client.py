@@ -120,7 +120,7 @@ class QualysApiClient:
             return self.parse_knowledge_base_xml(xml_content)
 
         all_parsed = []
-        chunk_size = 50
+        chunk_size = 300
         for i in range(0, len(qids), chunk_size):
             chunk = qids[i:i + chunk_size]
             try:

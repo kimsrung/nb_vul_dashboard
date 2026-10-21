@@ -21,6 +21,8 @@ export const SettingsPage: React.FC = () => {
   // Form states - MISP (FS-ISAC)
   const [mispUrl, setMispUrl] = useState<string>('');
   const [mispApiKey, setMispApiKey] = useState<string>('');
+  const [mispCreatorOrg, setMispCreatorOrg] = useState<string>('FS-ISAC');
+  const [mispTagFilter, setMispTagFilter] = useState<string>('vulnerability:CVE%');
   const [mispFeedTag, setMispFeedTag] = useState<string>('FS-ISAC');
   const [mispEnabled, setMispEnabled] = useState<boolean>(true);
   const [mispMockMode, setMispMockMode] = useState<boolean>(true);
@@ -62,6 +64,8 @@ export const SettingsPage: React.FC = () => {
       setTagFilter(data.qualys_tag_filter || '');
 
       setMispUrl(data.misp_url || '');
+      setMispCreatorOrg(data.misp_creator_org || 'FS-ISAC');
+      setMispTagFilter(data.misp_tag_filter || 'vulnerability:CVE%');
       setMispFeedTag(data.misp_feed_tag || 'FS-ISAC');
       setMispEnabled(data.misp_enabled ?? true);
       setMispMockMode(data.misp_mock_mode ?? true);
@@ -99,6 +103,8 @@ export const SettingsPage: React.FC = () => {
         qualys_sync_interval_hours: Number(syncInterval),
         qualys_tag_filter: tagFilter,
         misp_url: mispUrl,
+        misp_creator_org: mispCreatorOrg,
+        misp_tag_filter: mispTagFilter,
         misp_feed_tag: mispFeedTag,
         misp_enabled: mispEnabled,
         misp_mock_mode: mispMockMode,
@@ -161,6 +167,8 @@ export const SettingsPage: React.FC = () => {
       const res = await apiClient.post('/settings/test-misp', {
         misp_url: mispUrl,
         misp_api_key: mispApiKey || undefined,
+        misp_creator_org: mispCreatorOrg,
+        misp_tag_filter: mispTagFilter,
         misp_feed_tag: mispFeedTag,
         misp_mock_mode: mispMockMode,
       });
@@ -377,17 +385,32 @@ export const SettingsPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Feed Tag Filter</label>
+              <label className="block text-xs font-medium text-slate-300 mb-1">Creator Org Filter (Orgc)</label>
               <input
                 type="text"
-                value={mispFeedTag}
-                onChange={(e) => setMispFeedTag(e.target.value)}
+                value={mispCreatorOrg}
+                onChange={(e) => setMispCreatorOrg(e.target.value)}
                 disabled={!isAdmin || !mispEnabled}
                 placeholder="FS-ISAC"
                 className="w-full bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-primary-500 disabled:opacity-50 font-mono"
               />
               <span className="text-[10px] text-slate-500 mt-1 block">
-                Strictly queries threat events tagged with this label (Default: FS-ISAC)
+                Strictly queries and validates events created by this organization (Default: FS-ISAC)
+              </span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1">Vulnerability Tag Filter</label>
+              <input
+                type="text"
+                value={mispTagFilter}
+                onChange={(e) => setMispTagFilter(e.target.value)}
+                disabled={!isAdmin || !mispEnabled}
+                placeholder="vulnerability:CVE%"
+                className="w-full bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-primary-500 disabled:opacity-50 font-mono"
+              />
+              <span className="text-[10px] text-slate-500 mt-1 block">
+                Filters events with vulnerability tags matching this pattern (Default: vulnerability:CVE%)
               </span>
             </div>
 

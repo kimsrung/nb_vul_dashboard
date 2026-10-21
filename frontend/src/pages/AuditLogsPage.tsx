@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
   History, Search, RefreshCw, Trash2, CheckCircle2, Wrench, User, 
-  ChevronLeft, ChevronRight, Eye, X, FileText 
+  Eye, X, FileText, ArrowUpDown, ArrowUp, ArrowDown 
 } from 'lucide-react';
 import { AuditLogItem, PaginatedAuditLogsResponse, apiClient } from '../api/client';
+import { TablePagination } from '../components/common/TablePagination';
 
 export const AuditLogsPage: React.FC = () => {
   const [logs, setLogs] = useState<AuditLogItem[]>([]);
@@ -21,12 +22,28 @@ export const AuditLogsPage: React.FC = () => {
   // Details Modal
   const [inspectedLog, setInspectedLog] = useState<AuditLogItem | null>(null);
 
+  // Sorting
+  const [sortBy, setSortBy] = useState<string>('created_at');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (field: string) => {
+    if (sortBy === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(field);
+      setSortOrder(field === 'created_at' ? 'desc' : 'asc');
+    }
+    setPage(1);
+  };
+
   const fetchLogs = async () => {
     setIsLoading(true);
     try {
       const params: any = {
         page,
         page_size: pageSize,
+        sort_by: sortBy,
+        sort_order: sortOrder,
       };
       if (search.trim()) params.search = search.trim();
       if (actionFilter) params.action = actionFilter;
@@ -45,7 +62,7 @@ export const AuditLogsPage: React.FC = () => {
 
   useEffect(() => {
     fetchLogs();
-  }, [page, pageSize, actionFilter, targetTypeFilter]);
+  }, [page, pageSize, actionFilter, targetTypeFilter, sortBy, sortOrder]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,17 +187,77 @@ export const AuditLogsPage: React.FC = () => {
       </div>
 
       {/* Logs Table */}
-      <div className="p-4 rounded-xl bg-surface border border-surfaceBorder overflow-hidden">
+      <div className="p-4 rounded-xl bg-surface border border-surfaceBorder overflow-hidden space-y-3">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-300">
-            <thead className="bg-slate-900/80 text-[11px] uppercase tracking-wider text-slate-400 border-b border-surfaceBorder">
+            <thead className="bg-slate-900/80 text-[11px] uppercase tracking-wider text-slate-400 border-b border-surfaceBorder select-none">
               <tr>
-                <th className="py-3 px-4">Timestamp (UTC)</th>
-                <th className="py-3 px-4">Action</th>
-                <th className="py-3 px-4">Target Resource</th>
-                <th className="py-3 px-4">Performed By</th>
-                <th className="py-3 px-4">IP Address</th>
-                <th className="py-3 px-4 text-right">Snapshot</th>
+                <th
+                  onClick={() => handleSort('created_at')}
+                  className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                >
+                  <div className="inline-flex items-center gap-1 font-semibold">
+                    <span>Timestamp (UTC)</span>
+                    {sortBy === 'created_at' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-400" /> : <ArrowDown className="w-3 h-3 text-sky-400" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('action')}
+                  className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                >
+                  <div className="inline-flex items-center gap-1 font-semibold">
+                    <span>Action</span>
+                    {sortBy === 'action' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-400" /> : <ArrowDown className="w-3 h-3 text-sky-400" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('target_name')}
+                  className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                >
+                  <div className="inline-flex items-center gap-1 font-semibold">
+                    <span>Target Resource</span>
+                    {sortBy === 'target_name' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-400" /> : <ArrowDown className="w-3 h-3 text-sky-400" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('actor_username')}
+                  className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                >
+                  <div className="inline-flex items-center gap-1 font-semibold">
+                    <span>Performed By</span>
+                    {sortBy === 'actor_username' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-400" /> : <ArrowDown className="w-3 h-3 text-sky-400" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('ip_address')}
+                  className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
+                >
+                  <div className="inline-flex items-center gap-1 font-semibold">
+                    <span>IP Address</span>
+                    {sortBy === 'ip_address' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-400" /> : <ArrowDown className="w-3 h-3 text-sky-400" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
+                    )}
+                  </div>
+                </th>
+                <th className="py-3 px-4 text-right font-semibold">Snapshot</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surfaceBorder font-mono">
@@ -254,67 +331,16 @@ export const AuditLogsPage: React.FC = () => {
         </div>
 
         {/* Pagination Bar */}
-        <div className="mt-4 pt-4 border-t border-surfaceBorder flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400 font-sans">
-          <div className="flex items-center gap-4">
-            <span>
-              Showing <span className="font-semibold text-slate-200">{total === 0 ? 0 : (page - 1) * pageSize + 1}</span> to{' '}
-              <span className="font-semibold text-slate-200">{Math.min(page * pageSize, total)}</span> of{' '}
-              <span className="font-semibold text-slate-200">{total}</span> audit records
-            </span>
-            <div className="flex items-center gap-1.5">
-              <span>Per page:</span>
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setPage(1);
-                }}
-                className="bg-slate-950 border border-surfaceBorder rounded px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-primary-500"
-              >
-                <option value={15}>15</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPage(1)}
-              disabled={page <= 1 || isLoading}
-              className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-40 border border-surfaceBorder text-slate-300 font-medium transition-colors"
-            >
-              First
-            </button>
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page <= 1 || isLoading}
-              className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-40 border border-surfaceBorder text-slate-300 transition-colors"
-              title="Previous Page"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="px-3 py-1 font-mono text-slate-200 font-medium">
-              Page {page} of {totalPages}
-            </span>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page >= totalPages || isLoading}
-              className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-40 border border-surfaceBorder text-slate-300 transition-colors"
-              title="Next Page"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setPage(totalPages)}
-              disabled={page >= totalPages || isLoading}
-              className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-40 border border-surfaceBorder text-slate-300 font-medium transition-colors"
-            >
-              Last
-            </button>
-          </div>
-        </div>
+        <TablePagination
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={total}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={[15, 25, 50, 100]}
+          label="audit records"
+        />
       </div>
 
       {/* Details Snapshot Modal */}

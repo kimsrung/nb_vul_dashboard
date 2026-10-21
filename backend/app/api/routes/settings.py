@@ -36,6 +36,8 @@ async def get_settings(user: User = Depends(require_viewer)):
         qualys_tag_filter=settings.QUALYS_TAG_FILTER,
         misp_url=settings.MISP_URL,
         misp_api_key_masked=_mask_token(settings.MISP_API_KEY),
+        misp_creator_org=settings.MISP_CREATOR_ORG,
+        misp_tag_filter=settings.MISP_TAG_FILTER,
         misp_feed_tag=settings.MISP_FEED_TAG,
         misp_enabled=settings.MISP_ENABLED,
         misp_mock_mode=settings.MISP_MOCK_MODE,
@@ -74,6 +76,10 @@ async def update_settings(
         settings.MISP_URL = settings_in.misp_url.strip().rstrip("/")
     if settings_in.misp_api_key is not None and settings_in.misp_api_key.strip():
         settings.MISP_API_KEY = settings_in.misp_api_key.strip()
+    if settings_in.misp_creator_org is not None:
+        settings.MISP_CREATOR_ORG = settings_in.misp_creator_org.strip()
+    if settings_in.misp_tag_filter is not None:
+        settings.MISP_TAG_FILTER = settings_in.misp_tag_filter.strip()
     if settings_in.misp_feed_tag is not None:
         settings.MISP_FEED_TAG = settings_in.misp_feed_tag.strip()
     if settings_in.misp_enabled is not None:
@@ -111,6 +117,8 @@ async def update_settings(
         "qualys_tag_filter": settings.QUALYS_TAG_FILTER,
         "misp_url": settings.MISP_URL,
         "misp_api_key": settings.MISP_API_KEY,
+        "misp_creator_org": settings.MISP_CREATOR_ORG,
+        "misp_tag_filter": settings.MISP_TAG_FILTER,
         "misp_feed_tag": settings.MISP_FEED_TAG,
         "misp_enabled": "true" if settings.MISP_ENABLED else "false",
         "misp_mock_mode": "true" if settings.MISP_MOCK_MODE else "false",
@@ -141,6 +149,8 @@ async def update_settings(
         qualys_tag_filter=settings.QUALYS_TAG_FILTER,
         misp_url=settings.MISP_URL,
         misp_api_key_masked=_mask_token(settings.MISP_API_KEY),
+        misp_creator_org=settings.MISP_CREATOR_ORG,
+        misp_tag_filter=settings.MISP_TAG_FILTER,
         misp_feed_tag=settings.MISP_FEED_TAG,
         misp_enabled=settings.MISP_ENABLED,
         misp_mock_mode=settings.MISP_MOCK_MODE,
@@ -179,6 +189,8 @@ async def test_misp_connection(
     client = MispClient(
         base_url=test_req.misp_url,
         api_key=test_req.misp_api_key,
+        creator_org=test_req.misp_creator_org,
+        tag_filter=test_req.misp_tag_filter,
         feed_tag=test_req.misp_feed_tag,
         mock_mode=test_req.misp_mock_mode,
     )

@@ -1,5 +1,5 @@
 """High-fidelity Mock MISP (FS-ISAC) Feed Generator for Offline Dev/Testing.
-Provides realistic threat advisories published via FS-ISAC.
+Provides realistic threat advisories published via FS-ISAC with creator org and vulnerability tags.
 """
 
 from typing import List, Dict, Any
@@ -13,7 +13,18 @@ MOCK_FS_ISAC_EVENTS: List[Dict[str, Any]] = [
             "date": "2026-10-18",
             "threat_level_id": "1",  # High
             "analysis": "2",  # Completed
+            "Orgc": {
+                "id": "101",
+                "name": "FS-ISAC",
+                "uuid": "4c9e830e-0000-42ab-873d-f515ac000000",
+            },
+            "Org": {
+                "id": "1",
+                "name": "Internal SOC",
+                "uuid": "4c9e830e-9999-42ab-873d-f515ac000999",
+            },
             "Tag": [
+                {"name": "vulnerability:CVE-2024-6387", "colour": "#0088cc"},
                 {"name": "FS-ISAC", "colour": "#0088cc"},
                 {"name": "tlp:amber", "colour": "#ffc107"},
                 {"name": "sector:finance", "colour": "#28a745"},
@@ -39,7 +50,18 @@ MOCK_FS_ISAC_EVENTS: List[Dict[str, Any]] = [
             "date": "2026-10-19",
             "threat_level_id": "1",  # High / Critical
             "analysis": "2",
+            "Orgc": {
+                "id": "101",
+                "name": "FS-ISAC",
+                "uuid": "4c9e830e-0000-42ab-873d-f515ac000000",
+            },
+            "Org": {
+                "id": "1",
+                "name": "Internal SOC",
+                "uuid": "4c9e830e-9999-42ab-873d-f515ac000999",
+            },
             "Tag": [
+                {"name": "vulnerability:CVE-2024-3094", "colour": "#0088cc"},
                 {"name": "FS-ISAC", "colour": "#0088cc"},
                 {"name": "tlp:red", "colour": "#dc3545"},
                 {"name": "sector:finance", "colour": "#28a745"},
@@ -65,7 +87,18 @@ MOCK_FS_ISAC_EVENTS: List[Dict[str, Any]] = [
             "date": "2026-10-15",
             "threat_level_id": "2",  # Medium
             "analysis": "2",
+            "Orgc": {
+                "id": "101",
+                "name": "FS-ISAC",
+                "uuid": "4c9e830e-0000-42ab-873d-f515ac000000",
+            },
+            "Org": {
+                "id": "1",
+                "name": "Internal SOC",
+                "uuid": "4c9e830e-9999-42ab-873d-f515ac000999",
+            },
             "Tag": [
+                {"name": "vulnerability:CVE-2023-44487", "colour": "#0088cc"},
                 {"name": "FS-ISAC", "colour": "#0088cc"},
                 {"name": "tlp:green", "colour": "#28a745"},
                 {"name": "sector:finance", "colour": "#28a745"},
@@ -90,7 +123,18 @@ MOCK_FS_ISAC_EVENTS: List[Dict[str, Any]] = [
             "date": "2026-10-12",
             "threat_level_id": "1",
             "analysis": "2",
+            "Orgc": {
+                "id": "101",
+                "name": "FS-ISAC",
+                "uuid": "4c9e830e-0000-42ab-873d-f515ac000000",
+            },
+            "Org": {
+                "id": "1",
+                "name": "Internal SOC",
+                "uuid": "4c9e830e-9999-42ab-873d-f515ac000999",
+            },
             "Tag": [
+                {"name": "vulnerability:CVE-2024-4577", "colour": "#0088cc"},
                 {"name": "FS-ISAC", "colour": "#0088cc"},
                 {"name": "tlp:amber", "colour": "#ffc107"},
             ],
@@ -114,7 +158,18 @@ MOCK_FS_ISAC_EVENTS: List[Dict[str, Any]] = [
             "date": "2026-10-10",
             "threat_level_id": "2",
             "analysis": "2",
+            "Orgc": {
+                "id": "101",
+                "name": "FS-ISAC",
+                "uuid": "4c9e830e-0000-42ab-873d-f515ac000000",
+            },
+            "Org": {
+                "id": "1",
+                "name": "Internal SOC",
+                "uuid": "4c9e830e-9999-42ab-873d-f515ac000999",
+            },
             "Tag": [
+                {"name": "vulnerability:CVE-2024-21626", "colour": "#0088cc"},
                 {"name": "FS-ISAC", "colour": "#0088cc"},
                 {"name": "tlp:amber", "colour": "#ffc107"},
             ],
@@ -138,7 +193,18 @@ MOCK_FS_ISAC_EVENTS: List[Dict[str, Any]] = [
             "date": "2026-10-17",
             "threat_level_id": "1",
             "analysis": "2",
+            "Orgc": {
+                "id": "101",
+                "name": "FS-ISAC",
+                "uuid": "4c9e830e-0000-42ab-873d-f515ac000000",
+            },
+            "Org": {
+                "id": "1",
+                "name": "Internal SOC",
+                "uuid": "4c9e830e-9999-42ab-873d-f515ac000999",
+            },
             "Tag": [
+                {"name": "vulnerability:CVE-2025-0108", "colour": "#0088cc"},
                 {"name": "FS-ISAC", "colour": "#0088cc"},
                 {"name": "tlp:amber", "colour": "#ffc107"},
             ],

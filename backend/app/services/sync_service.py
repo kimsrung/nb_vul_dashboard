@@ -39,7 +39,26 @@ class SyncService:
 
             try:
                 # 1. Initialize Qualys client with current DB / config settings
-                client = QualysApiClient()
+                settings_res = await db.execute(select(SystemSetting))
+                for row in settings_res.scalars().all():
+                    k, v = row.key, row.value
+                    if k == "qualys_api_url" and v:
+                        settings.QUALYS_API_URL = v
+                    elif k == "qualys_username" and v:
+                        settings.QUALYS_USERNAME = v
+                    elif k == "qualys_password" and v:
+                        settings.QUALYS_PASSWORD = v
+                    elif k == "qualys_mock_mode":
+                        settings.QUALYS_MOCK_MODE = v.lower() in ("true", "1")
+                    elif k == "qualys_tag_filter":
+                        settings.QUALYS_TAG_FILTER = v
+
+                client = QualysApiClient(
+                    base_url=settings.QUALYS_API_URL,
+                    username=settings.QUALYS_USERNAME,
+                    password=settings.QUALYS_PASSWORD,
+                    mock_mode=settings.QUALYS_MOCK_MODE,
+                )
 
                 # 2. Ingest Host Detections FIRST
                 current_sync_status["message"] = "Querying Qualys Host Detection API..."
@@ -216,6 +235,9 @@ class SyncService:
                     asset.high_vulns = high_v
                     assets_updated += 1
 
+                    # Extract installed software from detections into AssetSoftware
+                    await cls._sync_discovered_software(db, asset.id, active_detections, now)
+
                     # Check Alert & Telegram Dispatch
                     if is_risky:
                         # Check last alert cooldown (use .scalars().first() with .limit(1) to avoid MultipleResultsFound)
@@ -295,4 +317,140 @@ class SyncService:
                 current_sync_status["status"] = "Error"
                 current_sync_status["message"] = f"Sync failed: {err_msg}"
                 return {"success": False, "message": f"Sync failed: {err_msg}"}
-                return {"success": False, "message": err_msg}
+
+    @classmethod
+    async def _sync_discovered_software(
+        cls, db: AsyncSession, asset_id: int, detections: List[Detection], now: datetime
+    ):
+        """Extract installed software packages and versions directly from Qualys scanner results."""
+        import re
+        from app.models.software import AssetSoftware
+
+        discovered: List[Dict[str, Any]] = []
+
+        for d in detections:
+            results = d.scanner_results or ""
+            if not results:
+                continue
+
+            # 1. OpenSSH: "OpenSSH_8.2p1 Ubuntu-4ubuntu0.13"
+            m = re.search(r"OpenSSH[_-]([0-9a-zA-Z._-]+)", results, re.IGNORECASE)
+            if m:
+                discovered.append({
+                    "product_name": "openssh",
+                    "vendor": "OpenBSD",
+                    "version": m.group(1),
+                    "package_name": "openssh-server",
+                    "install_path": "/usr/sbin/sshd",
+                    "port": d.port or 22,
+                })
+
+            # 2. OpenSSL: "OpenSSL 1.1.1f 31 Mar 2020" or "OpenSSL 3.0.2"
+            m = re.search(r"OpenSSL\s+([0-9a-zA-Z._-]+)", results, re.IGNORECASE)
+            if m:
+                discovered.append({
+                    "product_name": "openssl",
+                    "vendor": "OpenSSL",
+                    "version": m.group(1),
+                    "package_name": "libssl",
+                    "install_path": "/usr/lib/libssl.so",
+                    "port": None,
+                })
+
+            # 3. PostgreSQL: "psql (PostgreSQL) 12.22"
+            m = re.search(r"PostgreSQL\)?\s+([0-9a-zA-Z._-]+)", results, re.IGNORECASE)
+            if m:
+                discovered.append({
+                    "product_name": "postgresql",
+                    "vendor": "PostgreSQL",
+                    "version": m.group(1),
+                    "package_name": f"postgresql-{m.group(1).split('.')[0]}",
+                    "install_path": "/usr/lib/postgresql",
+                    "port": d.port or 5432,
+                })
+
+            # 4. Nginx: "nginx/1.24.0"
+            m = re.search(r"nginx/([0-9a-zA-Z._-]+)", results, re.IGNORECASE)
+            if m:
+                discovered.append({
+                    "product_name": "nginx",
+                    "vendor": "F5",
+                    "version": m.group(1),
+                    "package_name": "nginx-core",
+                    "install_path": "/usr/sbin/nginx",
+                    "port": d.port or 443,
+                })
+
+            # 5. Apache: "Apache/2.4.52"
+            m = re.search(r"Apache/([0-9a-zA-Z._-]+)", results, re.IGNORECASE)
+            if m:
+                discovered.append({
+                    "product_name": "apache",
+                    "vendor": "Apache",
+                    "version": m.group(1),
+                    "package_name": "apache2",
+                    "install_path": "/usr/sbin/apache2",
+                    "port": d.port or 80,
+                })
+
+            # 6. Java JARs: /app/.../spring-web-5.3.31.jar
+            for jm in re.finditer(r"/([a-zA-Z0-9_-]+)-([0-9]+\.[0-9]+[a-zA-Z0-9._-]*)\.jar", results):
+                p_name = jm.group(1).lower()
+                p_ver = jm.group(2)
+                discovered.append({
+                    "product_name": p_name,
+                    "vendor": "Java/Maven",
+                    "version": p_ver,
+                    "package_name": f"{p_name}-{p_ver}.jar",
+                    "install_path": results[:100],
+                    "port": d.port,
+                })
+
+            # 7. Linux packages: "traceroute  1:2.1.0-2"
+            for pm in re.finditer(r"^([a-zA-Z0-9_.-]+)\s+([0-9]+:[0-9a-zA-Z._-]+|[0-9]+\.[0-9a-zA-Z._-]+)\s+", results, re.MULTILINE):
+                pkg_n = pm.group(1).lower()
+                if pkg_n not in ("package", "installed", "version"):
+                    discovered.append({
+                        "product_name": pkg_n,
+                        "vendor": "System Package",
+                        "version": pm.group(2),
+                        "package_name": pkg_n,
+                        "install_path": "/usr/bin",
+                        "port": None,
+                    })
+
+        seen_keys = set()
+        for sw_info in discovered:
+            key = (sw_info["product_name"], sw_info["version"])
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+
+            existing_sw = (
+                await db.execute(
+                    select(AssetSoftware).where(
+                        AssetSoftware.asset_id == asset_id,
+                        AssetSoftware.product_name == sw_info["product_name"],
+                    ).limit(1)
+                )
+            ).scalars().first()
+
+            if existing_sw:
+                existing_sw.version = sw_info["version"]
+                existing_sw.vendor = sw_info["vendor"]
+                existing_sw.package_name = sw_info["package_name"]
+                existing_sw.install_path = sw_info["install_path"]
+                existing_sw.port = sw_info["port"] or existing_sw.port
+                existing_sw.updated_at = now
+            else:
+                db.add(AssetSoftware(
+                    asset_id=asset_id,
+                    product_name=sw_info["product_name"],
+                    vendor=sw_info["vendor"],
+                    version=sw_info["version"],
+                    package_name=sw_info["package_name"],
+                    install_path=sw_info["install_path"],
+                    port=sw_info["port"],
+                    created_at=now,
+                    updated_at=now,
+                ))

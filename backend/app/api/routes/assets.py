@@ -1,7 +1,7 @@
 import math
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Request
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, String
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +10,7 @@ from app.api.deps import require_viewer, require_analyst_or_admin, require_admin
 from app.models.user import User
 from app.models.asset import Asset
 from app.models.detection import Detection
+from app.models.knowledge_base import KnowledgeBase
 from app.models.misp_feed import MispCveAssessment
 from app.schemas.asset import (
     AssetListItem,
@@ -34,6 +35,9 @@ async def list_assets(
     os_family: Optional[str] = Query(None, description="Filter by OS family"),
     owner_id: Optional[int] = Query(None, description="Filter by owner ID"),
     search: Optional[str] = Query(None, description="Search by Server Name, IP, FQDN, or OS"),
+    cve: Optional[str] = Query(None, description="Filter by CVE ID (e.g. CVE-2024-6387, CVE-2020-11022)"),
+    sort_by: Optional[str] = Query(None, description="Sort column (host_ip, server_name, os, owner, vulns, risk, scanned)"),
+    sort_order: Optional[str] = Query("desc", description="Sort direction (asc, desc)"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_viewer),
 ):
@@ -54,34 +58,108 @@ async def list_assets(
     if server_name:
         base_query = base_query.where(Asset.server_name.ilike(f"%{server_name}%"))
 
-    if search:
-        search_filter = f"%{search.strip()}%"
-        base_query = base_query.where(
-            or_(
-                Asset.server_name.ilike(search_filter),
-                Asset.ip_address.ilike(search_filter),
-                Asset.fqdn.ilike(search_filter),
-                Asset.os_name.ilike(search_filter),
-                Asset.netbios_name.ilike(search_filter),
-                Asset.owner_username.ilike(search_filter),
+    # Dedicated CVE Filter
+    if cve and cve.strip():
+        cve_clean = cve.strip().upper()
+        cve_pattern = f"%{cve_clean}%"
+        
+        # Qualys scanner detections with KB matching this CVE
+        kb_cve_subq = (
+            select(Detection.asset_id)
+            .distinct()
+            .join(KnowledgeBase, KnowledgeBase.qid == Detection.qid)
+            .where(
+                or_(
+                    func.cast(KnowledgeBase.cve_list, String).ilike(cve_pattern),
+                    KnowledgeBase.title.ilike(cve_pattern),
+                )
             )
         )
+        
+        # MISP proactive assessments affecting assets
+        misp_cve_q = select(MispCveAssessment).where(MispCveAssessment.cve_id.ilike(cve_pattern))
+        misp_cve_res = await db.execute(misp_cve_q)
+        misp_asset_ids = set()
+        for adv in misp_cve_res.scalars().all():
+            for a in (adv.assessment_report or {}).get("affected_assets", []):
+                aid = a.get("asset_id")
+                if aid:
+                    misp_asset_ids.add(aid)
+
+        if misp_asset_ids:
+            base_query = base_query.where(
+                or_(
+                    Asset.id.in_(kb_cve_subq),
+                    Asset.id.in_(list(misp_asset_ids)),
+                )
+            )
+        else:
+            base_query = base_query.where(Asset.id.in_(kb_cve_subq))
+
+    if search:
+        s_clean = search.strip()
+        search_filter = f"%{s_clean}%"
+        search_conditions = [
+            Asset.server_name.ilike(search_filter),
+            Asset.ip_address.ilike(search_filter),
+            Asset.fqdn.ilike(search_filter),
+            Asset.os_name.ilike(search_filter),
+            Asset.netbios_name.ilike(search_filter),
+            Asset.owner_username.ilike(search_filter),
+        ]
+
+        # If search query looks like a CVE, also match assets having that CVE
+        if "CVE" in s_clean.upper() or ("-" in s_clean and any(c.isdigit() for c in s_clean)):
+            cve_search_subq = (
+                select(Detection.asset_id)
+                .distinct()
+                .join(KnowledgeBase, KnowledgeBase.qid == Detection.qid)
+                .where(
+                    or_(
+                        func.cast(KnowledgeBase.cve_list, String).ilike(search_filter),
+                        KnowledgeBase.title.ilike(search_filter),
+                    )
+                )
+            )
+            search_conditions.append(Asset.id.in_(cve_search_subq))
+
+        base_query = base_query.where(or_(*search_conditions))
 
     # Count total
     count_query = select(func.count()).select_from(base_query.subquery())
     total_res = await db.execute(count_query)
     total = total_res.scalar() or 0
 
-    # Paginate
+    # Paginate and sort
     skip = (page - 1) * page_size
-    query = base_query.order_by(Asset.risk_score.desc(), Asset.id.asc()).offset(skip).limit(page_size)
+
+    order_col = Asset.risk_score
+    if sort_by in ("host_ip", "ip_address"):
+        order_col = Asset.ip_address
+    elif sort_by == "server_name":
+        order_col = Asset.server_name
+    elif sort_by in ("os", "os_name"):
+        order_col = Asset.os_name
+    elif sort_by in ("owner", "owner_username"):
+        order_col = Asset.owner_username
+    elif sort_by in ("vulns", "crit_vulns", "critical_vulns"):
+        order_col = Asset.critical_vulns
+    elif sort_by == "total_vulns":
+        order_col = Asset.total_vulns
+    elif sort_by in ("scanned", "last_scan_date"):
+        order_col = Asset.last_scan_date
+    elif sort_by == "risk":
+        order_col = Asset.risk_score
+
+    order_expr = order_col.asc() if (sort_order or "").lower() == "asc" else order_col.desc()
+    query = base_query.order_by(order_expr, Asset.id.asc()).offset(skip).limit(page_size)
 
     res = await db.execute(query)
     items = res.scalars().all()
     total_pages = max(1, math.ceil(total / page_size))
 
     return PaginatedAssetsResponse(
-        items=[AssetListItem.from_orm(a) for a in items],
+        items=[AssetListItem.model_validate(a) for a in items],
         total=total,
         page=page,
         page_size=page_size,

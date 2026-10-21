@@ -49,6 +49,10 @@ async def init_db_and_seed():
                 settings.MISP_URL = v
             elif k == "misp_api_key" and v:
                 settings.MISP_API_KEY = v
+            elif k == "misp_creator_org" and v:
+                settings.MISP_CREATOR_ORG = v
+            elif k == "misp_tag_filter" and v:
+                settings.MISP_TAG_FILTER = v
             elif k == "misp_feed_tag" and v:
                 settings.MISP_FEED_TAG = v
             elif k == "misp_enabled":
@@ -150,36 +154,37 @@ async def init_db_and_seed():
             if owner_user and not a.owner_id and ("appcore" in (a.server_name or "").lower() or a.ip_address in ("10.20.6.190", "10.0.1.5")):
                 a.owner_id = owner_user.id
                 a.owner_username = owner_user.username
-        # Seed baseline Asset Software inventory if empty
-        sw_res = await session.execute(select(func.count(AssetSoftware.id)))
-        sw_count = sw_res.scalar() or 0
-        if sw_count == 0 and assets_all:
-            logger.info("Seeding initial server software package inventory...")
-            sw_profiles = [
-                # Product, vendor, version, package, path, port, target IP / host criteria
-                ("openssh", "OpenBSD", "8.9p1", "openssh-server", "/usr/sbin/sshd", 22, lambda a: True),
-                ("openssl", "OpenSSL", "3.0.2", "libssl3", "/usr/lib/x86_64-linux-gnu/libssl.so.3", None, lambda a: a.os_family == "Linux"),
-                ("nginx", "F5", "1.24.0", "nginx-core", "/usr/sbin/nginx", 443, lambda a: "sit" in (a.server_name or "").lower() or a.ip_address in ("10.20.6.190", "172.16.50.8", "10.20.6.20")),
-                ("xz-utils", "Tukaani", "5.6.0", "liblzma5", "/usr/lib/x86_64-linux-gnu/liblzma.so.5", None, lambda a: a.ip_address == "10.20.6.128"),
-                ("runc", "OpenContainers", "1.1.7", "runc", "/usr/bin/runc", None, lambda a: "webhook" in (a.server_name or "").lower() or a.ip_address == "10.20.6.128"),
-                ("php", "PHP Group", "8.1.12", "php-cgi", "/usr/bin/php-cgi", 80, lambda a: a.ip_address == "10.20.6.20"),
-                ("log4j", "Apache", "2.14.1", "log4j-core", "/opt/analytics/lib/log4j-core.jar", 8080, lambda a: a.ip_address in ("10.20.6.190", "10.0.1.5")),
-                ("postgresql", "PostgreSQL", "14.5", "postgresql-14", "/usr/lib/postgresql/14/bin/postgres", 5432, lambda a: "db" in (a.server_name or "").lower()),
-            ]
-            for a in assets_all:
-                for prod, vend, ver, pkg, path, port, predicate in sw_profiles:
-                    if predicate(a):
-                        session.add(AssetSoftware(
-                            asset_id=a.id,
-                            product_name=prod,
-                            vendor=vend,
-                            version=ver,
-                            package_name=pkg,
-                            install_path=path,
-                            port=port,
-                        ))
-            await session.commit()
-            logger.info("Server software inventory populated.")
+        # Seed baseline Asset Software inventory if empty (Mock mode only)
+        if settings.QUALYS_MOCK_MODE:
+            sw_res = await session.execute(select(func.count(AssetSoftware.id)))
+            sw_count = sw_res.scalar() or 0
+            if sw_count == 0 and assets_all:
+                logger.info("Seeding initial server software package inventory for mock mode...")
+                sw_profiles = [
+                    # Product, vendor, version, package, path, port, target IP / host criteria
+                    ("openssh", "OpenBSD", "8.9p1", "openssh-server", "/usr/sbin/sshd", 22, lambda a: True),
+                    ("openssl", "OpenSSL", "3.0.2", "libssl3", "/usr/lib/x86_64-linux-gnu/libssl.so.3", None, lambda a: a.os_family == "Linux"),
+                    ("nginx", "F5", "1.24.0", "nginx-core", "/usr/sbin/nginx", 443, lambda a: "sit" in (a.server_name or "").lower() or a.ip_address in ("10.20.6.190", "172.16.50.8", "10.20.6.20")),
+                    ("xz-utils", "Tukaani", "5.6.0", "liblzma5", "/usr/lib/x86_64-linux-gnu/liblzma.so.5", None, lambda a: a.ip_address == "10.20.6.128"),
+                    ("runc", "OpenContainers", "1.1.7", "runc", "/usr/bin/runc", None, lambda a: "webhook" in (a.server_name or "").lower() or a.ip_address == "10.20.6.128"),
+                    ("php", "PHP Group", "8.1.12", "php-cgi", "/usr/bin/php-cgi", 80, lambda a: a.ip_address == "10.20.6.20"),
+                    ("log4j", "Apache", "2.14.1", "log4j-core", "/opt/analytics/lib/log4j-core.jar", 8080, lambda a: a.ip_address in ("10.20.6.190", "10.0.1.5")),
+                    ("postgresql", "PostgreSQL", "14.5", "postgresql-14", "/usr/lib/postgresql/14/bin/postgres", 5432, lambda a: "db" in (a.server_name or "").lower()),
+                ]
+                for a in assets_all:
+                    for prod, vend, ver, pkg, path, port, predicate in sw_profiles:
+                        if predicate(a):
+                            session.add(AssetSoftware(
+                                asset_id=a.id,
+                                product_name=prod,
+                                vendor=vend,
+                                version=ver,
+                                package_name=pkg,
+                                install_path=path,
+                                port=port,
+                            ))
+                await session.commit()
+                logger.info("Server software inventory populated.")
 
         # Seed initial MISP FS-ISAC assessments if empty
         misp_res = await session.execute(select(func.count(MispCveAssessment.id)))
