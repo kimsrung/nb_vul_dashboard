@@ -17,7 +17,11 @@ class SystemSettingsResponse(BaseModel):
     misp_enabled: bool
     misp_mock_mode: bool
     misp_sync_interval_hours: int
-    misp_webhook_secret: Optional[str] = None
+    misp_zmq_enabled: bool = False
+    misp_zmq_host: str = ""
+    misp_zmq_port: int = 50000
+    misp_zmq_username: Optional[str] = None
+    misp_zmq_password_masked: Optional[str] = None
 
     telegram_enabled: bool
     telegram_bot_token_masked: str
@@ -46,7 +50,11 @@ class SystemSettingsUpdate(BaseModel):
     misp_enabled: Optional[bool] = None
     misp_mock_mode: Optional[bool] = None
     misp_sync_interval_hours: Optional[int] = None
-    misp_webhook_secret: Optional[str] = None
+    misp_zmq_enabled: Optional[bool] = None
+    misp_zmq_host: Optional[str] = None
+    misp_zmq_port: Optional[int] = None
+    misp_zmq_username: Optional[str] = None
+    misp_zmq_password: Optional[str] = None
 
     telegram_enabled: Optional[bool] = None
     telegram_bot_token: Optional[str] = None
@@ -73,6 +81,11 @@ class MispTestRequest(BaseModel):
     misp_tag_filter: Optional[str] = None
     misp_feed_tag: Optional[str] = None
     misp_mock_mode: Optional[bool] = None
+    misp_zmq_enabled: Optional[bool] = None
+    misp_zmq_host: Optional[str] = None
+    misp_zmq_port: Optional[int] = None
+    misp_zmq_username: Optional[str] = None
+    misp_zmq_password: Optional[str] = None
 
 
 class TelegramTestRequest(BaseModel):

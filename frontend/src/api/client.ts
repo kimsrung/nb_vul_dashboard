@@ -215,7 +215,11 @@ export interface SystemSettings {
   misp_enabled: boolean;
   misp_mock_mode: boolean;
   misp_sync_interval_hours: number;
-  misp_webhook_secret?: string;
+  misp_zmq_enabled?: boolean;
+  misp_zmq_host?: string;
+  misp_zmq_port?: number;
+  misp_zmq_username?: string;
+  misp_zmq_password_masked?: string;
   telegram_enabled: boolean;
   telegram_bot_token_masked: string;
   telegram_chat_id: string;

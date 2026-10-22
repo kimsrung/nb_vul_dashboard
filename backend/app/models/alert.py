@@ -17,9 +17,9 @@ class Alert(Base):
     
     is_resolved = Column(Boolean, default=False, nullable=False, index=True)
     dispatched_to_telegram = Column(Boolean, default=False, nullable=False)
-    telegram_sent_at = Column(DateTime, nullable=True)
+    telegram_sent_at = Column(DateTime(timezone=True), nullable=True)
     
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    resolved_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
 
     asset = relationship("Asset", back_populates="alerts")

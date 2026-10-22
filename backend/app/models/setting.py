@@ -9,4 +9,4 @@ class SystemSetting(Base):
     key = Column(String(100), primary_key=True, index=True)
     value = Column(Text, nullable=False)
     description = Column(String(255), nullable=True)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)

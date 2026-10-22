@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Bell, CheckCircle2, Send, RefreshCw, ShieldAlert,
   Search, Server, Zap, Calendar, Terminal,
-  Check, Copy, AlertTriangle, ExternalLink,
+  Check, Copy, AlertTriangle, AlertCircle, ExternalLink,
   ArrowUpDown, ArrowUp, ArrowDown, X, CheckCircle
 } from 'lucide-react';
 import { AlertItem, PaginatedAlertsResponse, apiClient } from '../api/client';
@@ -46,6 +46,7 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
   // Sync state
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+  const [isSyncError, setIsSyncError] = useState<boolean>(false);
 
   // Slide-over detail drawer state
   const [selectedAlertId, setSelectedAlertId] = useState<number | null>(null);
@@ -113,13 +114,16 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
 
   const handleSyncMisp = async () => {
     setIsSyncing(true);
-    setSyncFeedback('Querying MISP for new FS-ISAC CVE advisories...');
+    setIsSyncError(false);
+    setSyncFeedback('Querying MISP for new FS-ISAC CVE advisories & evaluating host matches...');
     try {
       const res = await apiClient.post('/alerts/sync');
-      setSyncFeedback(res.data.message || 'Sync completed.');
+      setIsSyncError(false);
+      setSyncFeedback(res.data.message || 'MISP threat feed sync completed successfully.');
       fetchAlerts();
       setTimeout(() => setSyncFeedback(null), 6000);
     } catch (err: any) {
+      setIsSyncError(true);
       setSyncFeedback(err.response?.data?.detail || 'Failed to sync with MISP');
       setTimeout(() => setSyncFeedback(null), 6000);
     } finally {
@@ -190,7 +194,7 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-              <Bell className="w-5 h-5 text-red-400" /> Alert Center — FS-ISAC Threat Alerts
+              <Bell className="w-5 h-5 text-red-400" /> Threat Alert Center
             </h2>
             {isOwner && (
               <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-sky-950 text-sky-400 border border-sky-800">
@@ -204,18 +208,6 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
         </div>
 
         <div className="flex items-center gap-2 self-start">
-          {canManage && (
-            <button
-              onClick={handleSyncMisp}
-              disabled={isSyncing}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white transition-colors disabled:opacity-50 shadow-xs cursor-pointer"
-              title="Poll MISP for newly published FS-ISAC CVE advisories"
-            >
-              <Zap className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-              <span>{isSyncing ? 'Syncing...' : 'Sync FS-ISAC & Assess'}</span>
-            </button>
-          )}
-
           <button
             onClick={() => fetchAlerts()}
             disabled={isLoading}
@@ -224,14 +216,44 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
             <RefreshCw className={`w-3.5 h-3.5 text-sky-400 ${isLoading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
+
+          {canManage && (
+            <button
+              onClick={handleSyncMisp}
+              disabled={isSyncing}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-xs font-bold text-white transition-all disabled:opacity-50 shadow-md shadow-sky-600/20 cursor-pointer"
+              title="Query MISP for new FS-ISAC CVE advisories & evaluate against host software"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+              <span>{isSyncing ? 'Syncing...' : 'Sync Feed'}</span>
+            </button>
+          )}
         </div>
       </div>
 
       {/* Sync Feedback Banner */}
       {syncFeedback && (
-        <div className="p-3 rounded-lg bg-indigo-950/60 border border-indigo-800 text-xs text-indigo-300 flex items-center gap-2 animate-in fade-in">
-          <Zap className="w-4 h-4 text-indigo-400 shrink-0" />
-          <span>{syncFeedback}</span>
+        <div
+          className={`p-3 rounded-lg border text-xs flex items-center justify-between animate-in fade-in duration-200 ${
+            isSyncError
+              ? 'bg-red-950/60 text-red-300 border-red-800/80'
+              : 'bg-sky-950/60 text-sky-300 border-sky-800/80'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {isSyncError ? (
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 text-sky-400 shrink-0" />
+            )}
+            <span>{syncFeedback}</span>
+          </div>
+          <button
+            onClick={() => setSyncFeedback(null)}
+            className="text-slate-400 hover:text-slate-200 p-0.5 rounded cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 

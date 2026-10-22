@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Users, UserPlus, Edit2, Trash2, CheckCircle2, 
-  X, AlertCircle, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown 
+import {
+  Users, UserPlus, Edit2, Trash2, CheckCircle2,
+  X, AlertCircle, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { UserItem, UserRole, apiClient } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -210,14 +210,6 @@ export const UsersPage: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={fetchUsers}
-            disabled={isLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 text-sky-400 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
           <button
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-500 text-xs font-bold text-white shadow-md shadow-primary-600/20"

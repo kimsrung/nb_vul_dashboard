@@ -56,12 +56,21 @@ class MispClient:
                 if resp.status_code == 200:
                     data = resp.json()
                     ver = data.get("version", "Unknown")
+                    zmq_info = "Disabled"
+                    if settings.MISP_ZMQ_ENABLED and settings.MISP_ZMQ_HOST:
+                        import socket
+                        try:
+                            s = socket.create_connection((settings.MISP_ZMQ_HOST, settings.MISP_ZMQ_PORT), timeout=2.0)
+                            s.close()
+                            zmq_info = f"Active (tcp://{settings.MISP_ZMQ_HOST}:{settings.MISP_ZMQ_PORT})"
+                        except Exception:
+                            zmq_info = f"Port {settings.MISP_ZMQ_PORT} Refused/Closed"
                     return {
                         "success": True,
                         "mode": "live",
                         "message": (
                             f"Successfully connected to live MISP server (v{ver}). "
-                            f"Creator Org: '{self.creator_org}', Tag Filter: '{self.tag_filter}'."
+                            f"ZeroMQ Watcher: {zmq_info}. Creator Org: '{self.creator_org}'."
                         ),
                     }
                 else:
@@ -98,7 +107,7 @@ class MispClient:
                 "message": f"Connection error reaching {self.base_url}: {str(exc)}",
             }
 
-    async def fetch_fs_isac_events(self, limit: int = 100) -> List[Dict[str, Any]]:
+    async def fetch_fs_isac_events(self, limit: int = 1000) -> List[Dict[str, Any]]:
         """Fetch threat intelligence advisories from MISP using /events/restSearch filtered by Creator Org & CVE tags."""
         if self.mock_mode:
             logger.info("Using MISP Mock FS-ISAC Threat Intelligence Feed")
@@ -111,9 +120,9 @@ class MispClient:
             "Content-Type": "application/json",
         }
         
-        # Server-side query with Creator Org (orgc) and vulnerability tags
+        # Server-side query with Creator Org (org) and vulnerability tags
         payload: Dict[str, Any] = {
-            "orgc": self.creator_org,
+            "org": self.creator_org,
             "enforceWarninglist": True,
             "limit": limit,
             "quickFilter": "CVE",
@@ -134,71 +143,102 @@ class MispClient:
 
     def _parse_misp_events(self, raw_events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Normalize MISP event objects into standard FS-ISAC advisory records.
-        Strictly enforces:
-        1. Creator Org (Event.Orgc.name) matches configured creator org (default: FS-ISAC)
-        2. Event tags contain vulnerability:CVE**** (extracts distinct CVE IDs)
+        Applies flexible FS-ISAC matching and comprehensive CVE extraction:
+        1. Source Org / Creator Org / Tag / Title matches FS-ISAC
+        2. CVEs extracted from tags, attributes, direct field, and title/description
         """
         parsed_advisories: List[Dict[str, Any]] = []
-        cve_tag_pattern = re.compile(r"^vulnerability:(cve-\d{4}-\d{4,})$", re.IGNORECASE)
 
         for item in raw_events:
             ev = item.get("Event", item)
             
-            # Condition 1: Enforce Creator Org (Orgc)
+            # Condition 1: Enforce Creator Org (Orgc) / Source flexibility
             orgc = ev.get("Orgc", {})
             orgc_name = orgc.get("name", "") if isinstance(orgc, dict) else str(orgc)
-            if not self.mock_mode:
-                if not (self.creator_org.lower() in orgc_name.lower()):
-                    logger.debug(f"Skipping MISP event {ev.get('id')}: Creator Org '{orgc_name}' does not match '{self.creator_org}'")
-                    continue
-
-            # Condition 2: Extract CVEs from tags matching vulnerability:CVE****
+            org = ev.get("Org", {})
+            org_name = org.get("name", "") if isinstance(org, dict) else str(org)
+            
             raw_tags = ev.get("Tag", [])
             tag_names = [t.get("name", "") if isinstance(t, dict) else str(t) for t in raw_tags]
+            title = ev.get("title") or ev.get("info", "")
+            desc = ev.get("description", "")
             
+            if not self.mock_mode and self.creator_org and self.creator_org != "*":
+                target_org = self.creator_org.lower()
+                matches_org = (
+                    target_org in orgc_name.lower()
+                    or target_org in org_name.lower()
+                    or target_org in title.lower()
+                    or target_org in desc.lower()
+                    or any(target_org in t.lower() for t in tag_names)
+                )
+                if not matches_org:
+                    logger.debug(f"Skipping MISP event {ev.get('id')}: Source does not match '{self.creator_org}'")
+                    continue
+
+            # Condition 2: Extract distinct CVE IDs from tags, attributes, direct field, and text
             cve_ids: List[str] = []
+            
+            # A. Check tags: vulnerability:CVE-**** and direct CVE-**** tags
             for t_name in tag_names:
-                m = cve_tag_pattern.match(t_name.strip())
-                if m:
-                    cid = m.group(1).upper()
+                for match in re.findall(r"\b(CVE-\d{4}-\d{4,})\b", t_name, re.IGNORECASE):
+                    cid = match.upper()
+                    if cid not in cve_ids:
+                        cve_ids.append(cid)
+            
+            # B. Check direct cve_id field
+            direct_cve = ev.get("cve_id")
+            if direct_cve:
+                for match in re.findall(r"\b(CVE-\d{4}-\d{4,})\b", str(direct_cve), re.IGNORECASE):
+                    cid = match.upper()
                     if cid not in cve_ids:
                         cve_ids.append(cid)
 
-            # Fallback for mock mode or events with attributes if no tag regex matched
-            if not cve_ids:
-                direct_cve = ev.get("cve_id")
-                if direct_cve and direct_cve.upper().startswith("CVE-"):
-                    cve_ids.append(direct_cve.upper().strip())
-                else:
-                    for attr in ev.get("Attribute", []):
-                        val = str(attr.get("value", "")).strip().upper()
-                        if val.startswith("CVE-") and val not in cve_ids:
-                            cve_ids.append(val)
-                            break
+            # C. Check attributes (values and comments)
+            for attr in ev.get("Attribute", []):
+                val = str(attr.get("value", "")).strip()
+                comment = str(attr.get("comment", "")).strip()
+                for text_to_check in (val, comment):
+                    for match in re.findall(r"\b(CVE-\d{4}-\d{4,})\b", text_to_check, re.IGNORECASE):
+                        cid = match.upper()
+                        if cid not in cve_ids:
+                            cve_ids.append(cid)
 
-            # If no CVE was identified or tags lacked vulnerability:CVE*, skip event
+            # D. Check title/info and description text
+            for match in re.findall(r"\b(CVE-\d{4}-\d{4,})\b", f"{title} {desc}", re.IGNORECASE):
+                cid = match.upper()
+                if cid not in cve_ids:
+                    cve_ids.append(cid)
+
+            # If no CVE was identified, skip event
             if not cve_ids:
-                logger.debug(f"Skipping MISP event {ev.get('id')}: No matching vulnerability:CVE tags found")
+                logger.debug(f"Skipping MISP event {ev.get('id')}: No matching CVEs found")
                 continue
 
             # Extract advisory metadata
-            title = ev.get("title") or ev.get("info", f"FS-ISAC Advisory for {cve_ids[0]}")
-            desc = ev.get("description", "")
             if not desc and ev.get("Attribute"):
                 for attr in ev.get("Attribute", []):
                     if attr.get("type") in ("text", "comment"):
                         desc = attr.get("value", "")
                         break
+            if not title:
+                title = f"FS-ISAC Advisory for {cve_ids[0]}"
 
             product = ev.get("affected_product")
-            if not product or product.lower() == "software":
+            if not product or product.lower() in ("software", "unknown", "n/a"):
                 full_text = f"{title} {desc} {' '.join(tag_names)}".lower()
                 for candidate in [
-                    "log4j", "log4shell", "openssh", "openssl", "nginx", "apache",
-                    "php", "postgresql", "mysql", "oracle", "cisco", "fortios",
-                    "exchange", "sharepoint", "confluence", "netscaler", "sonicos",
-                    "winrar", "windows", "microsoft", "esxi", "vmware", "screenconnect", "citrix",
-                    "solaris", "aix", "linux", "kernel", "sudo", "curl", "bind", "check point"
+                    "openssh", "openssl", "nginx", "apache", "httpd",
+                    "php", "postgresql", "postgres", "mysql", "mariadb",
+                    "oracle", "weblogic", "tomcat", "cisco", "fortios", "fortinet",
+                    "exchange", "sharepoint", "confluence", "jira", "netscaler", "citrix",
+                    "sonicos", "sonicwall", "winrar", "windows", "microsoft",
+                    "esxi", "vmware", "vcenter", "screenconnect", "connectwise",
+                    "solaris", "aix", "linux", "kernel", "sudo", "curl", "bind",
+                    "dnsmasq", "check point", "checkpoint", "ivanti", "pulse secure",
+                    "palo alto", "pan-os", "f5", "big-ip", "log4j", "log4shell",
+                    "xz", "xz-utils", "runc", "docker", "kubernetes", "k8s",
+                    "gitlab", "jenkins", "spring", "struts"
                 ]:
                     if candidate in full_text:
                         product = candidate

@@ -55,6 +55,16 @@ async def process_misp_zmq_payload(topic: str, payload_str: str):
             events_to_evaluate = [raw_data["event"]]
         elif "data" in raw_data and isinstance(raw_data["data"], dict) and "Event" in raw_data["data"]:
             events_to_evaluate = [raw_data["data"]]
+        elif "Attribute" in raw_data:
+            attr = raw_data["Attribute"]
+            events_to_evaluate = [{
+                "Event": {
+                    "id": str(attr.get("event_id", "")),
+                    "info": f"MISP Live Attribute {attr.get('type')}: {attr.get('value')}",
+                    "Attribute": [attr],
+                    "Tag": attr.get("Tag", []),
+                }
+            }]
         else:
             events_to_evaluate = [raw_data]
 
@@ -72,10 +82,11 @@ async def process_misp_zmq_payload(topic: str, payload_str: str):
             cve_id = adv.get("cve_id")
             logger.info(f"🔍 Evaluating FS-ISAC advisory {cve_id} against server inventory...")
             record = await ProactiveAssessmentEngine.assess_cve(session, adv)
-            if record.affected_assets_count > 0:
+            affected_count = record.affected_assets_count
+            if affected_count > 0:
                 alerts_created += 1
                 logger.warning(
-                    f"🚨 [MISP ZMQ Alert Generated] {cve_id} matched {record.affected_assets_count} server(s) in inventory! "
+                    f"🚨 [MISP ZMQ Alert Generated] {cve_id} matched {affected_count} server(s) in inventory! "
                     f"Type: {record.match_type}"
                 )
                 if (
@@ -90,24 +101,53 @@ async def process_misp_zmq_payload(topic: str, payload_str: str):
                     except Exception as te:
                         logger.error(f"Telegram dispatch failed: {te}")
 
-        if alerts_created > 0:
+            # Record audit log for EVERY event triggered from MISP (whether matched or clean)
+            status_desc = f"{affected_count} server(s) affected" if affected_count > 0 else "0 servers affected (Clean)"
             await AuditService.log_event(
                 db=session,
-                action="MISP_ZMQ_FEED_RECEIVED",
-                target_type="MISP_Feed",
-                target_id=str(parsed_advisories[0].get("cve_id", "ZMQ")),
-                target_name=f"FS-ISAC ZMQ Stream ({len(parsed_advisories)} advisories, {alerts_created} matching alerts)",
+                action="MISP_EVENT_TRIGGERED",
+                target_type="MISP_Advisory",
+                target_id=str(cve_id),
+                target_name=f"{cve_id} ({adv.get('affected_product', 'software')}) — {status_desc}",
                 details={
-                    "advisories_count": len(parsed_advisories),
-                    "alerts_created": alerts_created,
-                    "cves": [a.get("cve_id") for a in parsed_advisories[:10]],
+                    "cve_id": cve_id,
+                    "title": adv.get("title") or record.title,
+                    "affected_product": adv.get("affected_product"),
+                    "vulnerable_versions": adv.get("vulnerable_versions"),
+                    "severity": record.severity,
+                    "cvss_score": record.cvss_score,
+                    "affected_assets_count": affected_count,
+                    "match_type": record.match_type,
+                    "matched_in_inventory": affected_count > 0,
+                    "source": "ZeroMQ Stream",
+                    "misp_event_id": adv.get("misp_event_id"),
                 },
             )
+
+        # Bulk stream log summary
+        await AuditService.log_event(
+            db=session,
+            action="MISP_ZMQ_FEED_RECEIVED",
+            target_type="MISP_Feed",
+            target_id=str(parsed_advisories[0].get("cve_id", "ZMQ")),
+            target_name=f"FS-ISAC ZMQ Stream ({len(parsed_advisories)} advisories, {alerts_created} matching alerts)",
+            details={
+                "advisories_count": len(parsed_advisories),
+                "alerts_created": alerts_created,
+                "cves": [a.get("cve_id") for a in parsed_advisories[:10]],
+            },
+        )
         await session.commit()
 
 
-async def zmq_subscriber_loop(host: str, port: int, topics: Optional[List[str]] = None):
-    """Asynchronous ZeroMQ listener with automatic reconnect."""
+async def zmq_subscriber_loop(
+    host: str,
+    port: int,
+    topics: Optional[List[str]] = None,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
+):
+    """Asynchronous ZeroMQ listener with automatic reconnect, PLAIN auth, and robust multi-frame support."""
     try:
         import zmq.asyncio
     except ImportError:
@@ -115,37 +155,64 @@ async def zmq_subscriber_loop(host: str, port: int, topics: Optional[List[str]] 
         return
 
     if not topics:
-        topics = ["misp_json_event", "misp_json"]
+        topics = ["misp_json_event", "misp_json", "misp_json_attribute"]
+
+    user = username if username is not None else settings.MISP_ZMQ_USERNAME
+    pwd = password if password is not None else settings.MISP_ZMQ_PASSWORD
 
     target_addr = f"tcp://{host}:{port}"
-    logger.info(f"Connecting to MISP ZeroMQ at {target_addr} on topics {topics}...")
+    auth_desc = f"with user '{user}'" if user else "unauthenticated"
+    logger.info(f"Connecting to MISP ZeroMQ at {target_addr} ({auth_desc}) on topics {topics}...")
 
+    retry_delay = 5
     while not _stop_event.is_set():
         ctx = zmq.asyncio.Context()
         sock = ctx.socket(zmq.SUB)
+        # Set receive timeout and linger
+        sock.setsockopt(zmq.LINGER, 0)
+        sock.setsockopt(zmq.RCVTIMEO, 2000)
+
+        # Configure ZeroMQ PLAIN authentication if credentials are provided
+        if user and pwd:
+            sock.setsockopt_string(zmq.PLAIN_USERNAME, user)
+            sock.setsockopt_string(zmq.PLAIN_PASSWORD, pwd)
+
         try:
             sock.connect(target_addr)
             for t in topics:
                 sock.setsockopt_string(zmq.SUBSCRIBE, t)
             logger.info(f"Connected to MISP ZeroMQ at {target_addr}. Real-time feed subscription ACTIVE.")
+            retry_delay = 5  # Reset delay on successful connection
 
             while not _stop_event.is_set():
                 try:
-                    # Non-blocking receive with timeout so loop can check _stop_event
                     if await sock.poll(timeout=1000):
-                        msg = await sock.recv_string()
-                        parts = msg.split(" ", 1)
-                        if len(parts) >= 2:
-                            topic, payload = parts[0], parts[1]
-                            await process_misp_zmq_payload(topic, payload)
+                        frames = await sock.recv_multipart()
+                        if not frames:
+                            continue
+                        if len(frames) == 1:
+                            raw_str = frames[0].decode("utf-8", errors="replace")
+                            parts = raw_str.split(" ", 1)
+                            if len(parts) >= 2:
+                                topic, payload = parts[0], parts[1]
+                            else:
+                                topic, payload = "misp_json_event", raw_str
+                        else:
+                            topic = frames[0].decode("utf-8", errors="replace").strip()
+                            payload = frames[1].decode("utf-8", errors="replace")
+
+                        await process_misp_zmq_payload(topic, payload)
+                except zmq.Again:
+                    continue
                 except asyncio.CancelledError:
                     break
                 except Exception as ex:
                     logger.error(f"Error reading from MISP ZMQ stream: {ex}")
                     break
         except Exception as conn_err:
-            logger.error(f"Failed to connect to MISP ZeroMQ ({conn_err}). Retrying in 10s...")
-            await asyncio.sleep(10)
+            logger.warning(f"MISP ZeroMQ connection at {target_addr} unavailable ({conn_err}). Retrying in {retry_delay}s...")
+            await asyncio.sleep(retry_delay)
+            retry_delay = min(retry_delay * 2, 60)
         finally:
             try:
                 sock.close()
@@ -154,12 +221,20 @@ async def zmq_subscriber_loop(host: str, port: int, topics: Optional[List[str]] 
                 pass
 
 
-def start_misp_zmq_task(host: str, port: int, topics: Optional[List[str]] = None):
+def start_misp_zmq_task(
+    host: str,
+    port: int,
+    topics: Optional[List[str]] = None,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
+):
     """Start the ZeroMQ subscriber loop as an asyncio background task."""
     global _subscriber_task, _stop_event
     _stop_event.clear()
     loop = asyncio.get_event_loop()
-    _subscriber_task = loop.create_task(zmq_subscriber_loop(host, port, topics))
+    _subscriber_task = loop.create_task(
+        zmq_subscriber_loop(host, port, topics, username, password)
+    )
     return _subscriber_task
 
 
@@ -176,12 +251,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="MISP ZeroMQ Live Feed Subscriber")
     parser.add_argument("--host", default="127.0.0.1", help="MISP ZeroMQ Server Host (Default: 127.0.0.1)")
     parser.add_argument("--port", type=int, default=50000, help="MISP ZeroMQ Port (Default: 50000)")
+    parser.add_argument("--username", default=None, help="MISP ZeroMQ PLAIN Username")
+    parser.add_argument("--password", default=None, help="MISP ZeroMQ PLAIN Password")
     parser.add_argument("--topic", action="append", help="ZeroMQ Topic(s) (Defaults to misp_json_event and misp_json)")
     args = parser.parse_args()
 
-    topics = args.topic or ["misp_json_event", "misp_json"]
-    print(f"Starting MISP ZeroMQ Subscriber on tcp://{args.host}:{args.port}...")
+    topics = args.topic or ["misp_json_event", "misp_json", "misp_json_attribute"]
+    auth_str = f"with user '{args.username}'" if args.username else "unauthenticated"
+    print(f"Starting MISP ZeroMQ Subscriber on tcp://{args.host}:{args.port} ({auth_str})...")
     try:
-        asyncio.run(zmq_subscriber_loop(args.host, args.port, topics))
+        asyncio.run(zmq_subscriber_loop(args.host, args.port, topics, args.username, args.password))
     except KeyboardInterrupt:
         print("\nMISP ZeroMQ subscriber stopped by user.")

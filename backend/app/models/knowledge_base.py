@@ -23,7 +23,7 @@ class KnowledgeBase(Base):
     cve_list = Column(JSON, nullable=True)  # List of CVE strings e.g. ["CVE-2023-1234"]
     threat_intel_flags = Column(JSON, nullable=True)  # RTI flags: {"exploit_public": bool, "ransomware": bool, etc.}
     
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     detections = relationship("Detection", back_populates="knowledge_base")

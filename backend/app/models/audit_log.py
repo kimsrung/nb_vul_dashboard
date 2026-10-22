@@ -19,4 +19,4 @@ class AuditLog(Base):
     
     details = Column(JSON, default=dict, nullable=False)  # Snapshot / metadata
     
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True)

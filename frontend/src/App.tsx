@@ -70,7 +70,7 @@ const MainApp: React.FC = () => {
         <main className="flex-1 h-full overflow-y-auto">
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<DashboardPage summary={summary} isLoading={isLoadingSummary} />} />
+            <Route path="/dashboard" element={<DashboardPage summary={summary} isLoading={isLoadingSummary} onRefreshSummary={fetchSummary} />} />
             <Route path="/assets" element={<AssetsPage />} />
             <Route path="/assets/:id" element={<AssetDetailPage />} />
             <Route path="/alerts" element={<AlertsPage />} />

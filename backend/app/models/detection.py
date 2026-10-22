@@ -15,8 +15,8 @@ class Detection(Base):
     severity = Column(Integer, default=1, nullable=False, index=True)
     status = Column(String(50), default="Active", nullable=False, index=True)  # "Active" | "New" | "Re-Opened" | "Fixed"
     
-    first_found_date = Column(DateTime, nullable=True)
-    last_found_date = Column(DateTime, nullable=True)
+    first_found_date = Column(DateTime(timezone=True), nullable=True)
+    last_found_date = Column(DateTime(timezone=True), nullable=True)
     times_found = Column(Integer, default=1, nullable=False)
     
     port = Column(Integer, nullable=True)
@@ -28,8 +28,8 @@ class Detection(Base):
     remediation_notes = Column(Text, nullable=True)
     updated_by = Column(String(100), nullable=True)
 
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     asset = relationship("Asset", back_populates="detections")
     knowledge_base = relationship("KnowledgeBase", back_populates="detections")

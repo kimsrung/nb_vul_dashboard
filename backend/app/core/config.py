@@ -59,10 +59,11 @@ class Settings(BaseSettings):
     MISP_ENABLED: bool = True
     MISP_MOCK_MODE: bool = False  # Disabled by default; connects to live MISP server
     MISP_SYNC_INTERVAL_HOURS: int = 2
-    MISP_WEBHOOK_SECRET: str = ""
     MISP_ZMQ_ENABLED: bool = False
     MISP_ZMQ_HOST: str = ""
     MISP_ZMQ_PORT: int = 50000
+    MISP_ZMQ_USERNAME: str = ""
+    MISP_ZMQ_PASSWORD: str = ""
 
     # Risk Scoring Configuration
     RISK_THRESHOLD_CRITICAL: int = 80

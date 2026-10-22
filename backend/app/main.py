@@ -71,8 +71,16 @@ async def init_db_and_seed():
                 settings.MISP_MOCK_MODE = v.lower() in ("true", "1")
             elif k == "misp_sync_interval_hours" and v.isdigit():
                 settings.MISP_SYNC_INTERVAL_HOURS = int(v)
-            elif k == "misp_webhook_secret" and v:
-                settings.MISP_WEBHOOK_SECRET = v
+            elif k == "misp_zmq_enabled":
+                settings.MISP_ZMQ_ENABLED = v.lower() in ("true", "1")
+            elif k == "misp_zmq_host" and v:
+                settings.MISP_ZMQ_HOST = v
+            elif k == "misp_zmq_port" and v.isdigit():
+                settings.MISP_ZMQ_PORT = int(v)
+            elif k == "misp_zmq_username":
+                settings.MISP_ZMQ_USERNAME = v
+            elif k == "misp_zmq_password":
+                settings.MISP_ZMQ_PASSWORD = v
             elif k == "telegram_enabled":
                 settings.TELEGRAM_ENABLED = v.lower() in ("true", "1")
             elif k == "telegram_bot_token" and v:
@@ -222,7 +230,12 @@ async def lifespan(app: FastAPI):
     start_scheduler()
     if settings.MISP_ZMQ_ENABLED and settings.MISP_ZMQ_HOST:
         from app.services.misp_zmq_subscriber import start_misp_zmq_task
-        start_misp_zmq_task(settings.MISP_ZMQ_HOST, settings.MISP_ZMQ_PORT)
+        start_misp_zmq_task(
+            settings.MISP_ZMQ_HOST,
+            settings.MISP_ZMQ_PORT,
+            username=settings.MISP_ZMQ_USERNAME,
+            password=settings.MISP_ZMQ_PASSWORD,
+        )
     yield
     # Shutdown
     logger.info("Shutting down backend...")

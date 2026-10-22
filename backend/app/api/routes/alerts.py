@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.api.deps import require_viewer, require_analyst_or_admin
+import json
+from app.api.deps import require_viewer, require_analyst_or_admin, require_admin
 from app.models.user import User
 from app.models.asset import Asset
 from app.models.misp_feed import MispCveAssessment
@@ -405,84 +406,20 @@ async def sync_misp_and_assess(
     }
 
 
-@router.post("/misp-push")
-async def misp_push_webhook(
+@router.post("/simulate-event")
+async def simulate_threat_event(
     request: Request,
-    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
 ):
-    """Webhook endpoint for MISP to push newly published CVE advisories in real-time."""
-    if settings.MISP_WEBHOOK_SECRET:
-        token = request.headers.get("X-MISP-Token") or request.headers.get("X-Webhook-Secret")
-        auth_hdr = request.headers.get("Authorization", "")
-        if auth_hdr.startswith("Bearer "):
-            token = auth_hdr.split("Bearer ")[1].strip()
-        if token != settings.MISP_WEBHOOK_SECRET:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Unauthorized: Invalid or missing MISP webhook secret token"
-            )
-
+    """Simulate a real-time ZeroMQ threat event from MISP and evaluate against inventory."""
     try:
         body = await request.json()
     except Exception:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON body")
 
-    raw_events = []
-    if isinstance(body, list):
-        raw_events = body
-    elif isinstance(body, dict):
-        if "response" in body:
-            raw_events = body["response"]
-        elif "Event" in body:
-            raw_events = [body]
-        else:
-            raw_events = [body]
-
-    client = MispClient()
-    parsed_advisories = client._parse_misp_events(raw_events)
-    if not parsed_advisories:
-        return {
-            "success": True,
-            "message": "Payload received but did not match FS-ISAC Creator Org or vulnerability:CVE tags.",
-            "alerts_created": 0,
-        }
-
-    alerts_created = 0
-    for adv in parsed_advisories:
-        record = await ProactiveAssessmentEngine.assess_cve(db, adv)
-        if record.affected_assets_count > 0:
-            alerts_created += 1
-            if (
-                settings.TELEGRAM_ENABLED
-                and (record.severity or "").upper() in ("CRITICAL", "HIGH")
-                and not record.dispatched_telegram
-            ):
-                try:
-                    tg_text = TelegramService.format_misp_assessment_alert(record)
-                    await TelegramService.send_message(tg_text)
-                    record.dispatched_telegram = True
-                except Exception as e:
-                    logger.error(f"Telegram dispatch failed: {e}")
-
-    # Record event in audit history
-    await AuditService.log_event(
-        db=db,
-        action="MISP_FEED_PUSH_RECEIVED",
-        target_type="MISP_Feed",
-        target_id=str(parsed_advisories[0].get("cve_id", "BULK")),
-        target_name=f"FS-ISAC Push ({len(parsed_advisories)} advisories, {alerts_created} matching alerts)",
-        request=request,
-        details={
-            "advisories_count": len(parsed_advisories),
-            "alerts_created": alerts_created,
-            "cves": [a.get("cve_id") for a in parsed_advisories[:10]],
-        },
-    )
-
-    await db.commit()
-
+    from app.services.misp_zmq_subscriber import process_misp_zmq_payload
+    await process_misp_zmq_payload("misp_json_event", json.dumps(body))
     return {
         "success": True,
-        "message": f"Processed {len(parsed_advisories)} advisories from push webhook. {alerts_created} matching alert(s) logged in Alert Center.",
-        "alerts_created": alerts_created,
+        "message": "ZeroMQ threat event processed and verified against asset inventory!",
     }

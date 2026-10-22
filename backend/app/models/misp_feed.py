@@ -51,9 +51,9 @@ class MispCveAssessment(Base):
     assessment_report = Column(JSON, default=dict, nullable=False)
 
     dispatched_telegram = Column(Boolean, default=False, nullable=False)
-    telegram_sent_at = Column(DateTime, nullable=True)
+    telegram_sent_at = Column(DateTime(timezone=True), nullable=True)
 
     status = Column(String(30), default="Pending", nullable=False)  # "Pending", "Acknowledged", "Remediated", "False_Positive"
 
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)

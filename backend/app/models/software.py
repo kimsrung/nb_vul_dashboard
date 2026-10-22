@@ -18,7 +18,7 @@ class AssetSoftware(Base):
     port = Column(Integer, nullable=True)  # e.g., 22, 80, 443, 8080
     cpe = Column(String(255), nullable=True)  # e.g., "cpe:/a:openbsd:openssh:8.9p1"
 
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     asset = relationship("Asset", back_populates="software_items")

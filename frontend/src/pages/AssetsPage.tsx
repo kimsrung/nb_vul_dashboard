@@ -239,7 +239,7 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
             )}
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Qualys scanned assets with automated risk scoring, ownership auditing, and step-by-step KB remediation.
+            Qualys scanned assets with automated risk scoring, ownership auditing, and step-by-step Knowledge Based(KB) remediation.
           </p>
         </div>
         <div className="flex items-center gap-2 self-start relative">
@@ -249,7 +249,7 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
               fetchOwners();
             }}
             disabled={isLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition-colors cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 text-sky-400 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
@@ -259,7 +259,7 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
               <button
                 onClick={() => handleSyncNow('delta')}
                 disabled={isSyncing}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-l-lg bg-sky-600 hover:bg-sky-500 text-xs font-bold text-white transition-all disabled:opacity-50 border-r border-sky-700/60"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-l-lg bg-sky-600 hover:bg-sky-500 text-xs font-bold text-white transition-all disabled:opacity-50 border-r border-sky-700/60 cursor-pointer"
                 title="Trigger fast incremental Qualys delta sync (updated detections only)"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
@@ -268,7 +268,7 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
               <button
                 onClick={() => setIsSyncMenuOpen((prev) => !prev)}
                 disabled={isSyncing}
-                className="px-1.5 py-1.5 rounded-r-lg bg-sky-600 hover:bg-sky-500 text-white transition-all disabled:opacity-50"
+                className="px-1.5 py-1.5 rounded-r-lg bg-sky-600 hover:bg-sky-500 text-white transition-all disabled:opacity-50 cursor-pointer"
                 title="Choose Qualys Sync Mode"
               >
                 <ChevronDown className="w-3.5 h-3.5" />
@@ -278,7 +278,7 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
                 <div className="absolute right-0 top-full mt-1.5 w-60 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl py-1 z-50 animate-in fade-in zoom-in-95 duration-150">
                   <button
                     onClick={() => handleSyncNow('delta')}
-                    className="w-full text-left px-3.5 py-2 hover:bg-slate-800/80 transition-colors flex flex-col gap-0.5 border-b border-slate-800"
+                    className="w-full text-left px-3.5 py-2 hover:bg-slate-800/80 transition-colors flex flex-col gap-0.5 border-b border-slate-800 cursor-pointer"
                   >
                     <span className="text-xs font-bold text-sky-300 flex items-center justify-between">
                       Smart Delta Sync
@@ -290,7 +290,7 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
                   </button>
                   <button
                     onClick={() => handleSyncNow('full')}
-                    className="w-full text-left px-3.5 py-2 hover:bg-slate-800/80 transition-colors flex flex-col gap-0.5"
+                    className="w-full text-left px-3.5 py-2 hover:bg-slate-800/80 transition-colors flex flex-col gap-0.5 cursor-pointer"
                   >
                     <span className="text-xs font-bold text-amber-300 flex items-center justify-between">
                       Full Reconciliation Sync

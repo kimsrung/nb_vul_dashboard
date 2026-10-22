@@ -1,6 +1,6 @@
 import logging
 from typing import Dict, List, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import defusedxml.ElementTree as ET
 import httpx
 
@@ -387,14 +387,21 @@ class QualysApiClient:
             elif ip_address:
                 server_name = ip_address
 
+            # Helper to parse ISO strings into timezone-aware UTC datetime
+            def parse_dt(dt_s: Optional[str]) -> Optional[datetime]:
+                if not dt_s or not dt_s.strip():
+                    return None
+                try:
+                    dt = datetime.fromisoformat(dt_s.strip().replace("Z", "+00:00"))
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                    return dt
+                except Exception:
+                    return None
+
             # Last scan datetime
             scan_dt_str = host_el.findtext("LAST_SCAN_DATETIME")
-            last_scan_date = None
-            if scan_dt_str:
-                try:
-                    last_scan_date = datetime.fromisoformat(scan_dt_str.replace("Z", "+00:00"))
-                except Exception:
-                    pass
+            last_scan_date = parse_dt(scan_dt_str)
 
             # Parse detections
             detections = []
@@ -417,20 +424,10 @@ class QualysApiClient:
                 status = det_el.findtext("STATUS", "Active")
                 
                 first_dt_str = det_el.findtext("FIRST_FOUND_DATETIME")
-                first_found_date = None
-                if first_dt_str:
-                    try:
-                        first_found_date = datetime.fromisoformat(first_dt_str.replace("Z", "+00:00"))
-                    except Exception:
-                        pass
+                first_found_date = parse_dt(first_dt_str)
 
                 last_dt_str = det_el.findtext("LAST_FOUND_DATETIME")
-                last_found_date = None
-                if last_dt_str:
-                    try:
-                        last_found_date = datetime.fromisoformat(last_dt_str.replace("Z", "+00:00"))
-                    except Exception:
-                        pass
+                last_found_date = parse_dt(last_dt_str)
 
                 times_found_str = det_el.findtext("TIMES_FOUND", "1")
                 try:

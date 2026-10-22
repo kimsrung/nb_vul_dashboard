@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Shield, Send, CheckCircle2, AlertCircle, RefreshCw, ToggleLeft, ToggleRight, Radio, Copy, Check, Zap, Terminal } from 'lucide-react';
+import { Settings, Shield, Send, CheckCircle2, AlertCircle, RefreshCw, ToggleLeft, ToggleRight, Radio, Terminal, Eye, EyeOff } from 'lucide-react';
 import { SystemSettings, apiClient } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
@@ -27,8 +27,12 @@ export const SettingsPage: React.FC = () => {
   const [mispEnabled, setMispEnabled] = useState<boolean>(true);
   const [mispMockMode, setMispMockMode] = useState<boolean>(true);
   const [mispSyncInterval, setMispSyncInterval] = useState<number>(2);
-  const [mispWebhookSecret, setMispWebhookSecret] = useState<string>('');
-  const [copiedWebhook, setCopiedWebhook] = useState<boolean>(false);
+  const [mispZmqEnabled, setMispZmqEnabled] = useState<boolean>(true);
+  const [mispZmqHost, setMispZmqHost] = useState<string>('10.20.40.19');
+  const [mispZmqPort, setMispZmqPort] = useState<number>(50000);
+  const [mispZmqUsername, setMispZmqUsername] = useState<string>('');
+  const [mispZmqPassword, setMispZmqPassword] = useState<string>('');
+  const [showZmqPassword, setShowZmqPassword] = useState<boolean>(false);
   const [isSimulatingPush, setIsSimulatingPush] = useState<boolean>(false);
   const [simulateResult, setSimulateResult] = useState<{ success: boolean; message: string } | null>(null);
 
@@ -74,7 +78,10 @@ export const SettingsPage: React.FC = () => {
       setMispEnabled(data.misp_enabled ?? true);
       setMispMockMode(data.misp_mock_mode ?? true);
       setMispSyncInterval(data.misp_sync_interval_hours ?? 2);
-      setMispWebhookSecret(data.misp_webhook_secret || '');
+      setMispZmqEnabled(data.misp_zmq_enabled ?? true);
+      setMispZmqHost(data.misp_zmq_host || '10.20.40.19');
+      setMispZmqPort(data.misp_zmq_port ?? 50000);
+      setMispZmqUsername(data.misp_zmq_username || '');
 
       setTelegramEnabled(data.telegram_enabled);
       setTelegramChatId(data.telegram_chat_id || '');
@@ -114,7 +121,10 @@ export const SettingsPage: React.FC = () => {
         misp_enabled: mispEnabled,
         misp_mock_mode: mispMockMode,
         misp_sync_interval_hours: Number(mispSyncInterval),
-        misp_webhook_secret: mispWebhookSecret,
+        misp_zmq_enabled: mispZmqEnabled,
+        misp_zmq_host: mispZmqHost,
+        misp_zmq_port: Number(mispZmqPort),
+        misp_zmq_username: mispZmqUsername,
         telegram_enabled: telegramEnabled,
         telegram_chat_id: telegramChatId,
         telegram_cooldown_hours: Number(telegramCooldown),
@@ -129,6 +139,9 @@ export const SettingsPage: React.FC = () => {
       }
       if (mispApiKey.trim()) {
         payload.misp_api_key = mispApiKey;
+      }
+      if (mispZmqPassword.trim()) {
+        payload.misp_zmq_password = mispZmqPassword;
       }
       if (telegramToken.trim()) {
         payload.telegram_bot_token = telegramToken;
@@ -177,6 +190,11 @@ export const SettingsPage: React.FC = () => {
         misp_tag_filter: mispTagFilter,
         misp_feed_tag: mispFeedTag,
         misp_mock_mode: mispMockMode,
+        misp_zmq_enabled: mispZmqEnabled,
+        misp_zmq_host: mispZmqHost,
+        misp_zmq_port: Number(mispZmqPort),
+        misp_zmq_username: mispZmqUsername || undefined,
+        misp_zmq_password: mispZmqPassword || undefined,
       });
       setMispTestResult(res.data);
     } catch (err: any) {
@@ -208,13 +226,6 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
-  const handleCopyWebhook = () => {
-    const url = `${window.location.protocol}//${window.location.hostname}:8000/api/v1/alerts/misp-push`;
-    navigator.clipboard.writeText(url);
-    setCopiedWebhook(true);
-    setTimeout(() => setCopiedWebhook(false), 2000);
-  };
-
   const handleSimulatePush = async () => {
     setIsSimulatingPush(true);
     setSimulateResult(null);
@@ -240,20 +251,15 @@ export const SettingsPage: React.FC = () => {
         }
       };
 
-      const headers: Record<string, string> = {};
-      if (mispWebhookSecret) {
-        headers['X-MISP-Token'] = mispWebhookSecret;
-      }
-
-      const res = await apiClient.post('/alerts/misp-push', samplePayload, { headers });
+      const res = await apiClient.post('/alerts/simulate-event', samplePayload);
       setSimulateResult({
         success: true,
-        message: res.data.message || 'Push event processed and verified against asset inventory!',
+        message: res.data.message || 'Threat event processed and verified against asset inventory!',
       });
     } catch (err: any) {
       setSimulateResult({
         success: false,
-        message: err.response?.data?.detail || 'Failed to simulate MISP push',
+        message: err.response?.data?.detail || 'Failed to simulate ZeroMQ threat event',
       });
     } finally {
       setIsSimulatingPush(false);
@@ -500,83 +506,129 @@ export const SettingsPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Real-Time Live Feed Subscription Box (Push Webhook & ZeroMQ) */}
-          <div className="p-4 rounded-xl bg-slate-950/80 border border-purple-900/40 space-y-3 mt-2">
+          {/* Real-Time Live Feed Stream Box (ZeroMQ) */}
+          <div className="p-4 rounded-xl bg-slate-950/80 border border-purple-900/40 space-y-4 mt-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Zap className="w-4 h-4 text-purple-400" />
+                <Terminal className="w-4 h-4 text-purple-400" />
                 <h4 className="text-xs font-bold text-slate-100 uppercase tracking-wider">
-                  Real-Time MISP Feed Subscription (Push & ZeroMQ)
+                  Real-Time MISP Threat Stream (ZeroMQ)
                 </h4>
               </div>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-950 text-purple-300 border border-purple-800">
-                Active Webhook Receiver
+              <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold border ${
+                mispZmqEnabled
+                  ? 'bg-purple-950 text-purple-300 border-purple-800'
+                  : 'bg-slate-800 text-slate-400 border-slate-700'
+              }`}>
+                {mispZmqEnabled ? 'Active ZeroMQ Subscriber' : 'ZeroMQ Disabled'}
               </span>
             </div>
 
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              When new FS-ISAC CVE advisories are published in MISP, they can be pushed directly to this dashboard in real-time. The engine immediately evaluates the advisory against installed server software inventory and logs alerts in the Alert Center.
+            <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
+              Connects directly to MISP's native ZeroMQ TCP publisher (<code className="text-purple-300">tcp://host:port</code>). When new FS-ISAC CVE advisories are published in MISP, the engine immediately evaluates them against installed server software inventory and generates alerts in the Alert Center.
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-              <div>
-                <label className="block text-[11px] font-medium text-slate-300 mb-1">
-                  Webhook Ingestion URL (Configure in MISP)
-                </label>
-                <div className="flex items-center gap-2">
+            {/* ZeroMQ Stream Configuration & Authentication */}
+            <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-200">Connection & PLAIN Authentication</span>
+                <button
+                  type="button"
+                  onClick={() => isAdmin && setMispZmqEnabled(!mispZmqEnabled)}
+                  disabled={!isAdmin || !mispEnabled}
+                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-bold border transition-colors ${
+                    mispZmqEnabled
+                      ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800'
+                      : 'bg-slate-800 text-slate-400 border-slate-700'
+                  }`}
+                >
+                  {mispZmqEnabled ? <CheckCircle2 className="w-3 h-3" /> : null}
+                  {mispZmqEnabled ? 'Auto-Subscriber Enabled' : 'Auto-Subscriber Disabled'}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                    ZeroMQ Host / IP
+                  </label>
                   <input
                     type="text"
-                    readOnly
-                    value={`${window.location.protocol}//${window.location.hostname}:8000/api/v1/alerts/misp-push`}
-                    className="w-full bg-slate-900 border border-surfaceBorder rounded-lg px-2.5 py-1.5 text-xs text-purple-300 font-mono select-all focus:outline-none"
+                    value={mispZmqHost}
+                    onChange={(e) => setMispZmqHost(e.target.value)}
+                    disabled={!isAdmin || !mispEnabled || !mispZmqEnabled}
+                    placeholder="10.20.40.19"
+                    className="w-full bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-1.5 text-xs text-slate-100 font-mono focus:outline-none focus:border-purple-500 disabled:opacity-50"
                   />
-                  <button
-                    type="button"
-                    onClick={handleCopyWebhook}
-                    className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-surfaceBorder transition-colors cursor-pointer shrink-0"
-                    title="Copy Webhook URL"
-                  >
-                    {copiedWebhook ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                  </button>
                 </div>
-                <span className="text-[10px] text-slate-500 mt-1 block">
-                  MISP Event Publishing Hook / Webhook target URL
-                </span>
+
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                    ZeroMQ Port
+                  </label>
+                  <input
+                    type="number"
+                    value={mispZmqPort}
+                    onChange={(e) => setMispZmqPort(parseInt(e.target.value) || 50000)}
+                    disabled={!isAdmin || !mispEnabled || !mispZmqEnabled}
+                    placeholder="50000"
+                    className="w-full bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-1.5 text-xs text-slate-100 font-mono focus:outline-none focus:border-purple-500 disabled:opacity-50"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                    ZeroMQ Username (PLAIN Auth)
+                  </label>
+                  <input
+                    type="text"
+                    value={mispZmqUsername}
+                    onChange={(e) => setMispZmqUsername(e.target.value)}
+                    disabled={!isAdmin || !mispEnabled || !mispZmqEnabled}
+                    placeholder="Matches Plugin.ZeroMQ_username in MISP"
+                    className="w-full bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-1.5 text-xs text-slate-100 font-mono focus:outline-none focus:border-purple-500 disabled:opacity-50"
+                  />
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">
+                    Optional: leave blank if unauthenticated
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                    ZeroMQ Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showZmqPassword ? "text" : "password"}
+                      value={mispZmqPassword}
+                      onChange={(e) => setMispZmqPassword(e.target.value)}
+                      disabled={!isAdmin || !mispEnabled || !mispZmqEnabled}
+                      placeholder={settings?.misp_zmq_password_masked || "Matches Plugin.ZeroMQ_password in MISP"}
+                      className="w-full bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-1.5 pr-9 text-xs text-slate-100 font-mono focus:outline-none focus:border-purple-500 disabled:opacity-50"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowZmqPassword(!showZmqPassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                    >
+                      {showZmqPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">
+                    Optional: leave blank to keep existing password
+                  </span>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-medium text-slate-300 mb-1">
-                  Webhook Secret Token (Optional Header Auth)
-                </label>
-                <input
-                  type="text"
-                  value={mispWebhookSecret}
-                  onChange={(e) => setMispWebhookSecret(e.target.value)}
-                  disabled={!isAdmin || !mispEnabled}
-                  placeholder="Optional token (e.g. X-MISP-Token header)"
-                  className="w-full bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-1.5 text-xs text-slate-100 font-mono focus:outline-none focus:border-primary-500 disabled:opacity-50"
-                />
-                <span className="text-[10px] text-slate-500 mt-1 block">
-                  Validates 'X-MISP-Token' or 'Authorization: Bearer' header
-                </span>
+              <div className="pt-1">
+                <span className="text-[10px] text-slate-500 block mb-1 font-mono">CLI Subscriber Command:</span>
+                <div className="bg-slate-950 p-2 rounded text-emerald-400 text-[11px] font-mono overflow-x-auto select-all">
+                  python -m app.services.misp_zmq_subscriber --host {mispZmqHost || '10.20.40.19'} --port {mispZmqPort || 50000} {mispZmqUsername ? `--username "${mispZmqUsername}"` : ''}
+                </div>
               </div>
             </div>
 
-            {/* ZeroMQ Stream Info */}
-            <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 text-[11px] space-y-1.5 font-mono">
-              <div className="flex items-center gap-1.5 text-slate-300 font-semibold">
-                <Terminal className="w-3.5 h-3.5 text-purple-400" />
-                <span>ZeroMQ Pub/Sub Stream Worker:</span>
-              </div>
-              <div className="text-slate-400 text-[10px] leading-relaxed">
-                If your MISP instance has ZeroMQ enabled (port 50000), run our subscriber daemon to receive events over TCP pub/sub without webhook configuration:
-              </div>
-              <div className="bg-slate-950 p-2 rounded text-emerald-400 text-[11px] overflow-x-auto select-all">
-                python -m app.services.misp_zmq_subscriber --host {mispUrl.replace(/https?:\/\//, '').split(':')[0] || '10.20.1.50'} --port 50000
-              </div>
-            </div>
-
-            {/* Simulate Feed Push Test Button */}
+            {/* Simulate ZeroMQ Threat Event Button */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-slate-800">
               <button
                 type="button"
@@ -584,8 +636,8 @@ export const SettingsPage: React.FC = () => {
                 disabled={isSimulatingPush || !isAdmin || !mispEnabled}
                 className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-purple-950/80 hover:bg-purple-900 text-purple-300 text-xs font-semibold border border-purple-800 transition-colors disabled:opacity-50 cursor-pointer"
               >
-                <Zap className={`w-3.5 h-3.5 ${isSimulatingPush ? 'animate-spin' : ''}`} />
-                <span>{isSimulatingPush ? 'Evaluating Push...' : 'Simulate MISP Feed Push'}</span>
+                <RefreshCw className={`w-3.5 h-3.5 ${isSimulatingPush ? 'animate-spin' : ''}`} />
+                <span>{isSimulatingPush ? 'Simulating Event...' : 'Simulate ZeroMQ Threat Event'}</span>
               </button>
 
               {simulateResult && (

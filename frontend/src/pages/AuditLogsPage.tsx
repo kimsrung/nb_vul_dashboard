@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  History, Search, RefreshCw, Trash2, CheckCircle2, Wrench, User, 
-  Eye, X, FileText, ArrowUpDown, ArrowUp, ArrowDown 
+import {
+  History, Search, RefreshCw, Trash2, CheckCircle2, Wrench, User,
+  Eye, X, FileText, ArrowUpDown, ArrowUp, ArrowDown, Radio, Zap
 } from 'lucide-react';
 import { AuditLogItem, PaginatedAuditLogsResponse, apiClient } from '../api/client';
 import { TablePagination } from '../components/common/TablePagination';
-import { formatDateYMD } from '../utils/date';
+import { formatDateTimeYMD } from '../utils/date';
 
 export const AuditLogsPage: React.FC = () => {
   const [logs, setLogs] = useState<AuditLogItem[]>([]);
@@ -73,6 +73,24 @@ export const AuditLogsPage: React.FC = () => {
 
   const getActionBadge = (action: string) => {
     switch (action) {
+      case 'MISP_EVENT_TRIGGERED':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-950/60 text-purple-400 border border-purple-800/60">
+            <Radio className="w-3 h-3" /> MISP EVENT TRIGGERED
+          </span>
+        );
+      case 'MISP_ZMQ_FEED_RECEIVED':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-950/60 text-indigo-400 border border-indigo-800/60">
+            <Zap className="w-3 h-3" /> MISP ZMQ FEED
+          </span>
+        );
+      case 'MISP_FEED_PUSH_RECEIVED':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-950/60 text-indigo-400 border border-indigo-800/60">
+            <Zap className="w-3 h-3" /> MISP PUSH
+          </span>
+        );
       case 'DELETE_ASSET':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-950/60 text-red-400 border border-red-800/60">
@@ -157,6 +175,9 @@ export const AuditLogsPage: React.FC = () => {
               className="bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-primary-500"
             >
               <option value="">All Actions</option>
+              <option value="MISP_EVENT_TRIGGERED">MISP Event Triggered</option>
+              <option value="MISP_ZMQ_FEED_RECEIVED">MISP ZMQ Feed</option>
+              <option value="MISP_FEED_PUSH_RECEIVED">MISP Push</option>
               <option value="DELETE_ASSET">Delete Asset</option>
               <option value="RESOLVE_ALERT">Resolve Alert</option>
               <option value="UPDATE_REMEDIATION">Update Remediation</option>
@@ -172,6 +193,8 @@ export const AuditLogsPage: React.FC = () => {
               className="bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-primary-500"
             >
               <option value="">All Target Types</option>
+              <option value="MISP_Advisory">MISP Advisory</option>
+              <option value="MISP_Feed">MISP Feed</option>
               <option value="Asset">Asset</option>
               <option value="Alert">Alert</option>
               <option value="Detection">Detection</option>
@@ -198,7 +221,7 @@ export const AuditLogsPage: React.FC = () => {
                   className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
                 >
                   <div className="inline-flex items-center gap-1 font-semibold">
-                    <span>Timestamp (UTC)</span>
+                    <span>Timestamp</span>
                     {sortBy === 'created_at' ? (
                       sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-400" /> : <ArrowDown className="w-3 h-3 text-sky-400" />
                     ) : (
@@ -280,9 +303,9 @@ export const AuditLogsPage: React.FC = () => {
               ) : (
                 logs.map((log) => (
                   <tr key={log.id} className="hover:bg-slate-800/40 transition-colors">
-                    {/* Timestamp (Consistent yyyy-mm-dd format) */}
-                    <td className="py-3 px-4 text-slate-400 text-[11px] whitespace-nowrap font-mono">
-                      {formatDateYMD(log.created_at)}
+                    {/* Timestamp (Full datetime yyyy-mm-dd hh:mm:ss) */}
+                    <td className="py-3 px-4 text-slate-300 text-[11px] whitespace-nowrap font-mono">
+                      {formatDateTimeYMD(log.created_at, true)}
                     </td>
 
                     {/* Action */}
@@ -385,8 +408,8 @@ export const AuditLogsPage: React.FC = () => {
                   <span className="text-slate-300">{inspectedLog.ip_address || '—'}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-[10px]">Date:</span>
-                  <span className="text-slate-300 font-mono">{formatDateYMD(inspectedLog.created_at)}</span>
+                  <span className="text-slate-500 block text-[10px]">Timestamp:</span>
+                  <span className="text-slate-300 font-mono text-[11px]">{formatDateTimeYMD(inspectedLog.created_at, true)}</span>
                 </div>
               </div>
 

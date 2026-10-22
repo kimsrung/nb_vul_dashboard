@@ -42,7 +42,11 @@ async def get_settings(user: User = Depends(require_viewer)):
         misp_enabled=settings.MISP_ENABLED,
         misp_mock_mode=settings.MISP_MOCK_MODE,
         misp_sync_interval_hours=settings.MISP_SYNC_INTERVAL_HOURS,
-        misp_webhook_secret=_mask_token(settings.MISP_WEBHOOK_SECRET) if settings.MISP_WEBHOOK_SECRET else "",
+        misp_zmq_enabled=settings.MISP_ZMQ_ENABLED,
+        misp_zmq_host=settings.MISP_ZMQ_HOST,
+        misp_zmq_port=settings.MISP_ZMQ_PORT,
+        misp_zmq_username=settings.MISP_ZMQ_USERNAME,
+        misp_zmq_password_masked=_mask_token(settings.MISP_ZMQ_PASSWORD),
         telegram_enabled=settings.TELEGRAM_ENABLED,
         telegram_bot_token_masked=_mask_token(settings.TELEGRAM_BOT_TOKEN),
         telegram_chat_id=settings.TELEGRAM_CHAT_ID,
@@ -89,8 +93,16 @@ async def update_settings(
         settings.MISP_MOCK_MODE = settings_in.misp_mock_mode
     if settings_in.misp_sync_interval_hours is not None:
         settings.MISP_SYNC_INTERVAL_HOURS = settings_in.misp_sync_interval_hours
-    if settings_in.misp_webhook_secret is not None:
-        settings.MISP_WEBHOOK_SECRET = settings_in.misp_webhook_secret.strip()
+    if settings_in.misp_zmq_enabled is not None:
+        settings.MISP_ZMQ_ENABLED = settings_in.misp_zmq_enabled
+    if settings_in.misp_zmq_host is not None:
+        settings.MISP_ZMQ_HOST = settings_in.misp_zmq_host.strip()
+    if settings_in.misp_zmq_port is not None:
+        settings.MISP_ZMQ_PORT = settings_in.misp_zmq_port
+    if settings_in.misp_zmq_username is not None:
+        settings.MISP_ZMQ_USERNAME = settings_in.misp_zmq_username.strip()
+    if settings_in.misp_zmq_password is not None and settings_in.misp_zmq_password.strip():
+        settings.MISP_ZMQ_PASSWORD = settings_in.misp_zmq_password.strip()
 
     if settings_in.telegram_enabled is not None:
         settings.TELEGRAM_ENABLED = settings_in.telegram_enabled
@@ -126,7 +138,11 @@ async def update_settings(
         "misp_enabled": "true" if settings.MISP_ENABLED else "false",
         "misp_mock_mode": "true" if settings.MISP_MOCK_MODE else "false",
         "misp_sync_interval_hours": str(settings.MISP_SYNC_INTERVAL_HOURS),
-        "misp_webhook_secret": settings.MISP_WEBHOOK_SECRET,
+        "misp_zmq_enabled": "true" if settings.MISP_ZMQ_ENABLED else "false",
+        "misp_zmq_host": settings.MISP_ZMQ_HOST,
+        "misp_zmq_port": str(settings.MISP_ZMQ_PORT),
+        "misp_zmq_username": settings.MISP_ZMQ_USERNAME,
+        "misp_zmq_password": settings.MISP_ZMQ_PASSWORD,
         "telegram_enabled": "true" if settings.TELEGRAM_ENABLED else "false",
         "telegram_bot_token": settings.TELEGRAM_BOT_TOKEN,
         "telegram_chat_id": settings.TELEGRAM_CHAT_ID,
@@ -145,6 +161,17 @@ async def update_settings(
             db.add(SystemSetting(key=k, value=v, description="Persisted system setting"))
     await db.commit()
 
+    # Live reload ZeroMQ subscriber with new credentials / settings
+    if settings.MISP_ZMQ_ENABLED and settings.MISP_ZMQ_HOST:
+        from app.services.misp_zmq_subscriber import stop_misp_zmq_task, start_misp_zmq_task
+        stop_misp_zmq_task()
+        start_misp_zmq_task(
+            settings.MISP_ZMQ_HOST,
+            settings.MISP_ZMQ_PORT,
+            username=settings.MISP_ZMQ_USERNAME,
+            password=settings.MISP_ZMQ_PASSWORD,
+        )
+
     return SystemSettingsResponse(
         qualys_api_url=settings.QUALYS_API_URL,
         qualys_username=settings.QUALYS_USERNAME,
@@ -159,7 +186,11 @@ async def update_settings(
         misp_enabled=settings.MISP_ENABLED,
         misp_mock_mode=settings.MISP_MOCK_MODE,
         misp_sync_interval_hours=settings.MISP_SYNC_INTERVAL_HOURS,
-        misp_webhook_secret=_mask_token(settings.MISP_WEBHOOK_SECRET) if settings.MISP_WEBHOOK_SECRET else "",
+        misp_zmq_enabled=settings.MISP_ZMQ_ENABLED,
+        misp_zmq_host=settings.MISP_ZMQ_HOST,
+        misp_zmq_port=settings.MISP_ZMQ_PORT,
+        misp_zmq_username=settings.MISP_ZMQ_USERNAME,
+        misp_zmq_password_masked=_mask_token(settings.MISP_ZMQ_PASSWORD),
         telegram_enabled=settings.TELEGRAM_ENABLED,
         telegram_bot_token_masked=_mask_token(settings.TELEGRAM_BOT_TOKEN),
         telegram_chat_id=settings.TELEGRAM_CHAT_ID,
@@ -191,6 +222,17 @@ async def test_misp_connection(
     test_req: MispTestRequest,
     admin: User = Depends(require_admin),
 ):
+    if test_req.misp_zmq_host:
+        settings.MISP_ZMQ_HOST = test_req.misp_zmq_host.strip()
+    if test_req.misp_zmq_port:
+        settings.MISP_ZMQ_PORT = test_req.misp_zmq_port
+    if test_req.misp_zmq_username is not None:
+        settings.MISP_ZMQ_USERNAME = test_req.misp_zmq_username.strip()
+    if test_req.misp_zmq_password:
+        settings.MISP_ZMQ_PASSWORD = test_req.misp_zmq_password.strip()
+    if test_req.misp_zmq_enabled is not None:
+        settings.MISP_ZMQ_ENABLED = test_req.misp_zmq_enabled
+
     client = MispClient(
         base_url=test_req.misp_url,
         api_key=test_req.misp_api_key,
