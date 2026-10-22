@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Shield, Send, CheckCircle2, AlertCircle, RefreshCw, ToggleLeft, ToggleRight, Radio } from 'lucide-react';
+import { Settings, Shield, Send, CheckCircle2, AlertCircle, RefreshCw, ToggleLeft, ToggleRight, Radio, Copy, Check, Zap, Terminal } from 'lucide-react';
 import { SystemSettings, apiClient } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
@@ -27,6 +27,10 @@ export const SettingsPage: React.FC = () => {
   const [mispEnabled, setMispEnabled] = useState<boolean>(true);
   const [mispMockMode, setMispMockMode] = useState<boolean>(true);
   const [mispSyncInterval, setMispSyncInterval] = useState<number>(2);
+  const [mispWebhookSecret, setMispWebhookSecret] = useState<string>('');
+  const [copiedWebhook, setCopiedWebhook] = useState<boolean>(false);
+  const [isSimulatingPush, setIsSimulatingPush] = useState<boolean>(false);
+  const [simulateResult, setSimulateResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Form states - Telegram
   const [telegramEnabled, setTelegramEnabled] = useState<boolean>(false);
@@ -70,6 +74,7 @@ export const SettingsPage: React.FC = () => {
       setMispEnabled(data.misp_enabled ?? true);
       setMispMockMode(data.misp_mock_mode ?? true);
       setMispSyncInterval(data.misp_sync_interval_hours ?? 2);
+      setMispWebhookSecret(data.misp_webhook_secret || '');
 
       setTelegramEnabled(data.telegram_enabled);
       setTelegramChatId(data.telegram_chat_id || '');
@@ -109,6 +114,7 @@ export const SettingsPage: React.FC = () => {
         misp_enabled: mispEnabled,
         misp_mock_mode: mispMockMode,
         misp_sync_interval_hours: Number(mispSyncInterval),
+        misp_webhook_secret: mispWebhookSecret,
         telegram_enabled: telegramEnabled,
         telegram_chat_id: telegramChatId,
         telegram_cooldown_hours: Number(telegramCooldown),
@@ -199,6 +205,58 @@ export const SettingsPage: React.FC = () => {
       });
     } finally {
       setTestingTelegram(false);
+    }
+  };
+
+  const handleCopyWebhook = () => {
+    const url = `${window.location.protocol}//${window.location.hostname}:8000/api/v1/alerts/misp-push`;
+    navigator.clipboard.writeText(url);
+    setCopiedWebhook(true);
+    setTimeout(() => setCopiedWebhook(false), 2000);
+  };
+
+  const handleSimulatePush = async () => {
+    setIsSimulatingPush(true);
+    setSimulateResult(null);
+    try {
+      const samplePayload = {
+        Event: {
+          id: String(Math.floor(10000 + Math.random() * 90000)),
+          info: "FS-ISAC Advisory: Critical OpenSSH Remote Code Execution (regreSSHion)",
+          orgc_id: "1",
+          Orgc: { name: mispCreatorOrg || "FS-ISAC" },
+          affected_product: "openssh",
+          vulnerable_versions: "< 9.8p1",
+          fixed_versions: ">= 9.8p1",
+          severity: "Critical",
+          cvss_score: 8.1,
+          Tag: [
+            { name: mispCreatorOrg || "FS-ISAC" },
+            { name: "vulnerability:CVE-2024-6387" }
+          ],
+          Attribute: [
+            { type: "vulnerability", value: "CVE-2024-6387" }
+          ]
+        }
+      };
+
+      const headers: Record<string, string> = {};
+      if (mispWebhookSecret) {
+        headers['X-MISP-Token'] = mispWebhookSecret;
+      }
+
+      const res = await apiClient.post('/alerts/misp-push', samplePayload, { headers });
+      setSimulateResult({
+        success: true,
+        message: res.data.message || 'Push event processed and verified against asset inventory!',
+      });
+    } catch (err: any) {
+      setSimulateResult({
+        success: false,
+        message: err.response?.data?.detail || 'Failed to simulate MISP push',
+      });
+    } finally {
+      setIsSimulatingPush(false);
     }
   };
 
@@ -439,6 +497,109 @@ export const SettingsPage: React.FC = () => {
                 />
                 <span>Enable Mock / Offline Demo Feed (Simulates FS-ISAC emergency CVE advisories and pre-scan matches)</span>
               </label>
+            </div>
+          </div>
+
+          {/* Real-Time Live Feed Subscription Box (Push Webhook & ZeroMQ) */}
+          <div className="p-4 rounded-xl bg-slate-950/80 border border-purple-900/40 space-y-3 mt-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-purple-400" />
+                <h4 className="text-xs font-bold text-slate-100 uppercase tracking-wider">
+                  Real-Time MISP Feed Subscription (Push & ZeroMQ)
+                </h4>
+              </div>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-950 text-purple-300 border border-purple-800">
+                Active Webhook Receiver
+              </span>
+            </div>
+
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              When new FS-ISAC CVE advisories are published in MISP, they can be pushed directly to this dashboard in real-time. The engine immediately evaluates the advisory against installed server software inventory and logs alerts in the Alert Center.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+              <div>
+                <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                  Webhook Ingestion URL (Configure in MISP)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={`${window.location.protocol}//${window.location.hostname}:8000/api/v1/alerts/misp-push`}
+                    className="w-full bg-slate-900 border border-surfaceBorder rounded-lg px-2.5 py-1.5 text-xs text-purple-300 font-mono select-all focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCopyWebhook}
+                    className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-surfaceBorder transition-colors cursor-pointer shrink-0"
+                    title="Copy Webhook URL"
+                  >
+                    {copiedWebhook ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+                <span className="text-[10px] text-slate-500 mt-1 block">
+                  MISP Event Publishing Hook / Webhook target URL
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                  Webhook Secret Token (Optional Header Auth)
+                </label>
+                <input
+                  type="text"
+                  value={mispWebhookSecret}
+                  onChange={(e) => setMispWebhookSecret(e.target.value)}
+                  disabled={!isAdmin || !mispEnabled}
+                  placeholder="Optional token (e.g. X-MISP-Token header)"
+                  className="w-full bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-1.5 text-xs text-slate-100 font-mono focus:outline-none focus:border-primary-500 disabled:opacity-50"
+                />
+                <span className="text-[10px] text-slate-500 mt-1 block">
+                  Validates 'X-MISP-Token' or 'Authorization: Bearer' header
+                </span>
+              </div>
+            </div>
+
+            {/* ZeroMQ Stream Info */}
+            <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 text-[11px] space-y-1.5 font-mono">
+              <div className="flex items-center gap-1.5 text-slate-300 font-semibold">
+                <Terminal className="w-3.5 h-3.5 text-purple-400" />
+                <span>ZeroMQ Pub/Sub Stream Worker:</span>
+              </div>
+              <div className="text-slate-400 text-[10px] leading-relaxed">
+                If your MISP instance has ZeroMQ enabled (port 50000), run our subscriber daemon to receive events over TCP pub/sub without webhook configuration:
+              </div>
+              <div className="bg-slate-950 p-2 rounded text-emerald-400 text-[11px] overflow-x-auto select-all">
+                python -m app.services.misp_zmq_subscriber --host {mispUrl.replace(/https?:\/\//, '').split(':')[0] || '10.20.1.50'} --port 50000
+              </div>
+            </div>
+
+            {/* Simulate Feed Push Test Button */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={handleSimulatePush}
+                disabled={isSimulatingPush || !isAdmin || !mispEnabled}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-purple-950/80 hover:bg-purple-900 text-purple-300 text-xs font-semibold border border-purple-800 transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                <Zap className={`w-3.5 h-3.5 ${isSimulatingPush ? 'animate-spin' : ''}`} />
+                <span>{isSimulatingPush ? 'Evaluating Push...' : 'Simulate MISP Feed Push'}</span>
+              </button>
+
+              {simulateResult && (
+                <div
+                  className={`text-xs px-3 py-1.5 rounded-lg border flex items-center gap-1.5 max-w-md ${
+                    simulateResult.success
+                      ? 'bg-emerald-950/40 text-emerald-400 border-emerald-800'
+                      : 'bg-red-950/40 text-red-400 border-red-800'
+                  }`}
+                >
+                  {simulateResult.success ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <AlertCircle className="w-3.5 h-3.5 shrink-0" />}
+                  <span className="truncate">{simulateResult.message}</span>
+                </div>
+              )}
             </div>
           </div>
 

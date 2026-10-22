@@ -71,6 +71,7 @@ export interface AssetListItem {
   risk_score: number;
   risk_level: 'Critical' | 'High' | 'Medium' | 'Low';
   is_risky: boolean;
+  is_active: boolean;
   total_vulns: number;
   critical_vulns: number;
   high_vulns: number;
@@ -195,6 +196,8 @@ export interface DashboardSummary {
   recent_risky_assets: AssetListItem[];
   recent_alerts: AlertItem[];
   last_sync_time: string | null;
+  last_full_sync_time?: string | null;
+  last_sync_mode?: string | null;
   sync_status: string;
 }
 
@@ -212,6 +215,7 @@ export interface SystemSettings {
   misp_enabled: boolean;
   misp_mock_mode: boolean;
   misp_sync_interval_hours: number;
+  misp_webhook_secret?: string;
   telegram_enabled: boolean;
   telegram_bot_token_masked: string;
   telegram_chat_id: string;

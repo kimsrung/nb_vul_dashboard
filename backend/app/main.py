@@ -30,7 +30,11 @@ async def init_db_and_seed():
         # Safe migration for existing SQLite / Postgres installations
         try:
             from sqlalchemy import text
-            await conn.execute(text("ALTER TABLE assets ADD COLUMN is_active BOOLEAN DEFAULT 1"))
+            from app.core.database import is_sqlite
+            if is_sqlite:
+                await conn.execute(text("ALTER TABLE assets ADD COLUMN is_active BOOLEAN DEFAULT 1"))
+            else:
+                await conn.execute(text("ALTER TABLE assets ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE"))
         except Exception:
             pass
 

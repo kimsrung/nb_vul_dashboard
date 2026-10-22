@@ -101,14 +101,25 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             Correlating Qualys Host Detections with KnowledgeBase remediation and threat intelligence.
           </p>
         </div>
-        <div className="flex items-center gap-4 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-          <div className="text-right">
-            <div className="text-[11px] text-slate-400">Last Qualys Sync</div>
-            <div className="text-xs font-mono font-semibold text-slate-200">
-              {formatDateYMD(summary.last_sync_time, 'Never')}
+        <div className="flex items-center gap-4 bg-slate-950/60 p-3.5 rounded-xl border border-slate-800">
+          <div className="text-right space-y-0.5">
+            <div className="flex items-center justify-end gap-1.5">
+              <span className="text-[10px] text-slate-400 font-medium">Last Delta Sync:</span>
+              <span className="text-xs font-mono font-semibold text-slate-200">
+                {formatDateYMD(summary.last_sync_time, 'Never')}
+              </span>
+            </div>
+            <div className="flex items-center justify-end gap-1.5 text-[11px]">
+              <span className="text-[10px] text-slate-400 font-medium">Last Full Sync:</span>
+              <span className="text-[11px] font-mono text-slate-300">
+                {formatDateYMD(summary.last_full_sync_time, 'Not run yet')}
+              </span>
+              <span className="text-[9px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                {summary.last_sync_mode === 'full' ? 'Full Sync' : 'Delta Sync'}
+              </span>
             </div>
           </div>
-          <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0" title="Sync pipeline operational" />
         </div>
       </div>
 

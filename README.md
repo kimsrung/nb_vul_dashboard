@@ -20,13 +20,13 @@ Features an **in-dashboard alert center**, an optional **Telegram Bot notificati
 
 ## 💻 How to Run Locally
 
-You can run the application either **directly on your machine** (zero-Docker, instant SQLite mode) or using **Docker Compose** (PostgreSQL mode).
+You can run the application either **directly on your machine** (using local PostgreSQL or SQLite) or using **Docker Compose** (PostgreSQL mode).
 
 ---
 
 ### Option 1: Direct Local Run (Recommended for Development)
 
-The backend defaults to SQLite (`sqlite+aiosqlite:///./dashboard_alert.db`) for immediate zero-dependency execution.
+The backend connects to PostgreSQL (`postgresql+asyncpg://qualys_user:qualys_secret_password@localhost:5432/qualys_alert_db`), with instant fallback to SQLite (`sqlite+aiosqlite:///./dashboard_alert.db`).
 
 #### Prerequisites
 - **Python**: 3.11+ (`python3 --version`)

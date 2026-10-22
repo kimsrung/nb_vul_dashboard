@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Search, RefreshCw, Server, User, RotateCcw,
   Trash2, AlertTriangle, X, CheckCircle2, AlertCircle, ArrowUp, ArrowDown,
-  Calendar, ShieldAlert, Tag, Activity, ArrowUpRight
+  Calendar, ShieldAlert, Activity, ArrowUpRight, ChevronDown
 } from 'lucide-react';
 import { AssetListItem, PaginatedAssetsResponse, OwnerOption, apiClient } from '../api/client';
 import { RiskBadge } from '../components/common/RiskBadge';
@@ -38,12 +38,14 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
   const [isSyncError, setIsSyncError] = useState<boolean>(false);
+  const [isSyncMenuOpen, setIsSyncMenuOpen] = useState<boolean>(false);
 
   // Filters
   const [search, setSearch] = useState<string>(initialSearch);
   const [riskFilter, setRiskFilter] = useState<string>('');
   const [osFilter, setOsFilter] = useState<string>('');
   const [riskyOnly, setRiskyOnly] = useState<boolean>(false);
+  const [activeFilter, setActiveFilter] = useState<string>(''); // '' | 'true' | 'false'
   const [ownerFilter, setOwnerFilter] = useState<string>('');
 
   // Sorting
@@ -81,6 +83,7 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
       if (riskFilter) params.risk_level = riskFilter;
       if (osFilter) params.os_family = osFilter;
       if (riskyOnly) params.is_risky = true;
+      if (activeFilter) params.is_active = activeFilter;
       if (ownerFilter) params.owner_id = ownerFilter;
 
       const res = await apiClient.get<PaginatedAssetsResponse>('/assets', { params });
@@ -100,7 +103,7 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
 
   useEffect(() => {
     fetchAssets();
-  }, [page, pageSize, riskFilter, osFilter, riskyOnly, ownerFilter, sortBy, sortOrder]);
+  }, [page, pageSize, riskFilter, osFilter, riskyOnly, activeFilter, ownerFilter, sortBy, sortOrder]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,6 +116,7 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
     setRiskFilter('');
     setOsFilter('');
     setRiskyOnly(false);
+    setActiveFilter('');
     setOwnerFilter('');
     setSearchParams((prev) => {
       prev.delete('search');
@@ -166,13 +170,18 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
     }
   };
 
-  const handleSyncNow = async () => {
+  const handleSyncNow = async (mode: 'delta' | 'full' = 'delta') => {
+    setIsSyncMenuOpen(false);
     setIsSyncing(true);
     setIsSyncError(false);
-    setSyncFeedback('Initiating Qualys host detection & KnowledgeBase sync...');
+    setSyncFeedback(
+      mode === 'full'
+        ? 'Initiating complete Qualys inventory reconciliation & KnowledgeBase sync...'
+        : 'Initiating fast incremental Qualys delta sync (updated detections since watermark)...'
+    );
 
     try {
-      await apiClient.post('/dashboard/sync');
+      await apiClient.post(`/dashboard/sync?mode=${mode}`);
 
       // Poll sync status until finished or error
       const pollInterval = setInterval(async () => {
@@ -212,7 +221,7 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
     }
   };
 
-  const isFiltered = Boolean(search || riskFilter || osFilter || riskyOnly || ownerFilter);
+  const isFiltered = Boolean(search || riskFilter || osFilter || riskyOnly || activeFilter || ownerFilter);
 
   return (
     <div className="p-6 max-w-8xl mx-auto space-y-6">
@@ -233,7 +242,7 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
             Qualys scanned assets with automated risk scoring, ownership auditing, and step-by-step KB remediation.
           </p>
         </div>
-        <div className="flex items-center gap-2 self-start">
+        <div className="flex items-center gap-2 self-start relative">
           <button
             onClick={() => {
               fetchAssets();
@@ -246,15 +255,54 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
             Refresh
           </button>
           {isAdmin && (
-            <button
-              onClick={handleSyncNow}
-              disabled={isSyncing}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-xs font-bold text-white shadow-md shadow-sky-600/20 transition-all disabled:opacity-50"
-              title="Trigger real-time Qualys Host Detection & KnowledgeBase sync"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-              <span>{isSyncing ? 'Syncing...' : 'Sync Qualys'}</span>
-            </button>
+            <div className="relative inline-flex rounded-lg shadow-md shadow-sky-600/20">
+              <button
+                onClick={() => handleSyncNow('delta')}
+                disabled={isSyncing}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-l-lg bg-sky-600 hover:bg-sky-500 text-xs font-bold text-white transition-all disabled:opacity-50 border-r border-sky-700/60"
+                title="Trigger fast incremental Qualys delta sync (updated detections only)"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                <span>{isSyncing ? 'Syncing...' : 'Sync Delta'}</span>
+              </button>
+              <button
+                onClick={() => setIsSyncMenuOpen((prev) => !prev)}
+                disabled={isSyncing}
+                className="px-1.5 py-1.5 rounded-r-lg bg-sky-600 hover:bg-sky-500 text-white transition-all disabled:opacity-50"
+                title="Choose Qualys Sync Mode"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+
+              {isSyncMenuOpen && (
+                <div className="absolute right-0 top-full mt-1.5 w-60 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl py-1 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <button
+                    onClick={() => handleSyncNow('delta')}
+                    className="w-full text-left px-3.5 py-2 hover:bg-slate-800/80 transition-colors flex flex-col gap-0.5 border-b border-slate-800"
+                  >
+                    <span className="text-xs font-bold text-sky-300 flex items-center justify-between">
+                      Smart Delta Sync
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300">Fast</span>
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      Fetches only detections updated since last watermark
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => handleSyncNow('full')}
+                    className="w-full text-left px-3.5 py-2 hover:bg-slate-800/80 transition-colors flex flex-col gap-0.5"
+                  >
+                    <span className="text-xs font-bold text-amber-300 flex items-center justify-between">
+                      Full Reconciliation Sync
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300">Deep</span>
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      Paginates all hosts & identifies decommissioned assets
+                    </span>
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -353,6 +401,19 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
                 ))}
               </select>
             )}
+
+            <select
+              value={activeFilter}
+              onChange={(e) => {
+                setActiveFilter(e.target.value);
+                setPage(1);
+              }}
+              className="bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-primary-500"
+            >
+              <option value="">All Lifecycle</option>
+              <option value="true">Active Hosts</option>
+              <option value="false">Inactive / Not Reporting</option>
+            </select>
 
             <label className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-950 border border-surfaceBorder cursor-pointer text-xs text-slate-300">
               <input
@@ -493,6 +554,11 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
                     {asset.is_risky && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-950 text-red-400 border border-red-800">
                         Flagged Risky
+                      </span>
+                    )}
+                    {!asset.is_active && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800/80 text-amber-400 border border-amber-800/50">
+                        Inactive / Not Reporting
                       </span>
                     )}
                   </div>

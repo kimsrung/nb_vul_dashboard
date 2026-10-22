@@ -140,7 +140,7 @@ dashboard_alert/
 
 ### Option A: Direct Local Run (Zero-Docker / Fast Development)
 
-The backend defaults to SQLite (`sqlite+aiosqlite:///./dashboard_alert.db`) for immediate zero-dependency execution.
+The backend uses PostgreSQL (`postgresql+asyncpg://qualys_user:qualys_secret_password@localhost:5432/qualys_alert_db`), with seamless fallback to SQLite (`sqlite+aiosqlite:///./dashboard_alert.db`).
 
 #### 1. Backend Terminal:
 ```bash

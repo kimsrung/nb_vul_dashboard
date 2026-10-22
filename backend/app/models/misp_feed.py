@@ -9,7 +9,7 @@ class MispCveAssessment(Base):
     id = Column(Integer, primary_key=True, index=True)
     cve_id = Column(String(50), index=True, nullable=False)  # e.g., "CVE-2024-6387"
     source = Column(String(50), default="FS-ISAC", nullable=False, index=True)  # Strictly "FS-ISAC"
-    title = Column(String(255), nullable=False)
+    title = Column(Text, nullable=False)
     description = Column(Text, nullable=False)
     severity = Column(String(20), default="High", nullable=False)  # "Critical", "High", "Medium", "Low"
     cvss_score = Column(Float, nullable=True)
@@ -25,7 +25,7 @@ class MispCveAssessment(Base):
     match_type = Column(String(50), nullable=False, index=True)
     
     # Confidence Level: "High" | "Medium" | "Low" | "None"
-    confidence = Column(String(20), default="High", nullable=False)
+    confidence = Column(String(100), default="High", nullable=False)
     
     affected_assets_count = Column(Integer, default=0, nullable=False)
     
