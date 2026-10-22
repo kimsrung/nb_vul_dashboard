@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, BackgroundTasks
+from fastapi import APIRouter, Depends, BackgroundTasks, Query
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,9 +22,9 @@ from app.services.sync_service import SyncService
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 
-async def bg_sync_task():
+async def bg_sync_task(mode: str = "delta"):
     async with AsyncSessionLocal() as session:
-        await SyncService.run_sync(session, manual_trigger=True)
+        await SyncService.run_sync(session, sync_mode=mode, manual_trigger=True)
 
 
 @router.get("/summary", response_model=DashboardSummaryResponse)
@@ -147,9 +147,16 @@ async def get_dashboard_summary(
         ]
     recent_alerts_items = [_map_assessment_to_alert(al) for al in recent_assessments]
 
-    # Last sync time
+    # Sync metadata
     sync_setting = await db.get(SystemSetting, "last_sync_time")
     last_sync = sync_setting.value if sync_setting else None
+
+    full_sync_setting = await db.get(SystemSetting, "qualys_last_full_sync_time")
+    last_full_sync = full_sync_setting.value if full_sync_setting else None
+
+    mode_setting = await db.get(SystemSetting, "qualys_last_sync_mode")
+    last_mode = mode_setting.value if mode_setting else "delta"
+
     sync_status = await SyncService.get_sync_status()
 
     return DashboardSummaryResponse(
@@ -176,6 +183,8 @@ async def get_dashboard_summary(
         recent_risky_assets=[AssetListItem.model_validate(a) for a in recent_risky],
         recent_alerts=recent_alerts_items,
         last_sync_time=last_sync,
+        last_full_sync_time=last_full_sync,
+        last_sync_mode=last_mode,
         sync_status=sync_status.get("status", "Idle"),
     )
 
@@ -183,14 +192,20 @@ async def get_dashboard_summary(
 @router.post("/sync")
 async def trigger_manual_sync(
     background_tasks: BackgroundTasks,
+    mode: str = Query("delta", pattern="^(delta|full)$", description="Sync mode: 'delta' (quick incremental) or 'full' (complete reconciliation)"),
     admin: User = Depends(require_admin),
 ):
     status = await SyncService.get_sync_status()
     if status.get("status") == "Syncing":
         return {"success": False, "message": "Sync is already in progress"}
     
-    background_tasks.add_task(bg_sync_task)
-    return {"success": True, "message": "Qualys data synchronization started in background"}
+    background_tasks.add_task(bg_sync_task, mode)
+    mode_label = "full reconciliation" if mode == "full" else "incremental delta"
+    return {
+        "success": True,
+        "message": f"Qualys {mode_label} sync started in background",
+        "sync_mode": mode,
+    }
 
 
 @router.get("/sync-status")

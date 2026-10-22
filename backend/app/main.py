@@ -27,6 +27,12 @@ async def init_db_and_seed():
     """Create database tables and seed default accounts & initial sync."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Safe migration for existing SQLite / Postgres installations
+        try:
+            from sqlalchemy import text
+            await conn.execute(text("ALTER TABLE assets ADD COLUMN is_active BOOLEAN DEFAULT 1"))
+        except Exception:
+            pass
 
     async with AsyncSessionLocal() as session:
         # Restore persisted settings from DB if present
@@ -61,6 +67,8 @@ async def init_db_and_seed():
                 settings.MISP_MOCK_MODE = v.lower() in ("true", "1")
             elif k == "misp_sync_interval_hours" and v.isdigit():
                 settings.MISP_SYNC_INTERVAL_HOURS = int(v)
+            elif k == "misp_webhook_secret" and v:
+                settings.MISP_WEBHOOK_SECRET = v
             elif k == "telegram_enabled":
                 settings.TELEGRAM_ENABLED = v.lower() in ("true", "1")
             elif k == "telegram_bot_token" and v:
@@ -208,9 +216,15 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing Risk Alert Dashboard Backend...")
     await init_db_and_seed()
     start_scheduler()
+    if settings.MISP_ZMQ_ENABLED and settings.MISP_ZMQ_HOST:
+        from app.services.misp_zmq_subscriber import start_misp_zmq_task
+        start_misp_zmq_task(settings.MISP_ZMQ_HOST, settings.MISP_ZMQ_PORT)
     yield
     # Shutdown
     logger.info("Shutting down backend...")
+    if settings.MISP_ZMQ_ENABLED and settings.MISP_ZMQ_HOST:
+        from app.services.misp_zmq_subscriber import stop_misp_zmq_task
+        stop_misp_zmq_task()
     stop_scheduler()
     await engine.dispose()
 

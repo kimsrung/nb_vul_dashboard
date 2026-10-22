@@ -5,7 +5,7 @@ import defusedxml.ElementTree as ET
 import httpx
 
 from app.core.config import settings
-from app.services.qualys_mock import MOCK_KB_XML, MOCK_HOST_DETECTION_XML
+from app.services.qualys_mock import MOCK_KB_XML, MOCK_HOST_DETECTION_XML, MOCK_HOST_DETECTION_DELTA_XML
 
 logger = logging.getLogger(__name__)
 
@@ -137,18 +137,23 @@ class QualysApiClient:
         self,
         updated_since: Optional[str] = None,
         tag_set_include: Optional[str] = None,
+        status: str = "Active,New,Re-Opened,Fixed",
         severities: str = "1,2,3,4,5",
+        id_min: Optional[int] = None,
     ) -> str:
         """Fetch Host VM Detections XML from live API or mock."""
         if self.mock_mode:
-            logger.info("Using Qualys Mock Host Detections XML")
+            if updated_since:
+                logger.info(f"Using Qualys Mock Host Detections DELTA XML (updated_since={updated_since})")
+                return MOCK_HOST_DETECTION_DELTA_XML
+            logger.info("Using Qualys Mock Host Detections FULL XML")
             return MOCK_HOST_DETECTION_XML
 
         endpoint = f"{self.base_url}/api/2.0/fo/asset/host/vm/detection/"
         data: Dict[str, Any] = {
             "action": "list",
             "show_igs": "0",  # Don't pull information gathering by default
-            "status": "Active,New,Re-Opened",
+            "status": status,
             "severities": severities,
             "show_tags": "1",
             "output_format": "XML",
@@ -158,6 +163,8 @@ class QualysApiClient:
         if tag_set_include:
             data["tag_set_by"] = "name"
             data["tag_set_include"] = tag_set_include
+        if id_min is not None:
+            data["id_min"] = str(id_min)
 
         async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(
@@ -168,6 +175,74 @@ class QualysApiClient:
             )
             resp.raise_for_status()
             return resp.text
+
+    def extract_pagination_id_min(self, xml_content: str) -> Optional[int]:
+        """Extract id_min pagination cursor from Qualys Warning XML element if present."""
+        if not xml_content or not xml_content.strip():
+            return None
+        try:
+            import re
+            root = ET.fromstring(xml_content)
+            # Qualys code 1905 indicates truncated host list
+            warning_el = root.find(".//WARNING")
+            if warning_el is not None:
+                url_el = warning_el.find("URL")
+                if url_el is not None and url_el.text:
+                    match = re.search(r"id_min=(\d+)", url_el.text)
+                    if match:
+                        return int(match.group(1))
+                text_el = warning_el.find("TEXT")
+                if text_el is not None and text_el.text:
+                    match = re.search(r"id_min=(\d+)", text_el.text)
+                    if match:
+                        return int(match.group(1))
+        except Exception as e:
+            logger.debug(f"Error checking Qualys pagination warning: {e}")
+        return None
+
+    async def fetch_all_hosts_with_detections(
+        self,
+        updated_since: Optional[str] = None,
+        tag_set_include: Optional[str] = None,
+        status: str = "Active,New,Re-Opened,Fixed",
+        severities: str = "1,2,3,4,5",
+        max_pages: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetch all host detections across all Qualys pagination chunks (auto-following id_min).
+        Returns aggregated parsed hosts.
+        """
+        if self.mock_mode:
+            xml_content = await self.fetch_host_detections_xml(updated_since=updated_since)
+            return self.parse_host_detections_xml(xml_content)
+
+        all_hosts: List[Dict[str, Any]] = []
+        current_id_min: Optional[int] = None
+        page = 1
+
+        while page <= max_pages:
+            logger.info(
+                f"Fetching Qualys host detections (page {page}, id_min={current_id_min}, updated_since={updated_since})"
+            )
+            xml_content = await self.fetch_host_detections_xml(
+                updated_since=updated_since,
+                tag_set_include=tag_set_include,
+                status=status,
+                severities=severities,
+                id_min=current_id_min,
+            )
+
+            page_hosts = self.parse_host_detections_xml(xml_content)
+            all_hosts.extend(page_hosts)
+
+            next_id_min = self.extract_pagination_id_min(xml_content)
+            if not next_id_min or next_id_min == current_id_min:
+                break
+            current_id_min = next_id_min
+            page += 1
+
+        logger.info(f"Qualys pagination complete: fetched {len(all_hosts)} hosts across {page} page(s).")
+        return all_hosts
 
     def parse_knowledge_base_xml(self, xml_content: str) -> List[Dict[str, Any]]:
         """Parse Qualys KnowledgeBase XML into structured dicts."""

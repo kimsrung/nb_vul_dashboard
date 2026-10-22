@@ -15,3 +15,4 @@ defusedxml>=0.7.1
 apscheduler>=3.10.4
 python-multipart>=0.0.9
 python-dotenv>=1.0.1
+pyzmq>=25.0.0

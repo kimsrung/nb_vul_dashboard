@@ -411,6 +411,17 @@ async def misp_push_webhook(
     db: AsyncSession = Depends(get_db),
 ):
     """Webhook endpoint for MISP to push newly published CVE advisories in real-time."""
+    if settings.MISP_WEBHOOK_SECRET:
+        token = request.headers.get("X-MISP-Token") or request.headers.get("X-Webhook-Secret")
+        auth_hdr = request.headers.get("Authorization", "")
+        if auth_hdr.startswith("Bearer "):
+            token = auth_hdr.split("Bearer ")[1].strip()
+        if token != settings.MISP_WEBHOOK_SECRET:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Unauthorized: Invalid or missing MISP webhook secret token"
+            )
+
     try:
         body = await request.json()
     except Exception:
@@ -452,6 +463,21 @@ async def misp_push_webhook(
                     record.dispatched_telegram = True
                 except Exception as e:
                     logger.error(f"Telegram dispatch failed: {e}")
+
+    # Record event in audit history
+    await AuditService.log_event(
+        db=db,
+        action="MISP_FEED_PUSH_RECEIVED",
+        target_type="MISP_Feed",
+        target_id=str(parsed_advisories[0].get("cve_id", "BULK")),
+        target_name=f"FS-ISAC Push ({len(parsed_advisories)} advisories, {alerts_created} matching alerts)",
+        request=request,
+        details={
+            "advisories_count": len(parsed_advisories),
+            "alerts_created": alerts_created,
+            "cves": [a.get("cve_id") for a in parsed_advisories[:10]],
+        },
+    )
 
     await db.commit()
 

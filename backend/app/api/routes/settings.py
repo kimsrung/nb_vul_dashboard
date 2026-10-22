@@ -42,6 +42,7 @@ async def get_settings(user: User = Depends(require_viewer)):
         misp_enabled=settings.MISP_ENABLED,
         misp_mock_mode=settings.MISP_MOCK_MODE,
         misp_sync_interval_hours=settings.MISP_SYNC_INTERVAL_HOURS,
+        misp_webhook_secret=_mask_token(settings.MISP_WEBHOOK_SECRET) if settings.MISP_WEBHOOK_SECRET else "",
         telegram_enabled=settings.TELEGRAM_ENABLED,
         telegram_bot_token_masked=_mask_token(settings.TELEGRAM_BOT_TOKEN),
         telegram_chat_id=settings.TELEGRAM_CHAT_ID,
@@ -88,6 +89,8 @@ async def update_settings(
         settings.MISP_MOCK_MODE = settings_in.misp_mock_mode
     if settings_in.misp_sync_interval_hours is not None:
         settings.MISP_SYNC_INTERVAL_HOURS = settings_in.misp_sync_interval_hours
+    if settings_in.misp_webhook_secret is not None:
+        settings.MISP_WEBHOOK_SECRET = settings_in.misp_webhook_secret.strip()
 
     if settings_in.telegram_enabled is not None:
         settings.TELEGRAM_ENABLED = settings_in.telegram_enabled
@@ -123,6 +126,7 @@ async def update_settings(
         "misp_enabled": "true" if settings.MISP_ENABLED else "false",
         "misp_mock_mode": "true" if settings.MISP_MOCK_MODE else "false",
         "misp_sync_interval_hours": str(settings.MISP_SYNC_INTERVAL_HOURS),
+        "misp_webhook_secret": settings.MISP_WEBHOOK_SECRET,
         "telegram_enabled": "true" if settings.TELEGRAM_ENABLED else "false",
         "telegram_bot_token": settings.TELEGRAM_BOT_TOKEN,
         "telegram_chat_id": settings.TELEGRAM_CHAT_ID,
@@ -155,6 +159,7 @@ async def update_settings(
         misp_enabled=settings.MISP_ENABLED,
         misp_mock_mode=settings.MISP_MOCK_MODE,
         misp_sync_interval_hours=settings.MISP_SYNC_INTERVAL_HOURS,
+        misp_webhook_secret=_mask_token(settings.MISP_WEBHOOK_SECRET) if settings.MISP_WEBHOOK_SECRET else "",
         telegram_enabled=settings.TELEGRAM_ENABLED,
         telegram_bot_token_masked=_mask_token(settings.TELEGRAM_BOT_TOKEN),
         telegram_chat_id=settings.TELEGRAM_CHAT_ID,

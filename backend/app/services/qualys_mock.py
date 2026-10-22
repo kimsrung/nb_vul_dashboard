@@ -363,3 +363,73 @@ MOCK_HOST_DETECTION_XML = """<?xml version="1.0" encoding="UTF-8" ?>
     </HOST_LIST>
   </RESPONSE>
 </HOST_LIST_VM_DETECTION_OUTPUT>"""
+
+
+MOCK_HOST_DETECTION_DELTA_XML = """<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE HOST_LIST_VM_DETECTION_OUTPUT SYSTEM "https://qualysapi.qualys.com/host_list_vm_detection_output.dtd">
+<HOST_LIST_VM_DETECTION_OUTPUT>
+  <RESPONSE>
+    <DATETIME>2026-10-22T04:15:00Z</DATETIME>
+    <HOST_LIST>
+      <HOST>
+        <ID>100101</ID>
+        <IP>192.168.10.45</IP>
+        <TRACKING_METHOD>IP</TRACKING_METHOD>
+        <DNS>srv-db-prod01.internal.corp</DNS>
+        <NETBIOS>SRV-DB-PROD01</NETBIOS>
+        <OS>Ubuntu Linux 22.04 LTS</OS>
+        <LAST_SCAN_DATETIME>2026-10-22T03:30:00Z</LAST_SCAN_DATETIME>
+        <TAG_LIST>
+          <TAG><NAME>PCI-DSS</NAME></TAG>
+          <TAG><NAME>Production</NAME></TAG>
+          <TAG><NAME>Database</NAME></TAG>
+          <TAG><NAME>Linux</NAME></TAG>
+        </TAG_LIST>
+        <DETECTION_LIST>
+          <DETECTION>
+            <QID>150682</QID>
+            <TYPE>Confirmed</TYPE>
+            <SEVERITY>4</SEVERITY>
+            <STATUS>Fixed</STATUS>
+            <FIRST_FOUND_DATETIME>2026-09-10T11:00:00Z</FIRST_FOUND_DATETIME>
+            <LAST_FOUND_DATETIME>2026-10-22T03:30:00Z</LAST_FOUND_DATETIME>
+            <TIMES_FOUND>13</TIMES_FOUND>
+            <PORT>22</PORT>
+            <PROTOCOL>tcp</PROTOCOL>
+            <RESULTS>OpenSSH upgraded to 9.8p1. Vulnerability resolved and verified fixed by scanner.</RESULTS>
+          </DETECTION>
+        </DETECTION_LIST>
+      </HOST>
+
+      <HOST>
+        <ID>100103</ID>
+        <IP>10.20.6.190</IP>
+        <TRACKING_METHOD>IP</TRACKING_METHOD>
+        <DNS>bk-appcore-sit.internal.corp</DNS>
+        <NETBIOS>BK-APPCORE-SIT</NETBIOS>
+        <OS>Red Hat Enterprise Linux 8.8</OS>
+        <LAST_SCAN_DATETIME>2026-10-22T04:00:00Z</LAST_SCAN_DATETIME>
+        <TAG_LIST>
+          <TAG><NAME>Production</NAME></TAG>
+          <TAG><NAME>Java</NAME></TAG>
+          <TAG><NAME>Analytics</NAME></TAG>
+        </TAG_LIST>
+        <DETECTION_LIST>
+          <DETECTION>
+            <QID>376241</QID>
+            <TYPE>Confirmed</TYPE>
+            <SEVERITY>5</SEVERITY>
+            <STATUS>Active</STATUS>
+            <FIRST_FOUND_DATETIME>2026-09-15T14:00:00Z</FIRST_FOUND_DATETIME>
+            <LAST_FOUND_DATETIME>2026-10-22T04:00:00Z</LAST_FOUND_DATETIME>
+            <TIMES_FOUND>26</TIMES_FOUND>
+            <PORT>8080</PORT>
+            <PROTOCOL>tcp</PROTOCOL>
+            <RESULTS>Vulnerable log4j-core-2.14.1.jar identified in /opt/analytics/lib/. JndiLookup class present in archive.</RESULTS>
+          </DETECTION>
+        </DETECTION_LIST>
+      </HOST>
+    </HOST_LIST>
+  </RESPONSE>
+</HOST_LIST_VM_DETECTION_OUTPUT>"""
+

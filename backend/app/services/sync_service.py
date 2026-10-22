@@ -14,11 +14,17 @@ from app.models.setting import SystemSetting
 from app.services.qualys_client import QualysApiClient
 from app.services.risk_engine import RiskEngine
 from app.services.telegram_service import TelegramService
+from app.services.audit_service import AuditService
 
 logger = logging.getLogger(__name__)
 
 sync_lock = asyncio.Lock()
-current_sync_status = {"status": "Idle", "last_run": None, "message": "No sync executed yet."}
+current_sync_status = {
+    "status": "Idle",
+    "last_run": None,
+    "sync_mode": None,
+    "message": "No sync executed yet.",
+}
 
 
 class SyncService:
@@ -27,14 +33,30 @@ class SyncService:
         return current_sync_status
 
     @classmethod
-    async def run_sync(cls, db: AsyncSession, manual_trigger: bool = False) -> Dict[str, Any]:
-        """Orchestrate KnowledgeBase and Host Detection synchronization."""
+    async def run_sync(
+        cls,
+        db: AsyncSession,
+        sync_mode: str = "delta",
+        manual_trigger: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Orchestrate KnowledgeBase and Host Detection synchronization.
+        Supports:
+          - 'delta': Quick incremental sync querying updated detections since watermark.
+          - 'full': Complete inventory reconciliation, paginating all hosts and detecting decommissioned servers.
+        """
         if sync_lock.locked():
             return {"success": False, "message": "A sync job is already in progress."}
 
         async with sync_lock:
+            if sync_mode not in ("delta", "full"):
+                sync_mode = "delta"
+
             current_sync_status["status"] = "Syncing"
-            current_sync_status["message"] = "Fetching Qualys KnowledgeBase..."
+            current_sync_status["sync_mode"] = sync_mode
+            current_sync_status["message"] = (
+                f"Starting Qualys {'incremental delta' if sync_mode == 'delta' else 'full reconciliation'} sync..."
+            )
             now = datetime.now(timezone.utc)
 
             try:
@@ -60,13 +82,27 @@ class SyncService:
                     mock_mode=settings.QUALYS_MOCK_MODE,
                 )
 
-                # 2. Ingest Host Detections FIRST
-                current_sync_status["message"] = "Querying Qualys Host Detection API..."
-                tag_filter = settings.QUALYS_TAG_FILTER if settings.QUALYS_TAG_FILTER else None
-                hosts_xml = await client.fetch_host_detections_xml(tag_set_include=tag_filter)
-                parsed_hosts = client.parse_host_detections_xml(hosts_xml)
+                # 2. Determine delta watermark if in delta mode
+                updated_since: Optional[str] = None
+                if sync_mode == "delta":
+                    watermark_setting = await db.get(SystemSetting, "qualys_last_sync_watermark")
+                    if watermark_setting and watermark_setting.value:
+                        updated_since = watermark_setting.value
+                    else:
+                        logger.info("No prior sync watermark found. Promoting delta sync to full reconciliation.")
+                        sync_mode = "full"
+                        updated_since = None
 
-                # 3. Collect all unique QIDs present in the detections
+                # 3. Ingest Host Detections with auto-pagination
+                current_sync_status["message"] = f"Querying Qualys Host Detection API ({sync_mode} mode)..."
+                tag_filter = settings.QUALYS_TAG_FILTER if settings.QUALYS_TAG_FILTER else None
+                parsed_hosts = await client.fetch_all_hosts_with_detections(
+                    updated_since=updated_since,
+                    tag_set_include=tag_filter,
+                    status="Active,New,Re-Opened,Fixed",
+                )
+
+                # 4. Collect all unique QIDs present in the detections
                 all_qids = set()
                 for host_data in parsed_hosts:
                     for det_item in host_data.get("detections", []):
@@ -77,14 +113,14 @@ class SyncService:
                 if client.mock_mode:
                     all_qids.update([378291, 376241, 91942, 150682, 38914, 105822])
 
-                # 4. Identify which QIDs need enrichment from Qualys KnowledgeBase API
+                # 5. Identify which QIDs need enrichment from Qualys KnowledgeBase API
                 missing_qids = []
                 for qid in all_qids:
                     existing = await db.get(KnowledgeBase, qid)
                     if not existing or not existing.solution:
                         missing_qids.append(qid)
 
-                # 5. Enrich missing QIDs from Qualys KB API in targeted batches
+                # 6. Enrich missing QIDs from Qualys KB API in targeted batches
                 kb_items_added = 0
                 if missing_qids:
                     current_sync_status["message"] = f"Fetching fix guidance for {len(missing_qids)} QIDs from KnowledgeBase API..."
@@ -101,22 +137,25 @@ class SyncService:
                         kb_items_added += 1
                     await db.flush()
 
-                # 6. Build kb_map from database
+                # 7. Build kb_map from database
                 kb_map: Dict[int, KnowledgeBase] = {}
                 if all_qids:
                     kb_res = await db.execute(select(KnowledgeBase).where(KnowledgeBase.qid.in_(list(all_qids))))
                     for row in kb_res.scalars().all():
                         kb_map[row.qid] = row
 
+                seen_qualys_ids = set()
                 assets_updated = 0
                 alerts_triggered = 0
+                fixed_detections_count = 0
                 now = datetime.now(timezone.utc)
 
                 for host_data in parsed_hosts:
                     qualys_id = host_data["qualys_id"]
+                    seen_qualys_ids.add(qualys_id)
                     detections_data = host_data.pop("detections", [])
 
-                    # Find or create Asset (use .scalars().first() to avoid MultipleResultsFound)
+                    # Find or create Asset
                     res = await db.execute(select(Asset).where(Asset.qualys_id == qualys_id).limit(1))
                     asset = res.scalars().first()
 
@@ -134,6 +173,7 @@ class SyncService:
                             os_family=host_data.get("os_family"),
                             tags=host_data.get("tags", []),
                             last_scan_date=host_data.get("last_scan_date"),
+                            is_active=True,
                             created_at=now,
                             updated_at=now,
                         )
@@ -152,18 +192,20 @@ class SyncService:
                         asset.os_family = host_data.get("os_family")
                         asset.tags = host_data.get("tags", [])
                         asset.last_scan_date = host_data.get("last_scan_date")
+                        asset.is_active = True
                         asset.updated_at = now
 
                     # Sync Detections for this asset
-                    active_detections = []
                     for det_item in detections_data:
                         det_qid = det_item["qid"]
+                        det_status = det_item.get("status", "Active")
+
                         # Verify QID exists in KB or create stub
                         if det_qid not in kb_map:
                             stub_kb = KnowledgeBase(
                                 qid=det_qid,
                                 title=f"Qualys QID {det_qid}",
-                                severity=det_item["severity"],
+                                severity=det_item.get("severity", 1),
                                 created_at=now,
                                 updated_at=now,
                             )
@@ -174,7 +216,6 @@ class SyncService:
                         det_port = det_item.get("port")
                         det_proto = det_item.get("protocol")
 
-                        # Build specific port/protocol conditions to match the exact detection instance
                         det_conditions = [
                             Detection.asset_id == asset.id,
                             Detection.qid == det_qid,
@@ -189,43 +230,58 @@ class SyncService:
                         )
                         detection = det_res.scalars().first()
 
-                        if detection is None:
-                            detection = Detection(
-                                asset_id=asset.id,
-                                qid=det_qid,
-                                detection_type=det_item.get("detection_type", "Confirmed"),
-                                severity=det_item.get("severity", 1),
-                                status=det_item.get("status", "Active"),
-                                first_found_date=det_item.get("first_found_date"),
-                                last_found_date=det_item.get("last_found_date"),
-                                times_found=det_item.get("times_found", 1),
-                                port=det_port,
-                                protocol=det_proto,
-                                scanner_results=det_item.get("scanner_results"),
-                                remediation_status="Open",
-                                created_at=now,
-                                updated_at=now,
-                            )
-                            db.add(detection)
+                        if det_status == "Fixed":
+                            if detection is not None:
+                                detection.status = "Fixed"
+                                if detection.remediation_status != "Resolved":
+                                    detection.remediation_status = "Resolved"
+                                    detection.updated_by = "Qualys Delta Sync"
+                                    fixed_detections_count += 1
+                                detection.last_found_date = det_item.get("last_found_date", detection.last_found_date)
+                                detection.scanner_results = det_item.get("scanner_results", detection.scanner_results)
+                                detection.updated_at = now
                         else:
-                            detection.severity = det_item.get("severity", detection.severity)
-                            detection.status = det_item.get("status", detection.status)
-                            detection.last_found_date = det_item.get("last_found_date")
-                            detection.times_found = det_item.get("times_found", detection.times_found)
-                            detection.port = det_port
-                            detection.protocol = det_proto
-                            detection.scanner_results = det_item.get("scanner_results", detection.scanner_results)
-                            detection.updated_at = now
-                        
-                        active_detections.append(detection)
+                            if detection is None:
+                                detection = Detection(
+                                    asset_id=asset.id,
+                                    qid=det_qid,
+                                    detection_type=det_item.get("detection_type", "Confirmed"),
+                                    severity=det_item.get("severity", 1),
+                                    status=det_status,
+                                    first_found_date=det_item.get("first_found_date"),
+                                    last_found_date=det_item.get("last_found_date"),
+                                    times_found=det_item.get("times_found", 1),
+                                    port=det_port,
+                                    protocol=det_proto,
+                                    scanner_results=det_item.get("scanner_results"),
+                                    remediation_status="Open",
+                                    created_at=now,
+                                    updated_at=now,
+                                )
+                                db.add(detection)
+                            else:
+                                detection.severity = det_item.get("severity", detection.severity)
+                                detection.status = det_status
+                                detection.last_found_date = det_item.get("last_found_date")
+                                detection.times_found = det_item.get("times_found", detection.times_found)
+                                detection.port = det_port
+                                detection.protocol = det_proto
+                                detection.scanner_results = det_item.get("scanner_results", detection.scanner_results)
+                                if detection.remediation_status == "Resolved" and det_status in ("Active", "New", "Re-Opened"):
+                                    detection.remediation_status = "Open"
+                                detection.updated_at = now
 
                     await db.flush()
 
-                    # Calculate Risk Score and Counts
+                    # Always load ALL detections for this asset to calculate cumulative risk score
+                    all_asset_detections = (
+                        await db.execute(select(Detection).where(Detection.asset_id == asset.id))
+                    ).scalars().all()
+
                     score, risk_lvl, is_risky, total_v, crit_v, high_v = RiskEngine.calculate_asset_risk(
-                        active_detections, kb_map, now=now
+                        all_asset_detections, kb_map, now=now
                     )
-                    
+
                     was_risky = asset.is_risky
                     asset.risk_score = score
                     asset.risk_level = risk_lvl
@@ -235,12 +291,11 @@ class SyncService:
                     asset.high_vulns = high_v
                     assets_updated += 1
 
-                    # Extract installed software from detections into AssetSoftware
-                    await cls._sync_discovered_software(db, asset.id, active_detections, now)
+                    # Extract installed software from all detections into AssetSoftware
+                    await cls._sync_discovered_software(db, asset.id, all_asset_detections, now)
 
                     # Check Alert & Telegram Dispatch
                     if is_risky:
-                        # Check last alert cooldown (use .scalars().first() with .limit(1) to avoid MultipleResultsFound)
                         cooldown_cutoff = now - timedelta(hours=settings.TELEGRAM_COOLDOWN_HOURS)
                         recent_alert_res = await db.execute(
                             select(Alert)
@@ -250,20 +305,21 @@ class SyncService:
                         )
                         recent_alert = recent_alert_res.scalars().first()
 
-                        # Alert title: <Server Name>: <IP Address> as requested
                         server_display = asset.server_name or (asset.fqdn.split(".")[0] if asset.fqdn else asset.netbios_name or "Unknown-Host")
                         alert_title = f"{server_display}: {asset.ip_address or 'Unknown IP'}"
-                        top_dets = sorted(active_detections, key=lambda d: d.severity, reverse=True)
+                        active_dets = [
+                            d for d in all_asset_detections
+                            if d.status != "Fixed" and d.remediation_status not in ("Resolved", "False_Positive")
+                        ]
+                        top_dets = sorted(active_dets, key=lambda d: d.severity, reverse=True)
                         alert_msg = f"scored {score:.1f} with {crit_v} Critical and {high_v} High vulnerabilities."
 
                         dispatched_telegram = False
                         if settings.TELEGRAM_ENABLED and (recent_alert is None or not was_risky):
-                            # Dispatch to Telegram
                             tg_text = TelegramService.format_asset_alert(asset, top_dets, kb_map)
                             tg_result = await TelegramService.send_message(tg_text)
                             dispatched_telegram = tg_result.get("success", False)
 
-                        # Create Alert Record if no alert in cooldown window
                         if recent_alert is None or not was_risky:
                             alert_record = Alert(
                                 asset_id=asset.id,
@@ -279,25 +335,74 @@ class SyncService:
                             db.add(alert_record)
                             alerts_triggered += 1
 
-                # Update system setting with last sync timestamp
+                # 8. Reconcile Decommissioned Assets (Only during full reconciliation)
+                decommissioned_count = 0
+                if sync_mode == "full" and len(seen_qualys_ids) > 0:
+                    active_assets_res = await db.execute(select(Asset).where(Asset.is_active == True))
+                    for a in active_assets_res.scalars().all():
+                        if a.qualys_id not in seen_qualys_ids:
+                            a.is_active = False
+                            a.updated_at = now
+                            decommissioned_count += 1
+                            logger.info(
+                                f"Decommissioned/Inactive host detected: '{a.server_name}' (ID: {a.id}, Qualys ID: {a.qualys_id})"
+                            )
+
+                # 9. Update system settings with sync timestamps and watermark
                 last_sync_str = now.isoformat()
-                sync_setting = await db.get(SystemSetting, "last_sync_time")
-                if sync_setting:
-                    sync_setting.value = last_sync_str
-                else:
-                    db.add(SystemSetting(key="last_sync_time", value=last_sync_str, description="Timestamp of last Qualys sync"))
+                watermark_str = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+                async def set_setting(key: str, val: str, desc: str):
+                    s = await db.get(SystemSetting, key)
+                    if s:
+                        s.value = val
+                    else:
+                        db.add(SystemSetting(key=key, value=val, description=desc))
+
+                await set_setting("last_sync_time", last_sync_str, "Timestamp of last Qualys sync")
+                await set_setting("qualys_last_sync_watermark", watermark_str, "Watermark for incremental delta sync")
+                await set_setting("qualys_last_sync_mode", sync_mode, "Mode of last Qualys sync (delta or full)")
+                if sync_mode == "full":
+                    await set_setting("qualys_last_full_sync_time", last_sync_str, "Timestamp of last full Qualys reconciliation sync")
+
+                # 10. Audit log entry
+                await AuditService.log_event(
+                    db=db,
+                    action=f"QUALYS_{sync_mode.upper()}_SYNC",
+                    target_type="SYNC",
+                    target_id="qualys",
+                    target_name=f"Qualys {sync_mode.capitalize()} Sync",
+                    details={
+                        "sync_mode": sync_mode,
+                        "assets_updated": assets_updated,
+                        "fixed_detections": fixed_detections_count,
+                        "decommissioned_assets": decommissioned_count,
+                        "kb_items_enriched": kb_items_added,
+                        "alerts_triggered": alerts_triggered,
+                        "manual_trigger": manual_trigger,
+                    },
+                )
 
                 await db.commit()
 
-                result_msg = f"Sync completed successfully. Updated {assets_updated} assets, enriched {kb_items_added} KB items, triggered {alerts_triggered} alerts."
+                mode_label = "Full reconciliation" if sync_mode == "full" else "Incremental delta"
+                result_msg = (
+                    f"{mode_label} sync completed successfully. "
+                    f"Updated {assets_updated} assets, resolved {fixed_detections_count} fixed vulnerabilities, "
+                    f"decommissioned {decommissioned_count} inactive assets, enriched {kb_items_added} KB items."
+                )
                 current_sync_status["status"] = "Idle"
                 current_sync_status["last_run"] = last_sync_str
+                current_sync_status["sync_mode"] = sync_mode
                 current_sync_status["message"] = result_msg
 
                 return {
                     "success": True,
                     "message": result_msg,
+                    "sync_mode": sync_mode,
                     "assets_updated": assets_updated,
+                    "fixed_detections": fixed_detections_count,
+                    "decommissioned_assets": decommissioned_count,
                     "kb_items": kb_items_added,
                     "alerts_triggered": alerts_triggered,
                     "timestamp": last_sync_str,

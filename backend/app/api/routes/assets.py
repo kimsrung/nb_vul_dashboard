@@ -31,6 +31,7 @@ async def list_assets(
     page_size: int = Query(10, ge=1, le=100, description="Items per page"),
     risk_level: Optional[str] = Query(None, description="Filter by risk level (Critical, High, Medium, Low)"),
     is_risky: Optional[bool] = Query(None, description="Filter flagged risky assets"),
+    is_active: Optional[bool] = Query(None, description="Filter active or decommissioned assets"),
     server_name: Optional[str] = Query(None, description="Filter by server name"),
     os_family: Optional[str] = Query(None, description="Filter by OS family"),
     owner_id: Optional[int] = Query(None, description="Filter by owner ID"),
@@ -53,6 +54,8 @@ async def list_assets(
         base_query = base_query.where(Asset.risk_level == risk_level)
     if is_risky is not None:
         base_query = base_query.where(Asset.is_risky == is_risky)
+    if is_active is not None:
+        base_query = base_query.where(Asset.is_active == is_active)
     if os_family:
         base_query = base_query.where(Asset.os_family == os_family)
     if server_name:

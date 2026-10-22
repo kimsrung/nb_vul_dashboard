@@ -37,4 +37,6 @@ class DashboardSummaryResponse(BaseModel):
     recent_risky_assets: List[AssetListItem]
     recent_alerts: List[AlertItem]
     last_sync_time: Optional[str] = None
+    last_full_sync_time: Optional[str] = None
+    last_sync_mode: Optional[str] = None
     sync_status: str = "Idle"

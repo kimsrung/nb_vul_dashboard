@@ -17,6 +17,7 @@ class SystemSettingsResponse(BaseModel):
     misp_enabled: bool
     misp_mock_mode: bool
     misp_sync_interval_hours: int
+    misp_webhook_secret: Optional[str] = None
 
     telegram_enabled: bool
     telegram_bot_token_masked: str
@@ -45,6 +46,7 @@ class SystemSettingsUpdate(BaseModel):
     misp_enabled: Optional[bool] = None
     misp_mock_mode: Optional[bool] = None
     misp_sync_interval_hours: Optional[int] = None
+    misp_webhook_secret: Optional[str] = None
 
     telegram_enabled: Optional[bool] = None
     telegram_bot_token: Optional[str] = None

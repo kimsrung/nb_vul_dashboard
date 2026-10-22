@@ -26,6 +26,7 @@ class Asset(Base):
     risk_score = Column(Float, default=0.0, nullable=False, index=True)
     risk_level = Column(String(20), default="Low", nullable=False, index=True)  # "Critical", "High", "Medium", "Low"
     is_risky = Column(Boolean, default=False, nullable=False, index=True)
+    is_active = Column(Boolean, default=True, nullable=False, index=True)  # False if decommissioned / not reporting in Qualys
     
     total_vulns = Column(Integer, default=0, nullable=False)
     critical_vulns = Column(Integer, default=0, nullable=False)

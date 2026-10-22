@@ -21,6 +21,7 @@ class AssetListItem(BaseModel):
     risk_score: float
     risk_level: str
     is_risky: bool
+    is_active: bool = True
     total_vulns: int
     critical_vulns: int
     high_vulns: int
@@ -61,6 +62,7 @@ class AssetDeleteResponse(BaseModel):
 class AssetFilterParams(BaseModel):
     risk_level: Optional[str] = None
     is_risky: Optional[bool] = None
+    is_active: Optional[bool] = None
     tag: Optional[str] = None
     os_family: Optional[str] = None
     search: Optional[str] = None
