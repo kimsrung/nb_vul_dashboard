@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
   History, Search, RefreshCw, Trash2, CheckCircle2, Wrench, User,
-  Eye, X, FileText, ArrowUpDown, ArrowUp, ArrowDown, Radio, Zap
+  Eye, X, FileText, ArrowUpDown, ArrowUp, ArrowDown, Radio, Zap,
+  RotateCw
 } from 'lucide-react';
 import { AuditLogItem, PaginatedAuditLogsResponse, apiClient } from '../api/client';
 import { TablePagination } from '../components/common/TablePagination';
@@ -144,10 +145,10 @@ export const AuditLogsPage: React.FC = () => {
         <button
           onClick={() => fetchLogs()}
           disabled={isLoading}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 self-start"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 self-start sm:self-center shrink-0 whitespace-nowrap cursor-pointer"
         >
-          <RefreshCw className={`w-3.5 h-3.5 text-sky-400 ${isLoading ? 'animate-spin' : ''}`} />
-          Refresh Log
+          <RotateCw className={`w-3.5 h-3.5 text-sky-400 ${isLoading ? 'animate-spin' : ''} shrink-0`} />
+          <span className="whitespace-nowrap">Refresh Log</span>
         </button>
       </div>
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Bell, CheckCircle2, Send, RefreshCw, ShieldAlert,
+  Bell, CheckCircle2, Send, RefreshCw, RotateCw, ShieldAlert,
   Search, Server, Zap, Calendar, Terminal,
   Check, Copy, AlertTriangle, AlertCircle, ExternalLink,
   ArrowUpDown, ArrowUp, ArrowDown, X, CheckCircle
@@ -207,25 +207,25 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start">
+        <div className="flex items-center gap-2 self-start sm:self-center shrink-0 relative flex-nowrap">
           <button
             onClick={() => fetchAlerts()}
             disabled={isLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition-colors cursor-pointer whitespace-nowrap shrink-0"
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-sky-400 ${isLoading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
+            <RotateCw className={`w-3.5 h-3.5 text-sky-400 ${isLoading ? 'animate-spin' : ''} shrink-0`} />
+            <span className="whitespace-nowrap">Refresh</span>
           </button>
 
           {canManage && (
             <button
               onClick={handleSyncMisp}
               disabled={isSyncing}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-xs font-bold text-white transition-all disabled:opacity-50 shadow-md shadow-sky-600/20 cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-xs font-bold text-white transition-all disabled:opacity-50 shadow-md shadow-sky-600/20 cursor-pointer whitespace-nowrap shrink-0"
               title="Query MISP for new FS-ISAC CVE advisories & evaluate against host software"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-              <span>{isSyncing ? 'Syncing...' : 'Sync Feed'}</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''} shrink-0`} />
+              <span className="whitespace-nowrap">{isSyncing ? 'Syncing...' : 'Sync Feed'}</span>
             </button>
           )}
         </div>

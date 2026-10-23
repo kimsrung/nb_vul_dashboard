@@ -2,14 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ShieldAlert, Server, AlertTriangle, Bug, Flame, ArrowUpRight,
-  Activity, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, ChevronDown,
-  CheckCircle2, AlertCircle, X
+  Activity, ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react';
-import { DashboardSummary, AssetListItem, apiClient } from '../api/client';
+import { DashboardSummary, AssetListItem } from '../api/client';
 import { RiskBadge } from '../components/common/RiskBadge';
 import { TablePagination } from '../components/common/TablePagination';
 import { formatDateYMD } from '../utils/date';
-import { useAuth } from '../context/AuthContext';
 
 interface DashboardPageProps {
   summary: DashboardSummary | null;
@@ -22,67 +20,10 @@ interface DashboardPageProps {
 export const DashboardPage: React.FC<DashboardPageProps> = ({
   summary,
   isLoading,
-  onRefreshSummary,
   onSelectAsset,
   onNavigateTab,
 }) => {
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
-
-  // Qualys Sync state (Admin Only)
-  const [isSyncing, setIsSyncing] = useState<boolean>(false);
-  const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
-  const [isSyncError, setIsSyncError] = useState<boolean>(false);
-  const [isSyncMenuOpen, setIsSyncMenuOpen] = useState<boolean>(false);
-
-  const handleSyncNow = async (mode: 'delta' | 'full' = 'delta') => {
-    setIsSyncMenuOpen(false);
-    setIsSyncing(true);
-    setIsSyncError(false);
-    setSyncFeedback(
-      mode === 'full'
-        ? 'Initiating complete Qualys inventory reconciliation & KnowledgeBase sync...'
-        : 'Initiating fast incremental Qualys delta sync (updated detections since watermark)...'
-    );
-
-    try {
-      await apiClient.post(`/dashboard/sync?mode=${mode}`);
-
-      const pollInterval = setInterval(async () => {
-        try {
-          const statusRes = await apiClient.get('/dashboard/sync-status');
-          const data = statusRes.data;
-          if (data.status === 'Idle') {
-            clearInterval(pollInterval);
-            setIsSyncing(false);
-            setIsSyncError(false);
-            setSyncFeedback(data.message || 'Sync completed successfully');
-            if (onRefreshSummary) onRefreshSummary();
-            setTimeout(() => setSyncFeedback(null), 6000);
-          } else if (data.status === 'Error') {
-            clearInterval(pollInterval);
-            setIsSyncing(false);
-            setIsSyncError(true);
-            setSyncFeedback(data.message || 'Qualys sync failed');
-          } else {
-            setSyncFeedback(data.message || 'Sync in progress...');
-          }
-        } catch {
-          // ignore poll error
-        }
-      }, 1500);
-
-      setTimeout(() => {
-        clearInterval(pollInterval);
-        setIsSyncing(false);
-      }, 120000);
-    } catch (err: any) {
-      setIsSyncing(false);
-      setIsSyncError(true);
-      setSyncFeedback(err.response?.data?.detail || 'Failed to start sync');
-      setTimeout(() => setSyncFeedback(null), 6000);
-    }
-  };
 
   const handleSelectAsset = (assetId: number) => {
     if (onSelectAsset) {
@@ -190,95 +131,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </div>
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0" title="Sync pipeline operational" />
           </div>
-
-          <div className="flex items-center gap-2 relative">
-            <button
-              onClick={() => onRefreshSummary && onRefreshSummary()}
-              disabled={isLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition-colors cursor-pointer"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 text-sky-400 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
-            {isAdmin && (
-              <div className="relative inline-flex rounded-lg shadow-md shadow-sky-600/20">
-                <button
-                  onClick={() => handleSyncNow('delta')}
-                  disabled={isSyncing}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-l-lg bg-sky-600 hover:bg-sky-500 text-xs font-bold text-white transition-all disabled:opacity-50 border-r border-sky-700/60 cursor-pointer"
-                  title="Trigger fast incremental Qualys delta sync (updated detections only)"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                  <span>{isSyncing ? 'Syncing...' : 'Sync Delta'}</span>
-                </button>
-                <button
-                  onClick={() => setIsSyncMenuOpen((prev) => !prev)}
-                  disabled={isSyncing}
-                  className="px-1.5 py-1.5 rounded-r-lg bg-sky-600 hover:bg-sky-500 text-white transition-all disabled:opacity-50 cursor-pointer"
-                  title="Choose Qualys Sync Mode"
-                >
-                  <ChevronDown className="w-3.5 h-3.5" />
-                </button>
-
-                {isSyncMenuOpen && (
-                  <div className="absolute right-0 top-full mt-1.5 w-60 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl py-1 z-50 animate-in fade-in zoom-in-95 duration-150">
-                    <button
-                      onClick={() => handleSyncNow('delta')}
-                      className="w-full text-left px-3.5 py-2 hover:bg-slate-800/80 transition-colors flex flex-col gap-0.5 border-b border-slate-800 cursor-pointer"
-                    >
-                      <span className="text-xs font-bold text-sky-300 flex items-center justify-between">
-                        Smart Delta Sync
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300">Fast</span>
-                      </span>
-                      <span className="text-[11px] text-slate-400">
-                        Fetches only detections updated since last watermark
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => handleSyncNow('full')}
-                      className="w-full text-left px-3.5 py-2 hover:bg-slate-800/80 transition-colors flex flex-col gap-0.5 cursor-pointer"
-                    >
-                      <span className="text-xs font-bold text-amber-300 flex items-center justify-between">
-                        Full Reconciliation Sync
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300">Deep</span>
-                      </span>
-                      <span className="text-[11px] text-slate-400">
-                        Paginates all hosts & identifies decommissioned assets
-                      </span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
         </div>
       </div>
-
-      {/* Sync Feedback Banner */}
-      {syncFeedback && (
-        <div
-          className={`p-3 rounded-lg border text-xs flex items-center justify-between animate-in fade-in duration-200 ${
-            isSyncError
-              ? 'bg-red-950/60 text-red-300 border-red-800/80'
-              : 'bg-sky-950/60 text-sky-300 border-sky-800/80'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            {isSyncError ? (
-              <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-            ) : (
-              <CheckCircle2 className="w-4 h-4 text-sky-400 shrink-0" />
-            )}
-            <span>{syncFeedback}</span>
-          </div>
-          <button
-            onClick={() => setSyncFeedback(null)}
-            className="text-slate-400 hover:text-slate-200 p-0.5 rounded cursor-pointer"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

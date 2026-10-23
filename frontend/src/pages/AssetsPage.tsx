@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Search, RefreshCw, Server, User, RotateCcw,
+  Search, RefreshCw, Server, User, RotateCw, RotateCcw,
   Trash2, AlertTriangle, X, CheckCircle2, AlertCircle, ArrowUp, ArrowDown,
   Calendar, ShieldAlert, Activity, ArrowUpRight, ChevronDown
 } from 'lucide-react';
@@ -242,36 +242,36 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
             Qualys scanned assets with automated risk scoring, ownership auditing, and step-by-step Knowledge Based(KB) remediation.
           </p>
         </div>
-        <div className="flex items-center gap-2 self-start relative">
+        <div className="flex items-center gap-2 self-start sm:self-center shrink-0 relative flex-nowrap">
           <button
             onClick={() => {
               fetchAssets();
               fetchOwners();
             }}
             disabled={isLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition-colors cursor-pointer whitespace-nowrap shrink-0"
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-sky-400 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
+            <RotateCw className={`w-3.5 h-3.5 text-sky-400 ${isLoading ? 'animate-spin' : ''} shrink-0`} />
+            <span className="whitespace-nowrap">Refresh</span>
           </button>
           {isAdmin && (
-            <div className="relative inline-flex rounded-lg shadow-md shadow-sky-600/20">
+            <div className="relative inline-flex rounded-lg shadow-md shadow-sky-600/20 shrink-0 flex-nowrap whitespace-nowrap">
               <button
                 onClick={() => handleSyncNow('delta')}
                 disabled={isSyncing}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-l-lg bg-sky-600 hover:bg-sky-500 text-xs font-bold text-white transition-all disabled:opacity-50 border-r border-sky-700/60 cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-l-lg bg-sky-600 hover:bg-sky-500 text-xs font-bold text-white transition-all disabled:opacity-50 border-r border-sky-700/60 cursor-pointer whitespace-nowrap shrink-0"
                 title="Trigger fast incremental Qualys delta sync (updated detections only)"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                <span>{isSyncing ? 'Syncing...' : 'Sync Delta'}</span>
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''} shrink-0`} />
+                <span className="whitespace-nowrap">{isSyncing ? 'Syncing...' : 'Sync Delta'}</span>
               </button>
               <button
                 onClick={() => setIsSyncMenuOpen((prev) => !prev)}
                 disabled={isSyncing}
-                className="px-1.5 py-1.5 rounded-r-lg bg-sky-600 hover:bg-sky-500 text-white transition-all disabled:opacity-50 cursor-pointer"
+                className="px-1.5 py-1.5 rounded-r-lg bg-sky-600 hover:bg-sky-500 text-white transition-all disabled:opacity-50 cursor-pointer shrink-0"
                 title="Choose Qualys Sync Mode"
               >
-                <ChevronDown className="w-3.5 h-3.5" />
+                <ChevronDown className="w-3.5 h-3.5 shrink-0" />
               </button>
 
               {isSyncMenuOpen && (

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Server, Bug, RefreshCw, Wrench, Package, Trash2, AlertTriangle, X, ArrowUpDown, ArrowUp, ArrowDown, Search } from 'lucide-react';
+import { ArrowLeft, Server, Bug, RefreshCw, Wrench, Package, Trash2, AlertTriangle, X, ArrowUpDown, ArrowUp, ArrowDown, Search, RotateCw } from 'lucide-react';
 import { AssetDetail, DetectionItem, SoftwareItem, apiClient } from '../api/client';
 import { RiskBadge } from '../components/common/RiskBadge';
 import { SeverityTag } from '../components/common/SeverityTag';
@@ -213,7 +213,7 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId: propA
             onClick={fetchAssetDetail}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700"
           >
-            <RefreshCw className="w-3.5 h-3.5 text-sky-400" /> Refresh Dossier
+            <RotateCw className="w-3.5 h-3.5 text-sky-400" /> Refresh Dossier
           </button>
         </div>
       </div>
