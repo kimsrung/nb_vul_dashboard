@@ -52,6 +52,7 @@ export interface OwnerOption {
   username: string;
   full_name: string | null;
   email: string;
+  role?: UserRole;
 }
 
 export interface AssetListItem {
@@ -64,6 +65,8 @@ export interface AssetListItem {
   server_name: string | null;
   owner_id: number | null;
   owner_username: string | null;
+  poc_name?: string | null;
+  poc_email?: string | null;
   os_name: string | null;
   os_family: string | null;
   tags: string[];
@@ -130,6 +133,9 @@ export interface AffectedServerItem {
   server_name?: string;
   ip_address?: string;
   os_name?: string;
+  owner_username?: string;
+  poc_name?: string;
+  poc_email?: string;
   evidence: string;
   installed_version?: string;
   confidence: string;

@@ -207,29 +207,21 @@ docker compose logs -f
 
 ## 6. How to Run Automated Tests
 
-To run the comprehensive end-to-end test suite verifying authentication, RBAC enforcement, asset ingestion, KB solution extraction, risk score recalculation, and alert generation:
+To run the comprehensive test suite covering Authentication, RBAC, Asset Inventory & PoC, Risk Engine recalculations, MISP Threat Intelligence & ZeroMQ simulation, Threat Alerts, Settings, and Telegram alert formatting:
 
 ```bash
 cd /Users/kimsrung/workspace/nbc/dashboard_alert/backend
 
-PYTHONPATH=. ./venv/bin/python -c "
-import asyncio
-from httpx import AsyncClient, ASGITransport
-from app.main import app
+# Run full pytest suite (all 30 tests)
+PYTHONPATH=. ./venv/bin/pytest
 
-async def test():
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url='http://test') as client:
-        res = await client.post('/api/v1/auth/login', json={'username': 'admin', 'password': 'admin123'})
-        assert res.status_code == 200
-        token = res.json()['access_token']
-        headers = {'Authorization': f'Bearer {token}'}
-        res = await client.get('/api/v1/dashboard/summary', headers=headers)
-        assert res.status_code == 200
-        print('All tests passed! Total assets:', res.json()['total_assets'])
-
-asyncio.run(test())
-"
+# Run a specific test module
+PYTHONPATH=. ./venv/bin/pytest tests/test_assets_poc.py
+PYTHONPATH=. ./venv/bin/pytest tests/test_auth_rbac.py
+PYTHONPATH=. ./venv/bin/pytest tests/test_risk_remediation.py
+PYTHONPATH=. ./venv/bin/pytest tests/test_misp_assessment.py
+PYTHONPATH=. ./venv/bin/pytest tests/test_alerts.py
+PYTHONPATH=. ./venv/bin/pytest tests/test_settings_audit.py
 ```
 
 To verify the frontend build:

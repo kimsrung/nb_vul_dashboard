@@ -49,8 +49,12 @@ async def list_available_owners(
     db: AsyncSession = Depends(get_db),
     caller: User = Depends(require_analyst_or_admin),
 ):
-    """List users that can be assigned as asset owners (analysts, owners, admins)."""
-    res = await db.execute(select(User).where(User.is_active == True).order_by(User.username))
+    """List users that can be assigned as asset owners (strictly users with role 'owner')."""
+    res = await db.execute(
+        select(User)
+        .where(User.is_active == True, User.role == "owner")
+        .order_by(User.username)
+    )
     users = res.scalars().all()
     return users
 

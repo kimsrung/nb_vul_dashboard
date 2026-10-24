@@ -8,6 +8,9 @@ class AffectedServerItem(BaseModel):
     server_name: Optional[str] = None
     ip_address: Optional[str] = None
     os_name: Optional[str] = None
+    owner_username: Optional[str] = None
+    poc_name: Optional[str] = None
+    poc_email: Optional[str] = None
     evidence: str
     installed_version: Optional[str] = None
     confidence: str

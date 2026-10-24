@@ -804,9 +804,15 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
                                 <span className="text-slate-500">Evidence: </span>
                                 <span className="font-mono text-slate-200">{srv.evidence}</span>
                               </div>
-                              <div className="flex items-center gap-4 text-[10px]">
+                              <div className="flex items-center gap-4 text-[10px] flex-wrap">
                                 <span>OS: <span className="text-slate-300">{srv.os_name || 'Unknown OS'}</span></span>
                                 <span>Confidence: <span className="text-emerald-400 font-semibold">{srv.confidence}</span></span>
+                                {srv.owner_username && (
+                                  <span>Owner: <span className="text-sky-300 font-mono font-medium">{srv.owner_username}</span></span>
+                                )}
+                                {srv.poc_name && (
+                                  <span>PoC: <span className="text-emerald-300 font-semibold">{srv.poc_name}</span>{srv.poc_email && <span className="text-slate-400 font-mono"> &lt;{srv.poc_email}&gt;</span>}</span>
+                                )}
                               </div>
                             </div>
                           </div>

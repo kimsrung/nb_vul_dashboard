@@ -63,11 +63,22 @@ class TelegramService:
         server_name = html.escape(getattr(asset, "server_name", None) or (asset.fqdn.split(".")[0] if asset.fqdn else "Unknown-Server"))
         icon = "🚨" if risk_level == "CRITICAL" else "⚠️"
 
+        owner_username = html.escape(getattr(asset, "owner_username", None) or "Unassigned")
+        poc_name = getattr(asset, "poc_name", None)
+        poc_email = getattr(asset, "poc_email", None)
+        owner_info = f"<code>{owner_username}</code>"
+        if poc_name:
+            poc_str = f"{html.escape(poc_name)}"
+            if poc_email:
+                poc_str += f" &lt;{html.escape(poc_email)}&gt;"
+            owner_info += f" (PoC: {poc_str})"
+
         lines = [
             f"{icon} <b>Risk Alert: {server_name} ({ip})</b>",
             "",
             f"🖥 <b>Server Name:</b> <code>{server_name}</code>",
             f"🌐 <b>IP Address:</b> <code>{ip}</code> ({fqdn})",
+            f"👤 <b>Ownership:</b> {owner_info}",
             f"💻 <b>OS:</b> {os_name}",
             f"📊 <b>Risk Score:</b> <b>{risk_score}</b> (Level: {risk_level})",
             "",

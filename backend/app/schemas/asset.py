@@ -17,6 +17,8 @@ class AssetListItem(BaseModel):
     tags: List[str] = []
     owner_id: Optional[int] = None
     owner_username: Optional[str] = None
+    poc_name: Optional[str] = None
+    poc_email: Optional[str] = None
     last_scan_date: Optional[datetime] = None
     risk_score: float
     risk_level: str
@@ -45,6 +47,8 @@ class PaginatedAssetsResponse(BaseModel):
 class AssetOwnerUpdate(BaseModel):
     owner_id: Optional[int] = None
     server_name: Optional[str] = None
+    poc_name: Optional[str] = None
+    poc_email: Optional[str] = None
 
 
 class AssetDeleteRequest(BaseModel):

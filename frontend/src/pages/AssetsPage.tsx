@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Search, RefreshCw, Server, User, RotateCw, RotateCcw,
+  Search, RefreshCw, Server, RotateCw, RotateCcw,
   Trash2, AlertTriangle, X, CheckCircle2, AlertCircle, ArrowUp, ArrowDown,
-  Calendar, ShieldAlert, Activity, ArrowUpRight, ChevronDown
+  Calendar, ShieldAlert, Activity, ArrowUpRight, ChevronDown,
+  UserCheck, Pencil, Mail, Users
 } from 'lucide-react';
 import { AssetListItem, PaginatedAssetsResponse, OwnerOption, apiClient } from '../api/client';
 import { RiskBadge } from '../components/common/RiskBadge';
 import { useAuth } from '../context/AuthContext';
 import { TablePagination } from '../components/common/TablePagination';
 import { formatDateYMD } from '../utils/date';
+import { EditAssetModal } from '../components/assets/EditAssetModal';
 
 interface AssetsPageProps {
   onSelectAsset?: (assetId: number) => void;
@@ -58,7 +60,13 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
 
   // Available owners for assignment
   const [availableOwners, setAvailableOwners] = useState<OwnerOption[]>([]);
-  const [updatingOwnerAssetId, setUpdatingOwnerAssetId] = useState<number | null>(null);
+  const [editingAsset, setEditingAsset] = useState<AssetListItem | null>(null);
+
+  const handleAssetSaved = (updated: AssetListItem) => {
+    setAssets((prev) =>
+      prev.map((a) => (a.id === updated.id ? { ...a, ...updated } : a))
+    );
+  };
 
   const fetchOwners = async () => {
     if (!canAssignOwner) return;
@@ -123,31 +131,6 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
       return prev;
     });
     setPage(1);
-  };
-
-  const handleOwnerChange = async (assetId: number, newOwnerId: number) => {
-    setUpdatingOwnerAssetId(assetId);
-    try {
-      const res = await apiClient.patch(`/assets/${assetId}/owner`, {
-        owner_id: newOwnerId === 0 ? 0 : newOwnerId,
-      });
-      // Update local asset row
-      setAssets((prev) =>
-        prev.map((a) =>
-          a.id === assetId
-            ? {
-                ...a,
-                owner_id: res.data.owner_id,
-                owner_username: res.data.owner_username,
-              }
-            : a
-        )
-      );
-    } catch (err) {
-      console.error('Failed to update asset owner', err);
-    } finally {
-      setUpdatingOwnerAssetId(null);
-    }
   };
 
   const handleConfirmDelete = async () => {
@@ -394,11 +377,13 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
                 className="bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-primary-500"
               >
                 <option value="">All Owners</option>
-                {availableOwners.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.username} {o.full_name ? `(${o.full_name})` : ''}
-                  </option>
-                ))}
+                {availableOwners
+                  .filter((o) => !o.role || o.role === 'owner')
+                  .map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.username} {o.full_name ? `(${o.full_name})` : ''}
+                    </option>
+                  ))}
               </select>
             )}
 
@@ -590,38 +575,68 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
                     </div>
                   </div>
 
-                  {/* Host Ownership Box */}
-                  <div className="p-3 rounded-xl bg-slate-950/70 border border-surfaceBorder space-y-1">
-                    <div className="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5">
-                      <User className="w-3.5 h-3.5 text-indigo-400" /> Host Ownership
-                    </div>
-                    {canAssignOwner ? (
-                      <div className="flex items-center gap-1.5 pt-0.5">
-                        <select
-                          value={asset.owner_id || 0}
-                          disabled={updatingOwnerAssetId === asset.id}
-                          onChange={(e) => handleOwnerChange(asset.id, Number(e.target.value))}
-                          className="w-full bg-slate-900 border border-slate-700 hover:border-slate-500 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-primary-500 disabled:opacity-50 cursor-pointer"
-                        >
-                          <option value={0}>Unassigned</option>
-                          {availableOwners.map((o) => (
-                            <option key={o.id} value={o.id}>
-                              {o.username} {o.full_name ? `(${o.full_name})` : ''}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    ) : (
-                      <div className="pt-0.5">
-                        {asset.owner_username ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-slate-900 text-sky-300 border border-slate-700 font-medium">
-                            <User className="w-3 h-3 text-sky-400" /> {asset.owner_username}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-slate-500 italic">Unassigned</span>
+                  {/* Host Ownership & Point of Contact (PoC) Box */}
+                  <div className="p-3 rounded-xl bg-slate-950/70 border border-surfaceBorder space-y-2 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <div className="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5">
+                          <Users className="w-3.5 h-3.5 text-indigo-400" /> Host Ownership & PoC
+                        </div>
+                        {canAssignOwner && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingAsset(asset);
+                            }}
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-400 hover:text-sky-300 transition-colors cursor-pointer"
+                            title="Edit Server Name, Owner Group, and PoC Contact"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            <span>Edit</span>
+                          </button>
                         )}
                       </div>
-                    )}
+
+                      {/* Owner Group Badge */}
+                      <div className="pt-1 flex items-center gap-1.5 flex-wrap">
+                        {asset.owner_username ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-slate-900 text-sky-300 border border-slate-700 font-medium">
+                            <Users className="w-3 h-3 text-sky-400" /> {asset.owner_username}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-500 italic">No Group Assigned</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* PoC Details */}
+                    <div className="pt-1.5 border-t border-slate-800/80">
+                      <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-0.5">
+                        Point of Contact (PoC)
+                      </div>
+                      {asset.poc_name ? (
+                        <div className="text-xs text-slate-200 flex items-center gap-1.5 truncate">
+                          <UserCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span className="font-semibold text-slate-100 truncate">{asset.poc_name}</span>
+                          {asset.poc_email && (
+                            <a
+                              href={`mailto:${asset.poc_email}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-[11px] text-sky-400 hover:text-sky-300 hover:underline truncate"
+                              title={`Email ${asset.poc_name} (${asset.poc_email})`}
+                            >
+                              &lt;{asset.poc_email}&gt;
+                            </a>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-slate-500 italic flex items-center gap-1">
+                          <Mail className="w-3 h-3 text-slate-600" />
+                          <span>PoC Not Assigned</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Vulnerabilities Breakdown Box */}
@@ -781,6 +796,15 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
           </div>
         </div>
       )}
+
+      {/* Edit Asset Metadata & PoC Modal */}
+      <EditAssetModal
+        asset={editingAsset}
+        isOpen={!!editingAsset}
+        onClose={() => setEditingAsset(null)}
+        availableOwners={availableOwners}
+        onSaved={handleAssetSaved}
+      />
     </div>
   );
 };

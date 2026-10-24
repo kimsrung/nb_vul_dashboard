@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Server, Bug, RefreshCw, Wrench, Package, Trash2, AlertTriangle, X, ArrowUpDown, ArrowUp, ArrowDown, Search, RotateCw } from 'lucide-react';
-import { AssetDetail, DetectionItem, SoftwareItem, apiClient } from '../api/client';
+import {
+  ArrowLeft, Server, Bug, RefreshCw, Wrench, Package, Trash2, AlertTriangle,
+  X, ArrowUpDown, ArrowUp, ArrowDown, Search, RotateCw,
+  UserCheck, Pencil, Users
+} from 'lucide-react';
+import { AssetDetail, DetectionItem, SoftwareItem, OwnerOption, apiClient } from '../api/client';
 import { RiskBadge } from '../components/common/RiskBadge';
 import { SeverityTag } from '../components/common/SeverityTag';
 import { RemediationStatusBadge } from '../components/common/RemediationStatusBadge';
@@ -9,6 +13,7 @@ import { RemediationDrawer } from '../components/remediation/RemediationDrawer';
 import { useAuth } from '../context/AuthContext';
 import { TablePagination } from '../components/common/TablePagination';
 import { formatDateYMD } from '../utils/date';
+import { EditAssetModal } from '../components/assets/EditAssetModal';
 
 interface AssetDetailPageProps {
   assetId?: number;
@@ -23,12 +28,30 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId: propA
   const [searchParams, setSearchParams] = useSearchParams();
   const urlCve = searchParams.get('cve') || '';
 
-  const { isAdmin } = useAuth();
+  const { isAdmin, canAssignOwner } = useAuth();
   const [asset, setAsset] = useState<AssetDetail | null>(null);
   const [softwareList, setSoftwareList] = useState<SoftwareItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedDetection, setSelectedDetection] = useState<DetectionItem | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+
+  // Edit metadata & PoC modal state
+  const [availableOwners, setAvailableOwners] = useState<OwnerOption[]>([]);
+  const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
+
+  const fetchOwners = async () => {
+    if (!canAssignOwner) return;
+    try {
+      const res = await apiClient.get<OwnerOption[]>('/auth/owners');
+      setAvailableOwners(res.data);
+    } catch (err) {
+      console.error('Failed to load available owners', err);
+    }
+  };
+
+  const handleAssetSaved = (updated: any) => {
+    setAsset((prev) => (prev ? { ...prev, ...updated } : null));
+  };
 
   // Deletion modal state
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
@@ -151,7 +174,10 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId: propA
 
   useEffect(() => {
     fetchAssetDetail();
-  }, [assetId]);
+    if (canAssignOwner) {
+      fetchOwners();
+    }
+  }, [assetId, canAssignOwner]);
 
   const handleOpenRemediation = (detection: DetectionItem) => {
     setSelectedDetection(detection);
@@ -197,13 +223,22 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId: propA
           <ArrowLeft className="w-4 h-4" /> Back to Assets
         </button>
         <div className="flex items-center gap-2">
+          {canAssignOwner && (
+            <button
+              onClick={() => setIsEditModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/40 text-xs font-semibold transition-colors cursor-pointer"
+              title="Edit Server Name, Owner Group, and Point of Contact"
+            >
+              <Pencil className="w-3.5 h-3.5" /> Edit Contact & Owner
+            </button>
+          )}
           {isAdmin && (
             <button
               onClick={() => {
                 setDeleteReason('');
                 setIsDeleteModalOpen(true);
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-900/60 text-xs font-semibold text-red-400 border border-red-800/40 hover:border-red-700 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-900/60 text-xs font-semibold text-red-400 border border-red-800/40 hover:border-red-700 transition-colors cursor-pointer"
               title="Permanently remove asset from system (Admin Only)"
             >
               <Trash2 className="w-3.5 h-3.5" /> Remove Host
@@ -211,7 +246,7 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId: propA
           )}
           <button
             onClick={fetchAssetDetail}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 cursor-pointer"
           >
             <RotateCw className="w-3.5 h-3.5 text-sky-400" /> Refresh Dossier
           </button>
@@ -226,8 +261,13 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId: propA
               <Server className="w-6 h-6" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold text-slate-100 font-mono">{asset.ip_address}</h2>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-xl font-bold text-slate-100 font-mono">
+                  {asset.server_name || asset.ip_address}
+                </h2>
+                <span className="font-mono text-xs text-sky-300 bg-sky-950/60 border border-sky-500/30 px-2 py-0.5 rounded">
+                  {asset.ip_address}
+                </span>
                 <RiskBadge level={asset.risk_level} score={asset.risk_score} />
               </div>
               <p className="text-xs font-mono text-slate-400 mt-0.5">
@@ -263,32 +303,68 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId: propA
         </div>
 
         {/* Host Metadata Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs pt-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 text-xs pt-1">
           <div>
             <span className="text-slate-400 block mb-0.5">Operating System</span>
-            <span className="text-slate-200 font-medium">{asset.os_name}</span>
+            <span className="text-slate-200 font-medium truncate block" title={asset.os_name || 'Unknown'}>{asset.os_name || 'Unknown'}</span>
           </div>
           <div>
             <span className="text-slate-400 block mb-0.5">OS Family</span>
-            <span className="text-slate-200 font-mono font-medium">{asset.os_family}</span>
+            <span className="text-slate-200 font-mono font-medium">{asset.os_family || 'Other'}</span>
           </div>
           <div>
-            <span className="text-slate-400 block mb-0.5">Last Qualys VM Scan</span>
+            <span className="text-slate-400 block mb-0.5">Last Qualys Scan</span>
             <span className="text-slate-200 font-mono">
               {formatDateYMD(asset.last_scan_date, 'N/A')}
             </span>
           </div>
           <div>
+            <span className="text-slate-400 block mb-0.5">Host Owner Group</span>
+            {asset.owner_username ? (
+              <span className="inline-flex items-center gap-1 text-sky-300 font-medium font-mono">
+                <Users className="w-3.5 h-3.5 text-sky-400" /> {asset.owner_username}
+              </span>
+            ) : (
+              <span className="text-slate-500 italic">Unassigned</span>
+            )}
+          </div>
+          <div>
+            <span className="text-slate-400 block mb-0.5">Point of Contact (PoC)</span>
+            {asset.poc_name ? (
+              <div className="text-slate-200 truncate">
+                <div className="flex items-center gap-1 font-semibold text-slate-100 truncate">
+                  <UserCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span className="truncate">{asset.poc_name}</span>
+                </div>
+                {asset.poc_email && (
+                  <a
+                    href={`mailto:${asset.poc_email}`}
+                    className="text-[11px] text-sky-400 hover:text-sky-300 hover:underline block truncate font-mono"
+                    title={`Email ${asset.poc_name}`}
+                  >
+                    {asset.poc_email}
+                  </a>
+                )}
+              </div>
+            ) : (
+              <span className="text-slate-500 italic">Unassigned</span>
+            )}
+          </div>
+          <div>
             <span className="text-slate-400 block mb-0.5">Asset Tags</span>
             <div className="flex flex-wrap gap-1 mt-0.5">
-              {asset.tags.map((t) => (
-                <span
-                  key={t}
-                  className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 border border-slate-700"
-                >
-                  {t}
-                </span>
-              ))}
+              {asset.tags.length > 0 ? (
+                asset.tags.map((t) => (
+                  <span
+                    key={t}
+                    className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 border border-slate-700 font-mono"
+                  >
+                    {t}
+                  </span>
+                ))
+              ) : (
+                <span className="text-slate-500 italic">None</span>
+              )}
             </div>
           </div>
         </div>
@@ -750,6 +826,15 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId: propA
           </div>
         </div>
       )}
+
+      {/* Edit Asset Metadata & PoC Modal */}
+      <EditAssetModal
+        asset={asset}
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        availableOwners={availableOwners}
+        onSaved={handleAssetSaved}
+      />
     </div>
   );
 };

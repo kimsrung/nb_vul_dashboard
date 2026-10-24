@@ -38,6 +38,21 @@ async def init_db_and_seed():
         except Exception:
             pass
 
+        # Safe migration for poc_name and poc_email
+        for col_def_sqlite, col_def_pg in [
+            ("poc_name VARCHAR(150)", "poc_name VARCHAR(150)"),
+            ("poc_email VARCHAR(255)", "poc_email VARCHAR(255)"),
+        ]:
+            try:
+                from sqlalchemy import text
+                from app.core.database import is_sqlite
+                if is_sqlite:
+                    await conn.execute(text(f"ALTER TABLE assets ADD COLUMN {col_def_sqlite}"))
+                else:
+                    await conn.execute(text(f"ALTER TABLE assets ADD COLUMN IF NOT EXISTS {col_def_pg}"))
+            except Exception:
+                pass
+
     async with AsyncSessionLocal() as session:
         # Restore persisted settings from DB if present
         settings_res = await session.execute(select(SystemSetting))
@@ -166,7 +181,7 @@ async def init_db_and_seed():
             except Exception as e:
                 logger.error(f"Initial sync failed: {e}")
 
-        # Ensure existing assets have clean server_name and demo owner assigned
+        # Ensure existing assets have clean server_name, demo owner, and PoC assigned
         assets_all = (await session.execute(select(Asset))).scalars().all()
         for a in assets_all:
             if not a.server_name:
@@ -174,6 +189,21 @@ async def init_db_and_seed():
             if owner_user and not a.owner_id and ("appcore" in (a.server_name or "").lower() or a.ip_address in ("10.20.6.190", "10.0.1.5")):
                 a.owner_id = owner_user.id
                 a.owner_username = owner_user.username
+            # Seed sample PoCs if not yet assigned
+            if not a.poc_name:
+                s_name = (a.server_name or "").lower()
+                if "appcore" in s_name or a.ip_address in ("10.20.6.190", "10.0.1.5"):
+                    a.poc_name = "Chan Vanna"
+                    a.poc_email = "chan.vanna@nbc.gov.kh"
+                elif "db" in s_name or "sql" in s_name:
+                    a.poc_name = "Sok Dara"
+                    a.poc_email = "sok.dara@nbc.gov.kh"
+                elif "sit" in s_name or "web" in s_name:
+                    a.poc_name = "Keo Pich"
+                    a.poc_email = "keo.pich@nbc.gov.kh"
+                elif a.owner_id:
+                    a.poc_name = "Samnang Tep"
+                    a.poc_email = "samnang.tep@nbc.gov.kh"
         # Seed baseline Asset Software inventory if empty (Mock mode only)
         if settings.QUALYS_MOCK_MODE:
             sw_res = await session.execute(select(func.count(AssetSoftware.id)))

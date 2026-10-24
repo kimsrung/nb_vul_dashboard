@@ -18,9 +18,11 @@ class Asset(Base):
     os_family = Column(String(100), index=True, nullable=True)  # e.g., "Linux", "Windows", "Network"
     tags = Column(JSON, default=list, nullable=False)  # Filtered tag strings
     
-    # Ownership
+    # Ownership & Point of Contact (PoC)
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     owner_username = Column(String(100), nullable=True)
+    poc_name = Column(String(150), nullable=True, index=True)  # Individual person name e.g. "Sok Dara"
+    poc_email = Column(String(255), nullable=True, index=True)  # Individual email e.g. "sok.dara@nbc.gov.kh"
 
     last_scan_date = Column(DateTime(timezone=True), nullable=True)
     risk_score = Column(Float, default=0.0, nullable=False, index=True)

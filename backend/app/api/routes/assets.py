@@ -109,6 +109,8 @@ async def list_assets(
             Asset.os_name.ilike(search_filter),
             Asset.netbios_name.ilike(search_filter),
             Asset.owner_username.ilike(search_filter),
+            Asset.poc_name.ilike(search_filter),
+            Asset.poc_email.ilike(search_filter),
         ]
 
         # If search query looks like a CVE, also match assets having that CVE
@@ -145,6 +147,8 @@ async def list_assets(
         order_col = Asset.os_name
     elif sort_by in ("owner", "owner_username"):
         order_col = Asset.owner_username
+    elif sort_by in ("poc", "poc_name"):
+        order_col = Asset.poc_name
     elif sort_by in ("vulns", "crit_vulns", "critical_vulns"):
         order_col = Asset.critical_vulns
     elif sort_by == "total_vulns":
@@ -219,9 +223,17 @@ async def update_asset_owner(
 
     old_owner = asset.owner_username
     old_server_name = asset.server_name
+    old_poc_name = asset.poc_name
+    old_poc_email = asset.poc_email
 
     if update_data.server_name is not None:
         asset.server_name = update_data.server_name.strip()
+
+    if update_data.poc_name is not None:
+        asset.poc_name = update_data.poc_name.strip() if update_data.poc_name.strip() else None
+
+    if update_data.poc_email is not None:
+        asset.poc_email = update_data.poc_email.strip() if update_data.poc_email.strip() else None
 
     if update_data.owner_id is not None:
         if update_data.owner_id == 0:
@@ -234,6 +246,11 @@ async def update_asset_owner(
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Owner user with ID {update_data.owner_id} not found",
+                )
+            if owner_user.role != "owner":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"User '{owner_user.username}' has role '{owner_user.role}'. Only users with role 'owner' can be assigned as host owners.",
                 )
             asset.owner_id = owner_user.id
             asset.owner_username = owner_user.username
@@ -255,6 +272,10 @@ async def update_asset_owner(
             "new_owner": asset.owner_username,
             "old_server_name": old_server_name,
             "new_server_name": asset.server_name,
+            "old_poc_name": old_poc_name,
+            "new_poc_name": asset.poc_name,
+            "old_poc_email": old_poc_email,
+            "new_poc_email": asset.poc_email,
             "ip_address": asset.ip_address,
         },
     )
