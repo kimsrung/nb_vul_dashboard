@@ -138,7 +138,7 @@ async def list_assets(
     # Paginate and sort
     skip = (page - 1) * page_size
 
-    order_col = Asset.risk_score
+    order_col = Asset.critical_vulns
     if sort_by in ("host_ip", "ip_address"):
         order_col = Asset.ip_address
     elif sort_by == "server_name":
@@ -149,14 +149,18 @@ async def list_assets(
         order_col = Asset.owner_username
     elif sort_by in ("poc", "poc_name"):
         order_col = Asset.poc_name
-    elif sort_by in ("vulns", "crit_vulns", "critical_vulns"):
+    elif sort_by in ("vulns", "crit_vulns", "critical_vulns", "sev5"):
         order_col = Asset.critical_vulns
+    elif sort_by in ("high_vulns", "sev4"):
+        order_col = Asset.high_vulns
+    elif sort_by in ("medium_vulns", "sev3"):
+        order_col = Asset.medium_vulns
     elif sort_by == "total_vulns":
         order_col = Asset.total_vulns
     elif sort_by in ("scanned", "last_scan_date"):
         order_col = Asset.last_scan_date
     elif sort_by == "risk":
-        order_col = Asset.risk_score
+        order_col = Asset.critical_vulns
 
     order_expr = order_col.asc() if (sort_order or "").lower() == "asc" else order_col.desc()
     query = base_query.order_by(order_expr, Asset.id.asc()).offset(skip).limit(page_size)

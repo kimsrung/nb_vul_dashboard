@@ -1,20 +1,22 @@
 # Risk Alert Dashboard & KnowledgeBase Remediation Platform
 
-An internal enterprise security operations dashboard that automatically ingests scanned assets from the **Qualys Host Detection API**, computes real-time **composite risk scores**, and maps every finding to actionable fix guidance via the **Qualys KnowledgeBase (KB) API**.
+An internal enterprise security operations dashboard that automatically ingests scanned assets from the **Qualys Host Detection API**, maps every finding to actionable fix guidance via the **Qualys KnowledgeBase (KB) API**, and proactively correlates exposure against **MISP (FS-ISAC)** threat intelligence feeds.
 
-Features an **in-dashboard alert center**, an optional **Telegram Bot notification channel**, interactive **remediation workflows**, and **Role-Based Access Control (RBAC)**.
+Tracks active findings by **raw Qualys Severity 1–5** (Sev 5 Critical to Sev 1 Info), features a **minimalist 3-KPI executive overview**, an **in-dashboard threat alert center**, an admin-only **MISP Threat Feed**, an optional **Telegram Bot notification channel**, interactive **remediation workflows**, and multi-role **Role-Based Access Control (RBAC)**.
 
 ---
 
 ## 🌟 Key Features
 
 - **Qualys Host Detection Ingestion**: Automated ingestion of scanned hosts, IP/DNS/NetBIOS metadata, operating systems, asset tags, and vulnerability detections (`/api/2.0/fo/asset/host/vm/detection/`). Supports delta sync (`detection_updated_since`) and tag filters.
-- **KnowledgeBase (KB) Fix Remediation**: Ingests and caches the Qualys KnowledgeBase (`/api/2.0/fo/knowledge_base/vuln/`). Maps findings to step-by-step fix instructions, vendor patch links, temporary workarounds, CVE links, and scanner diagnostic proof.
-- **Composite Risk Scoring Engine**: Calculates real-time asset risk based on Qualys Severity 1–5, Real-Time Threat Intel (RTI: Ransomware, Active in Wild, Zero-Day, RCE, Public Exploit), and SLA age breach penalties.
-- **Actionable Remediation Tracking**: Slide-over drawer allowing security teams to update vulnerability status (`Open`, `In Progress`, `Acknowledged`, `False Positive`, `Resolved`). Status updates immediately recalculate the parent asset's risk score in real-time.
-- **Telegram Bot Alert Integration**: Dispatches formatted HTML alerts with emoji status, host metadata, top findings, and remediation links, backed by anti-spam cooldown logic.
-- **Role-Based Access Control (RBAC)**: JWT authentication enforcing `Admin` (full write & sync) and `Viewer` (read-only audit) permissions.
-- **Dual-Mode Operation**: Seamlessly switch between **Mock / Offline Demo Mode** (synthetic Qualys XML responses) and **Live Qualys Cloud API**.
+- **KnowledgeBase (KB) Fix Remediation**: Ingests and caches the Qualys KnowledgeBase (`/api/2.0/fo/knowledge_base/vuln/`). Maps findings to step-by-step fix instructions rendered in styled HTML, vendor patch links, temporary workarounds, CVE links, and scanner diagnostic proof.
+- **MISP (FS-ISAC) Threat Intelligence**: Proactively evaluates emergency CVE advisories against discovered host software inventory (`AssetSoftware`), producing diagnostic evidence, confidence ratings, and shell verification commands before scanner signatures are published.
+- **Raw Qualys Severity Tracking Engine**: Categorizes vulnerability counts directly by raw Qualys Severity 1–5 (Sev 5 Critical, Sev 4 High, Sev 3 Medium, Sev 2 Low, Sev 1 Info), eliminating artificial synthetic score calculations. Inventory defaults to sorting by Sev 5 descending.
+- **Actionable Remediation Tracking**: Slide-over drawer allowing security teams to update vulnerability status (`Open`, `In Progress`, `Acknowledged`, `False Positive`, `Resolved`). Status updates immediately recalculate the parent asset's active severity counters in real-time.
+- **Executive 3-KPI Overview**: Minimalist executive dashboard featuring Monitored Assets, Total Active Vulnerabilities (highlighting Critical & High numbers with direct navigation), and MISP Threat Intelligence advisories, alongside a dedicated Qualys Severity Distribution widget.
+- **Telegram Bot Alert Integration**: Dispatches formatted HTML alert cards whenever MISP threat intelligence CVE advisories match monitored server infrastructure. Routine Qualys scan sync is excluded from Telegram alerts to prevent notification fatigue.
+- **Centralized Ingestion Architecture**: Manual "Sync Feed" is hosted strictly in the admin-only **MISP Threat Feed** page (`/misp`), while the Alert Center (`/alerts`) provides a dedicated database Refresh button.
+- **Role-Based Access Control (RBAC)**: Multi-role JWT authentication (`Admin`, `Analyst`, `Owner`, `Viewer`) with host ownership scoping.
 
 ---
 
@@ -53,8 +55,8 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 - The backend will start on **`http://localhost:8000`**.
-- It will automatically create tables in `dashboard_alert.db`, seed the default `admin` and `viewer` accounts, and execute an initial mock Qualys sync.
-- Interactive Swagger API docs are available at **`http://localhost:8000/docs`**.
+- It will automatically initialize the database schema and seed the default `admin` and `viewer` accounts.
+- Interactive Swagger API docs are available at **`http://localhost:8000/docs`** (protected by HTTP Basic Auth; default credentials: **`docs_admin`** / **`docs123`**, configurable in Admin Settings).
 
 #### Step 2: Start the React Frontend
 Open a second terminal:
@@ -127,15 +129,12 @@ docker compose down
 ## ⚙️ Configuration & Live Qualys Onboarding
 
 ### 1. Connecting to Live Qualys Cloud Platform
-By default, the platform runs in **Mock Demo Mode** to allow offline testing and development without live credentials.
-
-To switch to your live Qualys account:
+To configure your live Qualys account:
 1. Log into the dashboard as **Admin** (`admin` / `admin123`).
 2. Navigate to **Admin Settings** in the left sidebar.
 3. In the **Qualys Cloud Platform API Configuration** card:
    - Enter your **Qualys API Endpoint** (e.g., `https://qualysapi.qualys.com` for US Platform 1, or `https://qualysapi.qg2.apps.qualys.com` for US Platform 2).
    - Enter your **Qualys API Username** and **Password**.
-   - Uncheck **Enable Mock / Offline Demo Mode**.
    - (Optional) Enter an **Asset Tag Filter** (e.g. `PCI, Production`) to restrict the ingestion scope.
 4. Click **Test Qualys Connection** to verify your credentials.
 5. Click **Save All Settings**.
@@ -158,32 +157,20 @@ To switch to your live Qualys account:
 ## 🧪 Testing
 
 ### Backend & API Test Suite
-Run the automated test suite verifying auth, RBAC, asset scoring, remediation workflow, and alert feeds:
+Run the comprehensive 48-test automated suite across 8 modules (including authentication, RBAC, asset inventory, raw severity recalculation, MISP FS-ISAC proactive assessment, alert feeds, and complete end-to-end happy path integration):
 ```bash
 cd backend
 source venv/bin/activate
-PYTHONPATH=. python -c "
-import asyncio
-from httpx import AsyncClient, ASGITransport
-from app.main import app
 
-async def test():
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url='http://test') as client:
-        res = await client.post('/api/v1/auth/login', json={'username': 'admin', 'password': 'admin123'})
-        assert res.status_code == 200
-        token = res.json()['access_token']
-        headers = {'Authorization': f'Bearer {token}'}
-        res = await client.get('/api/v1/dashboard/summary', headers=headers)
-        assert res.status_code == 200
-        print('All tests passed! Total assets:', res.json()['total_assets'])
+# Run all 48 tests across 8 test suites
+PYTHONPATH=. ./venv/bin/pytest
 
-asyncio.run(test())
-"
+# Run the comprehensive end-to-end happy path integration test
+PYTHONPATH=. ./venv/bin/pytest tests/test_integration_happy_path.py
 ```
 
 ### Frontend Production Build Test
-Verify the TypeScript compilation and Vite production bundle:
+Verify TypeScript compilation and the Vite production bundle:
 ```bash
 cd frontend
 npm run build
@@ -195,24 +182,29 @@ npm run build
 
 ```
 dashboard_alert/
-├── AGENTS.md                  # Developer & AI Agent instructions
 ├── README.md                  # This file
 ├── docker-compose.yml         # Containerized production stack
 ├── .env.example               # Environment variables template
+├── docs/                      # Architectural & integration guides
+│   ├── developer_guide.md     # Technical architecture & developer instructions
+│   ├── overview.md            # System architecture, RBAC matrix & workflows
+│   ├── Qualys.md              # Qualys Cloud Platform & raw severity guide
+│   ├── MISP.md                # MISP & FS-ISAC threat intelligence guide
+│   └── Qualys_MISP_work_together.md # Cross-platform synergy & conflict prevention
 ├── backend/
 │   ├── app/
 │   │   ├── main.py            # FastAPI entrypoint & lifespan
 │   │   ├── core/              # Config, Database, Security
-│   │   ├── models/            # SQLAlchemy ORM models (Asset, Detection, KB, Alert, User)
+│   │   ├── models/            # SQLAlchemy ORM models (Asset, Detection, KB, Software, MispFeed, Alert, User)
 │   │   ├── schemas/           # Pydantic v2 schemas
-│   │   ├── services/          # QualysClient, QualysMock, RiskEngine, SyncService, TelegramService
-│   │   └── api/routes/        # REST API endpoints (Auth, Dashboard, Assets, Detections, KB, Settings)
+│   │   ├── services/          # QualysClient, MispClient, RiskEngine, SyncService, TelegramService
+│   │   └── api/routes/        # REST API endpoints (Auth, Dashboard, Assets, Software, MISP, Detections, KB, Settings)
 │   └── requirements.txt
 └── frontend/
     ├── src/
     │   ├── api/client.ts      # Axios client with JWT interceptor
     │   ├── context/           # AuthContext (login, logout, RBAC)
-    │   ├── components/        # RemediationDrawer, RiskBadge, SeverityTag, Navbar, Sidebar
-    │   └── pages/             # DashboardPage, AssetsPage, AssetDetailPage, AlertsPage, SettingsPage
+    │   ├── components/        # RemediationDrawer, SeverityPills, SeverityTag, Navbar, Sidebar
+    │   └── pages/             # DashboardPage, AssetsPage, AssetDetailPage, AlertsPage, MispPage, UsersPage, SettingsPage
     └── package.json
 ```

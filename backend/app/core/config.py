@@ -50,11 +50,11 @@ class Settings(BaseSettings):
     TELEGRAM_CHAT_ID: str = ""
     TELEGRAM_COOLDOWN_HOURS: int = 6
 
-    # MISP Threat Intelligence (FS-ISAC Feed) Configuration
+    # MISP Threat Intelligence (FS-ISAC / CIRCL Feed) Configuration
     MISP_URL: str = "https://misp.internal.corp"
     MISP_API_KEY: str = ""
-    MISP_CREATOR_ORG: str = "FS-ISAC"
-    MISP_TAG_FILTER: str = "vulnerability:CVE%"
+    MISP_CREATOR_ORG: str = "FS-ISAC"  # "FS-ISAC" for production, "CIRCL" for local testing, or "*" for all orgs
+    MISP_TAG_FILTER: str = ""  # Empty for CIRCL/flexible extraction, or "vulnerability:CVE%" for strict taxonomy
     MISP_FEED_TAG: str = "FS-ISAC"
     MISP_ENABLED: bool = True
     MISP_MOCK_MODE: bool = False  # Disabled by default; connects to live MISP server
@@ -65,11 +65,10 @@ class Settings(BaseSettings):
     MISP_ZMQ_USERNAME: str = ""
     MISP_ZMQ_PASSWORD: str = ""
 
-    # Risk Scoring Configuration
-    RISK_THRESHOLD_CRITICAL: int = 80
-    RISK_THRESHOLD_HIGH: int = 40
-    SLA_CRITICAL_DAYS: int = 14
-    SLA_HIGH_DAYS: int = 30
+    # API Documentation Credentials (HTTP Basic Auth for /docs and /openapi.json)
+    DOCS_USERNAME: str = "docs_admin"
+    DOCS_PASSWORD: str = "docs123"
+
 
 
 settings = Settings()

@@ -1,5 +1,6 @@
 import logging
 import re
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 import httpx
 from app.core.config import settings
@@ -22,10 +23,11 @@ class MispClient:
     ):
         self.base_url = (base_url or settings.MISP_URL).rstrip("/")
         self.api_key = api_key or settings.MISP_API_KEY
-        self.creator_org = (creator_org or settings.MISP_CREATOR_ORG or "FS-ISAC").strip()
-        self.tag_filter = (tag_filter or settings.MISP_TAG_FILTER or "vulnerability:CVE%").strip()
-        self.feed_tag = (feed_tag or settings.MISP_FEED_TAG or "FS-ISAC").strip()
+        self.creator_org = (creator_org if creator_org is not None else settings.MISP_CREATOR_ORG).strip()
+        self.tag_filter = (tag_filter if tag_filter is not None else settings.MISP_TAG_FILTER).strip()
+        self.feed_tag = (feed_tag if feed_tag is not None else settings.MISP_FEED_TAG).strip()
         self.mock_mode = mock_mode if mock_mode is not None else settings.MISP_MOCK_MODE
+        self.last_events_count = 0
 
     async def test_connection(self) -> Dict[str, Any]:
         """Test connection to the MISP API endpoint and verify creator org / tag filtering."""
@@ -78,9 +80,10 @@ class MispClient:
                     search_endpoint = f"{self.base_url}/events/restSearch"
                     search_payload: Dict[str, Any] = {
                         "limit": 1,
-                        "orgc": self.creator_org,
                         "quickFilter": "CVE",
                     }
+                    if self.creator_org and self.creator_org != "*":
+                        search_payload["orgc"] = self.creator_org
                     if self.tag_filter:
                         search_payload["tags"] = [self.tag_filter]
 
@@ -111,6 +114,7 @@ class MispClient:
         """Fetch threat intelligence advisories from MISP using /events/restSearch filtered by Creator Org & CVE tags."""
         if self.mock_mode:
             logger.info("Using MISP Mock FS-ISAC Threat Intelligence Feed")
+            self.last_events_count = len(MOCK_FS_ISAC_EVENTS)
             return self._parse_misp_events(MOCK_FS_ISAC_EVENTS)
 
         endpoint = f"{self.base_url}/events/restSearch"
@@ -120,13 +124,14 @@ class MispClient:
             "Content-Type": "application/json",
         }
         
-        # Server-side query with Creator Org (org) and vulnerability tags
+        # Server-side query with optional Creator Org (org) and vulnerability tags
         payload: Dict[str, Any] = {
-            "org": self.creator_org,
             "enforceWarninglist": True,
             "limit": limit,
             "quickFilter": "CVE",
         }
+        if self.creator_org and self.creator_org != "*":
+            payload["org"] = self.creator_org
         if self.tag_filter:
             payload["tags"] = [self.tag_filter]
 
@@ -136,10 +141,15 @@ class MispClient:
                 resp.raise_for_status()
                 data = resp.json()
                 raw_events = data.get("response", []) if isinstance(data, dict) else data
+                self.last_events_count = len(raw_events)
                 return self._parse_misp_events(raw_events)
         except Exception as e:
-            logger.error(f"Failed to fetch live MISP FS-ISAC events ({e}). Falling back to mock feed.")
+            logger.error(f"Failed to fetch live MISP events ({e}). Falling back to mock feed.")
+            self.last_events_count = len(MOCK_FS_ISAC_EVENTS)
             return self._parse_misp_events(MOCK_FS_ISAC_EVENTS)
+
+    # Method alias for multi-org threat intelligence ingestion
+    fetch_misp_events = fetch_fs_isac_events
 
     def _parse_misp_events(self, raw_events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Normalize MISP event objects into standard FS-ISAC advisory records.
@@ -157,6 +167,7 @@ class MispClient:
             orgc_name = orgc.get("name", "") if isinstance(orgc, dict) else str(orgc)
             org = ev.get("Org", {})
             org_name = org.get("name", "") if isinstance(org, dict) else str(org)
+            event_source = orgc_name or org_name or (self.creator_org if self.creator_org != "*" else "MISP") or "MISP"
             
             raw_tags = ev.get("Tag", [])
             tag_names = [t.get("name", "") if isinstance(t, dict) else str(t) for t in raw_tags]
@@ -222,7 +233,7 @@ class MispClient:
                         desc = attr.get("value", "")
                         break
             if not title:
-                title = f"FS-ISAC Advisory for {cve_ids[0]}"
+                title = f"{event_source} Advisory for {cve_ids[0]}"
 
             product = ev.get("affected_product")
             if not product or product.lower() in ("software", "unknown", "n/a"):
@@ -268,12 +279,28 @@ class MispClient:
 
             m_event_id = str(ev.get("id") or "")
 
+            # Extract MISP event date: prefer date string YYYY-MM-DD (author publication date), fallback to timestamps
+            ev_date_raw = ev.get("date")
+            ev_ts = ev.get("timestamp") or ev.get("publish_timestamp")
+            misp_dt = None
+            if ev_date_raw:
+                try:
+                    misp_dt = datetime.strptime(str(ev_date_raw).strip(), "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                except Exception:
+                    pass
+            if not misp_dt and ev_ts:
+                try:
+                    misp_dt = datetime.fromtimestamp(int(ev_ts), tz=timezone.utc)
+                except Exception:
+                    pass
+
             # Assess each distinct CVE tagged in the event
             for cve_id in cve_ids:
                 parsed_advisories.append({
                     "misp_event_id": m_event_id,
+                    "misp_event_date": misp_dt,
                     "cve_id": cve_id,
-                    "source": "FS-ISAC",
+                    "source": event_source,
                     "title": title,
                     "description": desc or title,
                     "severity": sev,

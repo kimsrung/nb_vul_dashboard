@@ -20,13 +20,16 @@ class AssetListItem(BaseModel):
     poc_name: Optional[str] = None
     poc_email: Optional[str] = None
     last_scan_date: Optional[datetime] = None
-    risk_score: float
-    risk_level: str
-    is_risky: bool
+    risk_score: float = 0.0
+    risk_level: str = "Low"
+    is_risky: bool = False
     is_active: bool = True
-    total_vulns: int
-    critical_vulns: int
-    high_vulns: int
+    total_vulns: int = 0
+    critical_vulns: int = 0
+    high_vulns: int = 0
+    medium_vulns: int = 0
+    low_vulns: int = 0
+    info_vulns: int = 0
 
     class Config:
         from_attributes = True

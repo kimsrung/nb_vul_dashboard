@@ -4,6 +4,7 @@ import { DetectionItem, apiClient } from '../../api/client';
 import { SeverityTag } from '../common/SeverityTag';
 import { RemediationStatusBadge } from '../common/RemediationStatusBadge';
 import { useAuth } from '../../context/AuthContext';
+import { formatAndSanitizeHtml } from '../../utils/sanitize';
 
 interface RemediationDrawerProps {
   detection: DetectionItem | null;
@@ -130,9 +131,15 @@ export const RemediationDrawer: React.FC<RemediationDrawerProps> = ({
             <h3 className="text-sm font-semibold text-sky-400 flex items-center gap-2 mb-2">
               <Wrench className="w-4 h-4" /> Qualys KnowledgeBase Solution & Fix Steps
             </h3>
-            <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-line">
-              {kb?.solution || 'No specific solution provided by Qualys KnowledgeBase for this QID. Review vendor documentation.'}
-            </p>
+            <div
+              className="html-solution text-sm text-slate-200 leading-relaxed"
+              dangerouslySetInnerHTML={{
+                __html: formatAndSanitizeHtml(
+                  kb?.solution,
+                  'No specific solution provided by Qualys KnowledgeBase for this QID. Review vendor documentation.'
+                ),
+              }}
+            />
           </section>
 
           {/* Patches */}
@@ -163,9 +170,10 @@ export const RemediationDrawer: React.FC<RemediationDrawerProps> = ({
           {kb?.workaround && (
             <section className="bg-slate-900/50 border border-surfaceBorder rounded-xl p-4">
               <h3 className="text-sm font-semibold text-slate-300 mb-2">Temporary Workaround</h3>
-              <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-line">
-                {kb.workaround}
-              </p>
+              <div
+                className="html-solution text-xs text-slate-300 leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: formatAndSanitizeHtml(kb.workaround) }}
+              />
             </section>
           )}
 
@@ -207,18 +215,20 @@ export const RemediationDrawer: React.FC<RemediationDrawerProps> = ({
           {kb?.diagnosis && (
             <section className="bg-slate-900/50 border border-surfaceBorder rounded-xl p-4">
               <h3 className="text-sm font-semibold text-slate-300 mb-2">Vulnerability Diagnosis</h3>
-              <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-line">
-                {kb.diagnosis}
-              </p>
+              <div
+                className="html-solution text-xs text-slate-300 leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: formatAndSanitizeHtml(kb.diagnosis) }}
+              />
             </section>
           )}
 
           {kb?.consequence && (
             <section className="bg-slate-900/50 border border-surfaceBorder rounded-xl p-4">
               <h3 className="text-sm font-semibold text-slate-300 mb-2">Consequence / Impact</h3>
-              <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-line">
-                {kb.consequence}
-              </p>
+              <div
+                className="html-solution text-xs text-slate-300 leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: formatAndSanitizeHtml(kb.consequence) }}
+              />
             </section>
           )}
 

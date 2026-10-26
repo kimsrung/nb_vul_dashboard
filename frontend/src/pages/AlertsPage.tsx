@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import {
   Bell, CheckCircle2, Send, RefreshCw, RotateCw, ShieldAlert,
   Search, Server, Zap, Calendar, Terminal,
-  Check, Copy, AlertTriangle, AlertCircle, ExternalLink,
-  ArrowUpDown, ArrowUp, ArrowDown, X, CheckCircle
+  Check, Copy, AlertTriangle, ExternalLink,
+  ArrowUpDown, ArrowUp, ArrowDown, X, CheckCircle, Radio
 } from 'lucide-react';
 import { AlertItem, PaginatedAlertsResponse, apiClient } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { TablePagination } from '../components/common/TablePagination';
 import { formatDateTimeYMD } from '../utils/date';
+import { formatAndSanitizeHtml } from '../utils/sanitize';
 
 interface AlertsPageProps {
   onSelectAsset?: (assetId: number) => void;
@@ -43,10 +44,6 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
   const [activeCount, setActiveCount] = useState<number>(0);
   const [exposedServersCount, setExposedServersCount] = useState<number>(0);
 
-  // Sync state
-  const [isSyncing, setIsSyncing] = useState<boolean>(false);
-  const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
-  const [isSyncError, setIsSyncError] = useState<boolean>(false);
 
   // Slide-over detail drawer state
   const [selectedAlertId, setSelectedAlertId] = useState<number | null>(null);
@@ -112,24 +109,6 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
     setPage(1);
   };
 
-  const handleSyncMisp = async () => {
-    setIsSyncing(true);
-    setIsSyncError(false);
-    setSyncFeedback('Querying MISP for new FS-ISAC CVE advisories & evaluating host matches...');
-    try {
-      const res = await apiClient.post('/alerts/sync');
-      setIsSyncError(false);
-      setSyncFeedback(res.data.message || 'MISP threat feed sync completed successfully.');
-      fetchAlerts();
-      setTimeout(() => setSyncFeedback(null), 6000);
-    } catch (err: any) {
-      setIsSyncError(true);
-      setSyncFeedback(err.response?.data?.detail || 'Failed to sync with MISP');
-      setTimeout(() => setSyncFeedback(null), 6000);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   const handleOpenDetail = async (alertItem: AlertItem) => {
     setSelectedAlertId(alertItem.id);
@@ -205,6 +184,21 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
           <p className="text-xs text-slate-400 mt-1">
             Real-time advisories from FS-ISAC correlated against your server inventory — displaying both Qualys-confirmed detections and proactive pre-scan software matches.
           </p>
+          {isAdmin && (
+            <div className="flex items-center gap-2 mt-2 text-xs">
+              <span className="text-slate-400">
+                Alerts strictly display threats affecting your servers.
+              </span>
+              <button
+                type="button"
+                onClick={() => navigate('/misp')}
+                className="text-indigo-400 hover:text-indigo-300 font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
+              >
+                <Radio className="w-3.5 h-3.5" />
+                View all cataloged advisories in MISP Feed &rarr;
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-center shrink-0 relative flex-nowrap">
@@ -216,79 +210,53 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
             <RotateCw className={`w-3.5 h-3.5 text-sky-400 ${isLoading ? 'animate-spin' : ''} shrink-0`} />
             <span className="whitespace-nowrap">Refresh</span>
           </button>
-
-          {canManage && (
-            <button
-              onClick={handleSyncMisp}
-              disabled={isSyncing}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-xs font-bold text-white transition-all disabled:opacity-50 shadow-md shadow-sky-600/20 cursor-pointer whitespace-nowrap shrink-0"
-              title="Query MISP for new FS-ISAC CVE advisories & evaluate against host software"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''} shrink-0`} />
-              <span className="whitespace-nowrap">{isSyncing ? 'Syncing...' : 'Sync Feed'}</span>
-            </button>
-          )}
         </div>
       </div>
 
-      {/* Sync Feedback Banner */}
-      {syncFeedback && (
-        <div
-          className={`p-3 rounded-lg border text-xs flex items-center justify-between animate-in fade-in duration-200 ${
-            isSyncError
-              ? 'bg-red-950/60 text-red-300 border-red-800/80'
-              : 'bg-sky-950/60 text-sky-300 border-sky-800/80'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            {isSyncError ? (
-              <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-            ) : (
-              <CheckCircle2 className="w-4 h-4 text-sky-400 shrink-0" />
-            )}
-            <span>{syncFeedback}</span>
-          </div>
-          <button
-            onClick={() => setSyncFeedback(null)}
-            className="text-slate-400 hover:text-slate-200 p-0.5 rounded cursor-pointer"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
       {/* KPI Metric Summary Widgets */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl bg-surface border border-surfaceBorder space-y-1">
-          <div className="text-[11px] font-medium text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-            <Bell className="w-3.5 h-3.5 text-red-400" /> Active Threat Alerts
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+        <div className="p-4 rounded-xl bg-surface/60 border border-surfaceBorder">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+              Active Threat Alerts
+            </span>
+            <Bell className="w-4 h-4 text-purple-400" />
           </div>
-          <div className="text-2xl font-bold font-mono text-slate-100">{activeCount}</div>
-          <p className="text-[10px] text-slate-500">Unresolved CVE advisories</p>
+          <div className="text-2xl font-bold font-mono text-slate-100 mt-1">{activeCount}</div>
+          <span className="text-[10px] text-slate-500 mt-0.5 block">Unresolved CVE advisories</span>
         </div>
 
-        <div className="p-4 rounded-xl bg-surface border border-surfaceBorder space-y-1">
-          <div className="text-[11px] font-medium text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-            <ShieldAlert className="w-3.5 h-3.5 text-red-500" /> Critical Threats
+        <div className="p-4 rounded-xl bg-red-950/20 border border-red-900/40">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-red-400 uppercase tracking-wider">
+              Critical Threats
+            </span>
+            <ShieldAlert className="w-4 h-4 text-red-400" />
           </div>
-          <div className="text-2xl font-bold font-mono text-red-400">{critCount}</div>
-          <p className="text-[10px] text-slate-500">Require immediate patching</p>
+          <div className="text-2xl font-bold font-mono text-red-300 mt-1">{critCount}</div>
+          <span className="text-[10px] text-red-500/80 mt-0.5 block">Require immediate patching</span>
         </div>
 
-        <div className="p-4 rounded-xl bg-surface border border-surfaceBorder space-y-1">
-          <div className="text-[11px] font-medium text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-500" /> High Threats
+        <div className="p-4 rounded-xl bg-amber-950/20 border border-amber-900/40">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider">
+              High Threats
+            </span>
+            <AlertTriangle className="w-4 h-4 text-amber-400" />
           </div>
-          <div className="text-2xl font-bold font-mono text-amber-400">{highCount}</div>
-          <p className="text-[10px] text-slate-500">Elevated risk posture</p>
+          <div className="text-2xl font-bold font-mono text-amber-300 mt-1">{highCount}</div>
+          <span className="text-[10px] text-amber-500/80 mt-0.5 block">Elevated risk posture</span>
         </div>
 
-        <div className="p-4 rounded-xl bg-surface border border-surfaceBorder space-y-1">
-          <div className="text-[11px] font-medium text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-            <Server className="w-3.5 h-3.5 text-sky-400" /> Servers Exposed
+        <div className="p-4 rounded-xl bg-sky-950/20 border border-sky-900/40">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-sky-400 uppercase tracking-wider">
+              Servers Exposed
+            </span>
+            <Server className="w-4 h-4 text-sky-400" />
           </div>
-          <div className="text-2xl font-bold font-mono text-sky-400">{exposedServersCount}</div>
-          <p className="text-[10px] text-slate-500">Target host inventory affected</p>
+          <div className="text-2xl font-bold font-mono text-sky-300 mt-1">{exposedServersCount}</div>
+          <span className="text-[10px] text-sky-500/80 mt-0.5 block">Target host inventory affected</span>
         </div>
       </div>
 
@@ -493,11 +461,49 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
               ) : alerts.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-slate-400">
-                    <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2 opacity-80" />
-                    <p className="text-sm font-semibold text-slate-200">No matching threat alerts found</p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Either no FS-ISAC CVEs match installed software or detections on your servers, or current filters excluded all records.
-                    </p>
+                    {search.trim() ? (
+                      <div className="max-w-md mx-auto space-y-2">
+                        <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto opacity-80" />
+                        <p className="text-sm font-semibold text-slate-200">
+                          No active servers are affected by &ldquo;<span className="text-sky-300 font-mono">{search.trim()}</span>&rdquo;
+                        </p>
+                        <p className="text-xs text-slate-400 leading-relaxed">
+                          Your server inventory has 0 exposures for this threat. Newly published CVE advisories that do not match any installed packages on your monitored servers are cataloged in the MISP Feed as clean.
+                        </p>
+                        {isAdmin && (
+                          <div className="pt-2">
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/misp?search=${encodeURIComponent(search.trim())}`)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 text-xs font-semibold cursor-pointer transition-colors"
+                            >
+                              <Radio className="w-3.5 h-3.5 text-indigo-400" />
+                              Search &ldquo;{search.trim()}&rdquo; in MISP Threat Feed &rarr;
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2 opacity-80" />
+                        <p className="text-sm font-semibold text-slate-200">No matching threat alerts found</p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Either no FS-ISAC CVEs match installed software or detections on your servers, or current filters excluded all records.
+                        </p>
+                        {isAdmin && (
+                          <div className="mt-3">
+                            <button
+                              type="button"
+                              onClick={() => navigate('/misp')}
+                              className="inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 font-medium cursor-pointer"
+                            >
+                              <Radio className="w-3 h-3" />
+                              Browse all advisories in MISP Threat Feed &rarr;
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </td>
                 </tr>
               ) : (
@@ -682,7 +688,7 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
                   {selectedDetail?.cvss_score && (
                     <span className="text-xs text-slate-400 font-mono">CVSS {selectedDetail.cvss_score}</span>
                   )}
-                  <span className="text-[11px] text-slate-500 font-mono">Source: FS-ISAC</span>
+                  <span className="text-[11px] text-slate-500 font-mono">Source: {selectedDetail?.source || 'FS-ISAC'}</span>
                   {selectedDetail?.date_detected && (
                     <span className="text-[11px] text-slate-400 font-mono">
                       Detected: {formatDateTimeYMD(selectedDetail.date_detected)}
@@ -856,9 +862,10 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
                       <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                         Remediation & Patching Guidance
                       </span>
-                      <p className="p-3.5 rounded-xl bg-slate-950 border border-surfaceBorder text-slate-300 leading-relaxed font-sans">
-                        {selectedDetail.suggested_solution}
-                      </p>
+                      <div
+                        className="html-solution p-3.5 rounded-xl bg-slate-950 border border-surfaceBorder text-slate-300 leading-relaxed font-sans"
+                        dangerouslySetInnerHTML={{ __html: formatAndSanitizeHtml(selectedDetail.suggested_solution) }}
+                      />
                     </div>
                   )}
 

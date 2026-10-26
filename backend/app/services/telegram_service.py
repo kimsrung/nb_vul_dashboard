@@ -55,7 +55,7 @@ class TelegramService:
         ip = html.escape(asset.ip_address or "Unknown IP")
         fqdn = html.escape(asset.fqdn or "No FQDN")
         os_name = html.escape(asset.os_name or "Unknown OS")
-        risk_level = getattr(asset, "risk_level", "Critical").upper()
+        risk_level = (getattr(asset, "risk_level", "Critical") or "Critical").upper()
         risk_score = getattr(asset, "risk_score", 0.0)
         tags = [html.escape(t) for t in (asset.tags or [])]
         tags_str = ", ".join([f"<code>{t}</code>" for t in tags]) if tags else "<i>None</i>"
@@ -73,6 +73,10 @@ class TelegramService:
                 poc_str += f" &lt;{html.escape(poc_email)}&gt;"
             owner_info += f" (PoC: {poc_str})"
 
+        crit_v = getattr(asset, "critical_vulns", 0)
+        high_v = getattr(asset, "high_vulns", 0)
+        total_v = getattr(asset, "total_vulns", 0)
+
         lines = [
             f"{icon} <b>Risk Alert: {server_name} ({ip})</b>",
             "",
@@ -80,7 +84,7 @@ class TelegramService:
             f"🌐 <b>IP Address:</b> <code>{ip}</code> ({fqdn})",
             f"👤 <b>Ownership:</b> {owner_info}",
             f"💻 <b>OS:</b> {os_name}",
-            f"📊 <b>Risk Score:</b> <b>{risk_score}</b> (Level: {risk_level})",
+            f"📊 <b>Vulnerabilities:</b> 🔴 <b>{crit_v}</b> Crit (Sev 5) | 🟠 <b>{high_v}</b> High (Sev 4) | <b>{total_v}</b> Total",
             "",
             "<b>Top Critical / High Detections:</b>",
         ]
@@ -137,8 +141,10 @@ class TelegramService:
 
         sev_icon = "🔴" if severity == "CRITICAL" else ("🟠" if severity == "HIGH" else "🟡")
 
+        source_name = html.escape(str(getattr(assessment, "source", "THREAT INTELLIGENCE") or "THREAT INTELLIGENCE")).upper()
+
         lines = [
-            "🛡️ <b>[FS-ISAC THREAT INTELLIGENCE ADVISORY]</b>",
+            f"🛡️ <b>[{source_name} THREAT INTELLIGENCE ADVISORY]</b>",
             "━━━━━━━━━━━━━━━━━━━━━━━━━━",
             f"<b>Advisory:</b> <code>{cve_id}</code>",
             f"<b>Threat:</b> {title}",

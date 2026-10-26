@@ -125,3 +125,64 @@ class TestAssetInventoryAndPoC:
         for o in owners:
             assert o["role"] == "owner"
             assert o["username"] not in ("admin", "analyst", "viewer")
+
+    @pytest.mark.asyncio
+    async def test_asset_inventory_default_sorting_by_critical_vulns(self, client: AsyncClient, admin_headers: dict):
+        res = await client.get("/api/v1/assets?page=1&page_size=10", headers=admin_headers)
+        assert res.status_code == 200
+        items = res.json()["items"]
+        assert len(items) > 1
+
+        # Check raw Qualys severity fields
+        for item in items:
+            assert "critical_vulns" in item
+            assert "high_vulns" in item
+            assert "medium_vulns" in item
+            assert "low_vulns" in item
+            assert "info_vulns" in item
+            assert "total_vulns" in item
+            assert isinstance(item["critical_vulns"], int)
+            assert isinstance(item["high_vulns"], int)
+
+        # Default ordering should be critical_vulns descending
+        for i in range(len(items) - 1):
+            assert items[i]["critical_vulns"] >= items[i + 1]["critical_vulns"]
+
+    @pytest.mark.asyncio
+    async def test_asset_inventory_sorting_options(self, client: AsyncClient, admin_headers: dict):
+        # Sort by high_vulns descending
+        high_res = await client.get("/api/v1/assets?sort_by=high_vulns&sort_order=desc&page_size=5", headers=admin_headers)
+        assert high_res.status_code == 200
+        high_items = high_res.json()["items"]
+        for i in range(len(high_items) - 1):
+            assert high_items[i]["high_vulns"] >= high_items[i + 1]["high_vulns"]
+
+        # Sort by total_vulns descending
+        total_res = await client.get("/api/v1/assets?sort_by=total_vulns&sort_order=desc&page_size=5", headers=admin_headers)
+        assert total_res.status_code == 200
+        total_items = total_res.json()["items"]
+        for i in range(len(total_items) - 1):
+            assert total_items[i]["total_vulns"] >= total_items[i + 1]["total_vulns"]
+
+    @pytest.mark.asyncio
+    async def test_asset_edge_cases(self, client: AsyncClient, admin_headers: dict):
+        # 1. Whitespace search should not crash and should return standard results
+        empty_search = await client.get("/api/v1/assets?search=%20%20", headers=admin_headers)
+        assert empty_search.status_code == 200
+        assert empty_search.json()["total"] > 0
+
+        # 2. Non-existent asset ID returns 404
+        missing_asset = await client.get("/api/v1/assets/99999999", headers=admin_headers)
+        assert missing_asset.status_code == 404
+
+        # 3. Non-existent CVE filter returns empty items cleanly
+        missing_cve = await client.get("/api/v1/assets?cve=CVE-9999-99999", headers=admin_headers)
+        assert missing_cve.status_code == 200
+        assert missing_cve.json()["total"] == 0
+        assert len(missing_cve.json()["items"]) == 0
+
+        # 4. is_active filter handles boolean values cleanly
+        active_res = await client.get("/api/v1/assets?is_active=true", headers=admin_headers)
+        assert active_res.status_code == 200
+        for a in active_res.json()["items"]:
+            assert a["is_active"] is True

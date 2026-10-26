@@ -7,6 +7,8 @@ class MispCveAssessment(Base):
     __tablename__ = "misp_cve_assessments"
 
     id = Column(Integer, primary_key=True, index=True)
+    misp_event_id = Column(String(50), nullable=True, index=True)  # Original MISP event ID (e.g., "8932")
+    misp_event_date = Column(DateTime(timezone=True), nullable=True, index=True)  # Published date from MISP
     cve_id = Column(String(50), index=True, nullable=False)  # e.g., "CVE-2024-6387"
     source = Column(String(50), default="FS-ISAC", nullable=False, index=True)  # Strictly "FS-ISAC"
     title = Column(Text, nullable=False)

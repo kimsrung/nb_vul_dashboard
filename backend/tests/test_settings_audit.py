@@ -25,19 +25,19 @@ class TestSettingsAuditAndTelegram:
     async def test_update_settings_persistence(self, client: AsyncClient, admin_headers: dict):
         update_payload = {
             "misp_sync_interval_hours": 3,
-            "risk_threshold_critical": 85,
+            "telegram_cooldown_hours": 8,
         }
         post_res = await client.post("/api/v1/settings", headers=admin_headers, json=update_payload)
         assert post_res.status_code == 200
         updated = post_res.json()
         assert updated["misp_sync_interval_hours"] == 3
-        assert updated["risk_threshold_critical"] == 85
+        assert updated["telegram_cooldown_hours"] == 8
 
         # Verify GET returns updated values
         get_res = await client.get("/api/v1/settings", headers=admin_headers)
         assert get_res.status_code == 200
         assert get_res.json()["misp_sync_interval_hours"] == 3
-        assert get_res.json()["risk_threshold_critical"] == 85
+        assert get_res.json()["telegram_cooldown_hours"] == 8
 
     @pytest.mark.asyncio
     async def test_audit_logs_pagination_and_search(self, client: AsyncClient, admin_headers: dict):
@@ -64,8 +64,9 @@ class TestSettingsAuditAndTelegram:
             owner_username="owner_appcore",
             poc_name="Chan Vanna",
             poc_email="chan.vanna@nbc.gov.kh",
-            risk_level="Critical",
-            risk_score=92.5
+            critical_vulns=2,
+            high_vulns=3,
+            total_vulns=5,
         )
         msg = TelegramService.format_asset_alert(asset, [], {})
         assert "bk-appcore-sit" in msg
@@ -73,7 +74,8 @@ class TestSettingsAuditAndTelegram:
         assert "owner_appcore" in msg
         assert "Chan Vanna" in msg
         assert "chan.vanna@nbc.gov.kh" in msg
-        assert "92.5" in msg
+        assert "Vulnerabilities:" in msg
+        assert "Crit (Sev 5)" in msg
 
     def test_telegram_misp_advisory_formatting(self):
         assessment = MispCveAssessment(

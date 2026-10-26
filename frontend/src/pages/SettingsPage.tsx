@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Shield, Send, CheckCircle2, AlertCircle, RefreshCw, ToggleLeft, ToggleRight, Radio, Terminal, Eye, EyeOff } from 'lucide-react';
+import { Settings, Shield, Send, CheckCircle2, AlertCircle, RefreshCw, ToggleLeft, ToggleRight, Radio, Terminal, Eye, EyeOff, BookOpen } from 'lucide-react';
 import { SystemSettings, apiClient } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
@@ -42,11 +42,10 @@ export const SettingsPage: React.FC = () => {
   const [telegramChatId, setTelegramChatId] = useState<string>('');
   const [telegramCooldown, setTelegramCooldown] = useState<number>(6);
 
-  // Form states - Risk & SLA
-  const [riskCritThreshold, setRiskCritThreshold] = useState<number>(80);
-  const [riskHighThreshold, setRiskHighThreshold] = useState<number>(40);
-  const [slaCritDays, setSlaCritDays] = useState<number>(14);
-  const [slaHighDays, setSlaHighDays] = useState<number>(30);
+  // Form states - API Documentation
+  const [docsUsername, setDocsUsername] = useState<string>('docs_admin');
+  const [docsPassword, setDocsPassword] = useState<string>('');
+  const [showDocsPassword, setShowDocsPassword] = useState<boolean>(false);
 
   // Test states
   const [testingQualys, setTestingQualys] = useState<boolean>(false);
@@ -87,10 +86,8 @@ export const SettingsPage: React.FC = () => {
       setTelegramChatId(data.telegram_chat_id || '');
       setTelegramCooldown(data.telegram_cooldown_hours);
 
-      setRiskCritThreshold(data.risk_threshold_critical);
-      setRiskHighThreshold(data.risk_threshold_high);
-      setSlaCritDays(data.sla_critical_days);
-      setSlaHighDays(data.sla_high_days);
+      setDocsUsername(data.docs_username || 'docs_admin');
+      setDocsPassword('');
     } catch (err) {
       console.error('Failed to load settings', err);
     } finally {
@@ -128,10 +125,6 @@ export const SettingsPage: React.FC = () => {
         telegram_enabled: telegramEnabled,
         telegram_chat_id: telegramChatId,
         telegram_cooldown_hours: Number(telegramCooldown),
-        risk_threshold_critical: Number(riskCritThreshold),
-        risk_threshold_high: Number(riskHighThreshold),
-        sla_critical_days: Number(slaCritDays),
-        sla_high_days: Number(slaHighDays),
       };
 
       if (qualysPassword.trim()) {
@@ -145,6 +138,12 @@ export const SettingsPage: React.FC = () => {
       }
       if (telegramToken.trim()) {
         payload.telegram_bot_token = telegramToken;
+      }
+      if (docsUsername.trim()) {
+        payload.docs_username = docsUsername.trim();
+      }
+      if (docsPassword.trim() && docsPassword !== '••••••••') {
+        payload.docs_password = docsPassword.trim();
       }
 
       await apiClient.post('/settings', payload);
@@ -282,7 +281,7 @@ export const SettingsPage: React.FC = () => {
           <Settings className="w-5 h-5 text-sky-400" /> System Configuration & Integrations
         </h2>
         <p className="text-xs text-slate-400 mt-1">
-          Manage Qualys API credentials, MISP (FS-ISAC) threat intelligence, Telegram alert bot, and risk calculation thresholds.
+          Manage Qualys API credentials, MISP (FS-ISAC) threat intelligence, and Telegram alert bot integrations.
         </p>
       </div>
 
@@ -459,7 +458,7 @@ export const SettingsPage: React.FC = () => {
                 className="w-full bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-primary-500 disabled:opacity-50 font-mono"
               />
               <span className="text-[10px] text-slate-500 mt-1 block">
-                Strictly queries and validates events created by this organization (Default: FS-ISAC)
+                Queries and validates events by organization: "FS-ISAC" (production), "CIRCL" (local testing), or "*" (all orgs)
               </span>
             </div>
 
@@ -470,11 +469,11 @@ export const SettingsPage: React.FC = () => {
                 value={mispTagFilter}
                 onChange={(e) => setMispTagFilter(e.target.value)}
                 disabled={!isAdmin || !mispEnabled}
-                placeholder="vulnerability:CVE%"
+                placeholder="vulnerability:CVE% or leave empty"
                 className="w-full bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-primary-500 disabled:opacity-50 font-mono"
               />
               <span className="text-[10px] text-slate-500 mt-1 block">
-                Filters events with vulnerability tags matching this pattern (Default: vulnerability:CVE%)
+                Pattern filter (e.g. vulnerability:CVE%). Leave empty for CIRCL/open feeds to parse CVEs from attributes and text.
               </span>
             </div>
 
@@ -771,61 +770,56 @@ export const SettingsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Section 3: Risk Scoring & SLA Thresholds */}
+        {/* Section 4: API Documentation Credentials */}
         <div className="p-6 rounded-2xl bg-surface border border-surfaceBorder space-y-4">
           <div className="flex items-center justify-between border-b border-surfaceBorder pb-3">
-            <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
-              <Shield className="w-4 h-4 text-orange-400" /> Risk Calculation Engine & SLA Thresholds
-            </h3>
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-emerald-400" />
+              <h3 className="text-sm font-bold text-slate-100">API Documentation Access Credentials</h3>
+            </div>
+            <span className="text-[11px] font-semibold text-slate-400 bg-slate-900 border border-surfaceBorder px-2.5 py-0.5 rounded-full">
+              HTTP Basic Auth (/docs &amp; /openapi.json)
+            </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <p className="text-xs text-slate-400 leading-relaxed">
+            The interactive OpenAPI / Swagger documentation (<code className="text-emerald-400 font-mono">/docs</code>) and API schema (<code className="text-emerald-400 font-mono">/openapi.json</code>) are protected against unauthorized external access. Configure the dedicated authentication credentials required by browsers and API clients below.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Critical Risk Threshold</label>
+              <label className="block text-xs font-medium text-slate-300 mb-1">Documentation Username</label>
               <input
-                type="number"
-                value={riskCritThreshold}
-                onChange={(e) => setRiskCritThreshold(Number(e.target.value))}
+                type="text"
+                value={docsUsername}
+                onChange={(e) => setDocsUsername(e.target.value)}
                 disabled={!isAdmin}
+                placeholder="docs_admin"
                 className="w-full bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-100 font-mono focus:outline-none focus:border-primary-500 disabled:opacity-50"
               />
-              <span className="text-[10px] text-slate-500 mt-1 block">Default: 80 points</span>
+              <span className="text-[10px] text-slate-500 mt-1 block">Default username: docs_admin</span>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">High Risk Threshold</label>
-              <input
-                type="number"
-                value={riskHighThreshold}
-                onChange={(e) => setRiskHighThreshold(Number(e.target.value))}
-                disabled={!isAdmin}
-                className="w-full bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-100 font-mono focus:outline-none focus:border-primary-500 disabled:opacity-50"
-              />
-              <span className="text-[10px] text-slate-500 mt-1 block">Default: 40 points</span>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Critical SLA Window (Days)</label>
-              <input
-                type="number"
-                value={slaCritDays}
-                onChange={(e) => setSlaCritDays(Number(e.target.value))}
-                disabled={!isAdmin}
-                className="w-full bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-100 font-mono focus:outline-none focus:border-primary-500 disabled:opacity-50"
-              />
-              <span className="text-[10px] text-slate-500 mt-1 block">Breaches trigger 1.5x score</span>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">High SLA Window (Days)</label>
-              <input
-                type="number"
-                value={slaHighDays}
-                onChange={(e) => setSlaHighDays(Number(e.target.value))}
-                disabled={!isAdmin}
-                className="w-full bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-100 font-mono focus:outline-none focus:border-primary-500 disabled:opacity-50"
-              />
-              <span className="text-[10px] text-slate-500 mt-1 block">Breaches trigger 1.3x score</span>
+              <label className="block text-xs font-medium text-slate-300 mb-1">Documentation Password</label>
+              <div className="relative">
+                <input
+                  type={showDocsPassword ? 'text' : 'password'}
+                  value={docsPassword}
+                  onChange={(e) => setDocsPassword(e.target.value)}
+                  disabled={!isAdmin}
+                  placeholder={settings?.docs_password_masked || "••••••••"}
+                  className="w-full bg-slate-950 border border-surfaceBorder rounded-lg pl-3 pr-9 py-2 text-xs text-slate-100 font-mono focus:outline-none focus:border-primary-500 disabled:opacity-50"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowDocsPassword(!showDocsPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
+                >
+                  {showDocsPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+              <span className="text-[10px] text-slate-500 mt-1 block">Leave blank to keep existing password</span>
             </div>
           </div>
         </div>

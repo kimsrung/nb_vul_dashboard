@@ -7,10 +7,10 @@ import {
   UserCheck, Pencil, Mail, Users
 } from 'lucide-react';
 import { AssetListItem, PaginatedAssetsResponse, OwnerOption, apiClient } from '../api/client';
-import { RiskBadge } from '../components/common/RiskBadge';
+import { SeverityPills } from '../components/common/SeverityPills';
 import { useAuth } from '../context/AuthContext';
 import { TablePagination } from '../components/common/TablePagination';
-import { formatDateYMD } from '../utils/date';
+import { formatDateTimeYMD } from '../utils/date';
 import { EditAssetModal } from '../components/assets/EditAssetModal';
 
 interface AssetsPageProps {
@@ -47,11 +47,10 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
   const [riskFilter, setRiskFilter] = useState<string>('');
   const [osFilter, setOsFilter] = useState<string>('');
   const [riskyOnly, setRiskyOnly] = useState<boolean>(false);
-  const [activeFilter, setActiveFilter] = useState<string>(''); // '' | 'true' | 'false'
   const [ownerFilter, setOwnerFilter] = useState<string>('');
 
   // Sorting
-  const [sortBy, setSortBy] = useState<string>('risk');
+  const [sortBy, setSortBy] = useState<string>('vulns');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const handleSelectAsset = onSelectAsset ?? ((assetId: number) => {
@@ -91,7 +90,6 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
       if (riskFilter) params.risk_level = riskFilter;
       if (osFilter) params.os_family = osFilter;
       if (riskyOnly) params.is_risky = true;
-      if (activeFilter) params.is_active = activeFilter;
       if (ownerFilter) params.owner_id = ownerFilter;
 
       const res = await apiClient.get<PaginatedAssetsResponse>('/assets', { params });
@@ -111,7 +109,7 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
 
   useEffect(() => {
     fetchAssets();
-  }, [page, pageSize, riskFilter, osFilter, riskyOnly, activeFilter, ownerFilter, sortBy, sortOrder]);
+  }, [page, pageSize, riskFilter, osFilter, riskyOnly, ownerFilter, sortBy, sortOrder]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,7 +122,6 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
     setRiskFilter('');
     setOsFilter('');
     setRiskyOnly(false);
-    setActiveFilter('');
     setOwnerFilter('');
     setSearchParams((prev) => {
       prev.delete('search');
@@ -204,7 +201,7 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
     }
   };
 
-  const isFiltered = Boolean(search || riskFilter || osFilter || riskyOnly || activeFilter || ownerFilter);
+  const isFiltered = Boolean(search || riskFilter || osFilter || riskyOnly || ownerFilter);
 
   return (
     <div className="p-6 max-w-8xl mx-auto space-y-6">
@@ -387,19 +384,6 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
               </select>
             )}
 
-            <select
-              value={activeFilter}
-              onChange={(e) => {
-                setActiveFilter(e.target.value);
-                setPage(1);
-              }}
-              className="bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-primary-500"
-            >
-              <option value="">All Lifecycle</option>
-              <option value="true">Active Hosts</option>
-              <option value="false">Inactive / Not Reporting</option>
-            </select>
-
             <label className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-950 border border-surfaceBorder cursor-pointer text-xs text-slate-300">
               <input
                 type="checkbox"
@@ -458,8 +442,8 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
             }}
             className="bg-slate-950 border border-surfaceBorder rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-sky-500 cursor-pointer"
           >
-            <option value="risk">Risk Score</option>
-            <option value="vulns">Critical Vulnerabilities</option>
+            <option value="vulns">Severity 5 (Critical)</option>
+            <option value="high_vulns">Severity 4 (High)</option>
             <option value="total_vulns">Total Vulnerabilities</option>
             <option value="server_name">Server Name</option>
             <option value="host_ip">Host IP</option>
@@ -549,12 +533,11 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <RiskBadge level={asset.risk_level} score={asset.risk_score} />
                     <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono">
                       <Calendar className="w-3.5 h-3.5 text-slate-500" />
                       <span>Last Scanned:</span>
                       <span className="text-slate-200 font-semibold">
-                        {formatDateYMD(asset.last_scan_date, 'N/A')}
+                        {formatDateTimeYMD(asset.last_scan_date, true, 'N/A')}
                       </span>
                     </div>
                   </div>
@@ -640,16 +623,37 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
                   </div>
 
                   {/* Vulnerabilities Breakdown Box */}
-                  <div className="p-3 rounded-xl bg-slate-950/70 border border-surfaceBorder space-y-1">
-                    <div className="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5">
-                      <ShieldAlert className="w-3.5 h-3.5 text-red-400" /> Active Vulnerabilities
+                  <div className="p-3 rounded-xl bg-slate-950/70 border border-surfaceBorder space-y-2 flex flex-col justify-between">
+                    <div>
+                      <div className="text-[11px] font-semibold text-slate-400 flex items-center justify-between mb-2">
+                        <span className="flex items-center gap-1.5">
+                          <ShieldAlert className="w-3.5 h-3.5 text-rose-400" /> Qualys Severities
+                        </span>
+                        <span className="text-[11px] text-slate-400 font-mono">Total: {asset.total_vulns}</span>
+                      </div>
+
+                      {/* Top Critical & High Summary */}
+                      <div className="text-xs font-mono flex items-center gap-1.5">
+                        <span className="text-red-400 font-bold">{asset.critical_vulns}</span>
+                        <span className="text-slate-400 text-[11px]">Critical</span>
+                        <span className="text-slate-600 px-0.5">&bull;</span>
+                        <span className="text-amber-400 font-bold">{asset.high_vulns}</span>
+                        <span className="text-slate-400 text-[11px]">High</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3 pt-0.5 font-mono text-xs">
-                      <span className="text-red-400 font-bold">{asset.critical_vulns} Critical</span>
-                      <span className="text-slate-600">|</span>
-                      <span className="text-amber-400 font-bold">{asset.high_vulns} High</span>
-                      <span className="text-slate-600">|</span>
-                      <span className="text-slate-400">Total: {asset.total_vulns}</span>
+
+                    {/* Compact 5-Severity Breakdown Pills */}
+                    <div className="pt-1.5 border-t border-slate-800/80">
+                      <SeverityPills
+                        sev5={asset.critical_vulns}
+                        sev4={asset.high_vulns}
+                        sev3={asset.medium_vulns}
+                        sev2={asset.low_vulns}
+                        sev1={asset.info_vulns}
+                        total={asset.total_vulns}
+                        showTotal={false}
+                        compact
+                      />
                     </div>
                   </div>
                 </div>
@@ -738,8 +742,8 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
                   <span className="text-slate-200">{deletingAsset.ip_address}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Risk Score:</span>
-                  <span className="text-orange-400 font-semibold">{deletingAsset.risk_score} ({deletingAsset.risk_level})</span>
+                  <span className="text-slate-400">Qualys Severities:</span>
+                  <span className="text-orange-400 font-semibold">{deletingAsset.critical_vulns} Sev 5, {deletingAsset.high_vulns} Sev 4</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Active Vulns:</span>

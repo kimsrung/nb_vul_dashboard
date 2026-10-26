@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ShieldAlert, Server, AlertTriangle, Bug, Flame, ArrowUpRight,
+  ShieldAlert, Server, Bug, Flame, ArrowUpRight,
   Activity, ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { DashboardSummary, AssetListItem } from '../api/client';
-import { RiskBadge } from '../components/common/RiskBadge';
+import { SeverityPills } from '../components/common/SeverityPills';
 import { TablePagination } from '../components/common/TablePagination';
 import { formatDateYMD } from '../utils/date';
+import { useAuth } from '../context/AuthContext';
 
 interface DashboardPageProps {
   summary: DashboardSummary | null;
@@ -23,6 +24,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   onSelectAsset,
   onNavigateTab,
 }) => {
+  const { isAdmin } = useAuth();
   const navigate = useNavigate();
 
   const handleSelectAsset = (assetId: number) => {
@@ -40,7 +42,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     }
   };
 
-  const [sortField, setSortField] = useState<string>('risk_score');
+  const [sortField, setSortField] = useState<string>('critical_vulns');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(5);
@@ -50,7 +52,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortField(field);
-      setSortOrder(field === 'risk_score' || field === 'critical_vulns' ? 'desc' : 'asc');
+      setSortOrder(field === 'critical_vulns' || field === 'total_vulns' ? 'desc' : 'asc');
     }
     setCurrentPage(1);
   };
@@ -93,8 +95,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const totalPages = Math.max(1, Math.ceil(sortedAssets.length / pageSize));
   const paginatedAssets = sortedAssets.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  const riskyPercent = summary.total_assets > 0 ? Math.round((summary.risky_assets / summary.total_assets) * 100) : 0;
-
   return (
     <div className="p-6 max-w-8xl mx-auto space-y-6">
       {/* Welcome Banner */}
@@ -134,91 +134,110 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         </div>
       </div>
 
-      {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Minimalist 3-KPI Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {/* Total Assets */}
-        <div className="p-5 rounded-xl bg-surface border border-surfaceBorder hover:border-slate-700 transition-all">
+        <div className="p-5 rounded-2xl bg-surface border border-surfaceBorder hover:border-slate-700 transition-all shadow-md">
           <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-medium">Assets Monitored</span>
-            <Server className="w-4 h-4 text-sky-400" />
+            <span className="text-xs font-semibold uppercase tracking-wider">Assets Monitored</span>
+            <div className="p-2 rounded-lg bg-sky-950/60 border border-sky-800/40 text-sky-400">
+              <Server className="w-5 h-5" />
+            </div>
           </div>
-          <div className="text-2xl font-bold text-slate-100 font-mono">{summary.total_assets}</div>
-          <div className="text-[11px] text-slate-400 mt-1 flex items-center justify-between">
-            <span>Scoped in Qualys</span>
-            <span className="text-emerald-400 font-semibold">100% active</span>
+          <div className="text-3xl font-black text-slate-100 font-mono">{summary.total_assets}</div>
+          <div className="text-xs text-slate-400 mt-2 flex items-center justify-between border-t border-slate-800/60 pt-2.5">
+            <span>Scoped in Qualys VMDR</span>
+            <button
+              onClick={() => handleNavigateTab('assets')}
+              className="text-sky-400 hover:text-sky-300 font-medium inline-flex items-center gap-1"
+            >
+              View Inventory &rarr;
+            </button>
           </div>
         </div>
 
-        {/* Risky Assets Flagged */}
-        <div className="p-5 rounded-xl bg-surface border border-red-900/30 hover:border-red-700/50 transition-all relative overflow-hidden">
-          <div className="absolute -right-4 -bottom-4 w-20 h-20 bg-red-500/5 rounded-full blur-xl pointer-events-none" />
+        {/* Total Vulnerabilities (only Critical & High highlights) */}
+        <div className="p-5 rounded-2xl bg-surface border border-surfaceBorder hover:border-slate-700 transition-all shadow-md">
           <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-medium">Flagged Risky Assets</span>
-            <ShieldAlert className="w-4 h-4 text-red-400" />
+            <span className="text-xs font-semibold uppercase tracking-wider">Total Vulnerabilities</span>
+            <div className="p-2 rounded-lg bg-amber-950/60 border border-amber-800/40 text-amber-400">
+              <Bug className="w-5 h-5" />
+            </div>
           </div>
-          <div className="text-2xl font-bold text-red-400 font-mono flex items-baseline gap-2">
-            {summary.risky_assets}
-            <span className="text-xs text-red-400/80 font-normal">({riskyPercent}% fleet)</span>
+          <div className="flex items-baseline gap-3">
+            <div className="text-3xl font-black text-slate-100 font-mono">{summary.total_vulns}</div>
+            <span className="text-xs text-slate-400 font-medium">active detections</span>
           </div>
-          <div className="text-[11px] text-slate-400 mt-1">
-            Breaching risk score or SLA rules
-          </div>
-        </div>
-
-        {/* Critical & High Vulns */}
-        <div className="p-5 rounded-xl bg-surface border border-surfaceBorder hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-medium">Critical & High Vulns</span>
-            <Bug className="w-4 h-4 text-amber-400" />
-          </div>
-          <div className="text-2xl font-bold text-slate-100 font-mono flex items-baseline gap-2">
-            {summary.critical_vulns + summary.high_vulns}
-            <span className="text-xs text-slate-400 font-normal font-sans">
-              ({summary.critical_vulns} Crit / {summary.high_vulns} High)
+          <div className="text-xs text-slate-400 mt-2 flex items-center justify-between border-t border-slate-800/60 pt-2.5">
+            <span className="text-slate-300 font-mono">
+              <strong className="text-red-400">{summary.critical_vulns}</strong> Critical &bull; <strong className="text-amber-400">{summary.high_vulns}</strong> High
             </span>
-          </div>
-          <div className="text-[11px] text-slate-400 mt-1">
-            Total active findings: {summary.total_vulns}
+            <button
+              onClick={() => handleNavigateTab('assets')}
+              className="text-sky-400 hover:text-sky-300 font-medium inline-flex items-center gap-1 cursor-pointer"
+            >
+              View All &rarr;
+            </button>
           </div>
         </div>
 
-        {/* Active Alerts */}
-        <div className="p-5 rounded-xl bg-surface border border-surfaceBorder hover:border-slate-700 transition-all">
+        {/* MISP Threat Intelligence Advisories */}
+        <div className="p-5 rounded-2xl bg-surface border border-surfaceBorder hover:border-slate-700 transition-all shadow-md">
           <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-medium">Active Security Alerts</span>
-            <AlertTriangle className="w-4 h-4 text-orange-400" />
+            <span className="text-xs font-semibold uppercase tracking-wider">MISP Threat Intelligence</span>
+            <div className="flex items-center gap-2">
+              {isAdmin && (
+                <button
+                  onClick={() => handleNavigateTab('misp')}
+                  className="text-[11px] font-semibold text-purple-400 hover:text-purple-300 transition-colors cursor-pointer"
+                  title="View all ingested CVEs including clean / 0-exposure records"
+                >
+                  All Feed &rarr;
+                </button>
+              )}
+              <div className="p-2 rounded-lg bg-rose-950/60 border border-rose-800/40 text-rose-400">
+                <ShieldAlert className="w-5 h-5" />
+              </div>
+            </div>
           </div>
-          <div className="text-2xl font-bold text-slate-100 font-mono">{summary.active_alerts}</div>
-          <div className="text-[11px] text-slate-400 mt-1 flex items-center justify-between">
-            <span>Pending remediation</span>
+          <div className="flex items-baseline gap-3">
+            <div className="text-3xl font-black text-rose-400 font-mono">
+              {summary.misp_advisories_count ?? summary.active_alerts}
+            </div>
+            <span className="text-xs text-slate-400 font-medium">advisories cataloged</span>
+          </div>
+          <div className="text-xs text-slate-400 mt-2 flex items-center justify-between border-t border-slate-800/60 pt-2.5">
+            <span className="text-slate-300 font-mono">
+              <strong className="text-rose-400">{summary.misp_matched_assets_count ?? summary.active_alerts}</strong> exposed servers
+            </span>
             <button
               onClick={() => handleNavigateTab('alerts')}
-              className="text-primary-400 hover:text-primary-300 font-semibold"
+              className="text-sky-400 hover:text-sky-300 font-medium inline-flex items-center gap-1 cursor-pointer"
             >
-              View Feed &rarr;
+              Alert Center &rarr;
             </button>
           </div>
         </div>
       </div>
 
-      {/* Middle Row: Risk Breakdown + Threat Intel RTIs */}
+      {/* Middle Row: Severity Breakdown + Threat Intel RTIs */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Risk Distribution */}
+        {/* Qualys Vulnerability Severity Distribution */}
         <div className="p-5 rounded-xl bg-surface border border-surfaceBorder space-y-4">
           <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
-            <Flame className="w-4 h-4 text-orange-400" /> Asset Risk Tier Breakdown
+            <Flame className="w-4 h-4 text-rose-400" /> Qualys Severity Distribution
           </h3>
           <div className="space-y-3">
             <div>
               <div className="flex justify-between text-xs mb-1">
-                <span className="text-red-400 font-medium">Critical Risk (Score &ge; 80)</span>
-                <span className="text-slate-300 font-mono font-bold">{summary.risk_distribution.critical}</span>
+                <span className="text-rose-400 font-medium">Severity 5 &bull; Critical</span>
+                <span className="text-slate-200 font-mono font-bold">{summary.severity_breakdown?.sev5 ?? summary.critical_vulns}</span>
               </div>
               <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
                 <div
-                  className="h-full bg-red-500 rounded-full"
+                  className="h-full bg-rose-500 rounded-full"
                   style={{
-                    width: `${summary.total_assets ? (summary.risk_distribution.critical / summary.total_assets) * 100 : 0}%`,
+                    width: `${summary.total_vulns ? ((summary.severity_breakdown?.sev5 ?? summary.critical_vulns) / summary.total_vulns) * 100 : 0}%`,
                   }}
                 />
               </div>
@@ -226,14 +245,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
             <div>
               <div className="flex justify-between text-xs mb-1">
-                <span className="text-amber-400 font-medium">High Risk (Score 40-79)</span>
-                <span className="text-slate-300 font-mono font-bold">{summary.risk_distribution.high}</span>
+                <span className="text-orange-400 font-medium">Severity 4 &bull; High</span>
+                <span className="text-slate-200 font-mono font-bold">{summary.severity_breakdown?.sev4 ?? summary.high_vulns}</span>
               </div>
               <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
                 <div
-                  className="h-full bg-amber-500 rounded-full"
+                  className="h-full bg-orange-500 rounded-full"
                   style={{
-                    width: `${summary.total_assets ? (summary.risk_distribution.high / summary.total_assets) * 100 : 0}%`,
+                    width: `${summary.total_vulns ? ((summary.severity_breakdown?.sev4 ?? summary.high_vulns) / summary.total_vulns) * 100 : 0}%`,
                   }}
                 />
               </div>
@@ -241,14 +260,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
             <div>
               <div className="flex justify-between text-xs mb-1">
-                <span className="text-yellow-300 font-medium">Medium Risk (Score 15-39)</span>
-                <span className="text-slate-300 font-mono font-bold">{summary.risk_distribution.medium}</span>
+                <span className="text-amber-400 font-medium">Severity 3 &bull; Medium</span>
+                <span className="text-slate-200 font-mono font-bold">{summary.severity_breakdown?.sev3 ?? 0}</span>
               </div>
               <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
                 <div
-                  className="h-full bg-yellow-400 rounded-full"
+                  className="h-full bg-amber-400 rounded-full"
                   style={{
-                    width: `${summary.total_assets ? (summary.risk_distribution.medium / summary.total_assets) * 100 : 0}%`,
+                    width: `${summary.total_vulns ? ((summary.severity_breakdown?.sev3 ?? 0) / summary.total_vulns) * 100 : 0}%`,
                   }}
                 />
               </div>
@@ -256,14 +275,29 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
             <div>
               <div className="flex justify-between text-xs mb-1">
-                <span className="text-emerald-400 font-medium">Low Risk (Score &lt; 15)</span>
-                <span className="text-slate-300 font-mono font-bold">{summary.risk_distribution.low}</span>
+                <span className="text-sky-400 font-medium">Severity 2 &bull; Low</span>
+                <span className="text-slate-200 font-mono font-bold">{summary.severity_breakdown?.sev2 ?? 0}</span>
               </div>
               <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
                 <div
-                  className="h-full bg-emerald-500 rounded-full"
+                  className="h-full bg-sky-400 rounded-full"
                   style={{
-                    width: `${summary.total_assets ? (summary.risk_distribution.low / summary.total_assets) * 100 : 0}%`,
+                    width: `${summary.total_vulns ? ((summary.severity_breakdown?.sev2 ?? 0) / summary.total_vulns) * 100 : 0}%`,
+                  }}
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="text-slate-400 font-medium">Severity 1 &bull; Info</span>
+                <span className="text-slate-200 font-mono font-bold">{summary.severity_breakdown?.sev1 ?? 0}</span>
+              </div>
+              <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                <div
+                  className="h-full bg-slate-500 rounded-full"
+                  style={{
+                    width: `${summary.total_vulns ? ((summary.severity_breakdown?.sev1 ?? 0) / summary.total_vulns) * 100 : 0}%`,
                   }}
                 />
               </div>
@@ -329,15 +363,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         </div>
       </div>
 
-      {/* Flagged Risky Assets Table */}
+      {/* Most Affected Assets Table */}
       <div className="p-5 rounded-xl bg-surface border border-surfaceBorder space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4 text-red-400" /> Flagged Risky Assets Requiring Immediate Remediation
+              <ShieldAlert className="w-4 h-4 text-rose-400" /> Most Affected Infrastructure Requiring Remediation
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Ranked by composite threat score (Qualys Severity + RTI Exploits + SLA Breaches)
+              Ranked by active Critical (Severity 5) and High (Severity 4) vulnerability detections
             </p>
           </div>
           <button
@@ -391,17 +425,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                     )}
                   </div>
                 </th>
-                <th
-                  onClick={() => handleSort('risk_score')}
-                  className="py-3 px-4 cursor-pointer hover:text-slate-100 transition-colors"
-                >
+                <th className="py-3 px-4">
                   <div className="inline-flex items-center gap-1 font-semibold">
-                    <span>Risk Tier & Score</span>
-                    {sortField === 'risk_score' ? (
-                      sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-400" /> : <ArrowDown className="w-3 h-3 text-sky-400" />
-                    ) : (
-                      <ArrowUpDown className="w-3 h-3 text-slate-600 opacity-60" />
-                    )}
+                    <span>Qualys Severities (5 | 4 | 3 | 2 | 1)</span>
                   </div>
                 </th>
                 <th className="py-3 px-4 text-right font-semibold">Action</th>
@@ -410,8 +436,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             <tbody className="divide-y divide-surfaceBorder">
               {paginatedAssets.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-400">
-                    No flagged risky assets at this time.
+                  <td colSpan={5} className="py-8 text-center text-slate-400">
+                    No active detections on monitored assets at this time.
                   </td>
                 </tr>
               ) : (
@@ -427,7 +453,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                       <span className="text-amber-400 font-bold">{asset.high_vulns} High</span>
                     </td>
                     <td className="py-3 px-4">
-                      <RiskBadge level={asset.risk_level} score={asset.risk_score} />
+                      <SeverityPills
+                        sev5={asset.critical_vulns}
+                        sev4={asset.high_vulns}
+                        sev3={asset.medium_vulns}
+                        sev2={asset.low_vulns}
+                        sev1={asset.info_vulns}
+                        total={asset.total_vulns}
+                        compact
+                      />
                     </td>
                     <td className="py-3 px-4 text-right">
                       <button

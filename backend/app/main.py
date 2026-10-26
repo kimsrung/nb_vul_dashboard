@@ -1,7 +1,11 @@
 import logging
+import secrets
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.openapi.utils import get_openapi
 from sqlalchemy import select, func
 
 from app.core.config import settings
@@ -38,10 +42,13 @@ async def init_db_and_seed():
         except Exception:
             pass
 
-        # Safe migration for poc_name and poc_email
+        # Safe migration for poc_name, poc_email, and severity count columns
         for col_def_sqlite, col_def_pg in [
             ("poc_name VARCHAR(150)", "poc_name VARCHAR(150)"),
             ("poc_email VARCHAR(255)", "poc_email VARCHAR(255)"),
+            ("medium_vulns INTEGER DEFAULT 0", "medium_vulns INTEGER DEFAULT 0"),
+            ("low_vulns INTEGER DEFAULT 0", "low_vulns INTEGER DEFAULT 0"),
+            ("info_vulns INTEGER DEFAULT 0", "info_vulns INTEGER DEFAULT 0"),
         ]:
             try:
                 from sqlalchemy import text
@@ -50,6 +57,21 @@ async def init_db_and_seed():
                     await conn.execute(text(f"ALTER TABLE assets ADD COLUMN {col_def_sqlite}"))
                 else:
                     await conn.execute(text(f"ALTER TABLE assets ADD COLUMN IF NOT EXISTS {col_def_pg}"))
+            except Exception:
+                pass
+
+        # Safe migration for misp_cve_assessments (misp_event_id, misp_event_date)
+        for col_def_sqlite, col_def_pg in [
+            ("misp_event_id VARCHAR(50)", "misp_event_id VARCHAR(50)"),
+            ("misp_event_date TIMESTAMP", "misp_event_date TIMESTAMP WITH TIME ZONE"),
+        ]:
+            try:
+                from sqlalchemy import text
+                from app.core.database import is_sqlite
+                if is_sqlite:
+                    await conn.execute(text(f"ALTER TABLE misp_cve_assessments ADD COLUMN {col_def_sqlite}"))
+                else:
+                    await conn.execute(text(f"ALTER TABLE misp_cve_assessments ADD COLUMN IF NOT EXISTS {col_def_pg}"))
             except Exception:
                 pass
 
@@ -104,14 +126,10 @@ async def init_db_and_seed():
                 settings.TELEGRAM_CHAT_ID = v
             elif k == "telegram_cooldown_hours" and v.isdigit():
                 settings.TELEGRAM_COOLDOWN_HOURS = int(v)
-            elif k == "risk_threshold_critical" and v.isdigit():
-                settings.RISK_THRESHOLD_CRITICAL = int(v)
-            elif k == "risk_threshold_high" and v.isdigit():
-                settings.RISK_THRESHOLD_HIGH = int(v)
-            elif k == "sla_critical_days" and v.isdigit():
-                settings.SLA_CRITICAL_DAYS = int(v)
-            elif k == "sla_high_days" and v.isdigit():
-                settings.SLA_HIGH_DAYS = int(v)
+            elif k == "docs_username" and v:
+                settings.DOCS_USERNAME = v
+            elif k == "docs_password" and v:
+                settings.DOCS_PASSWORD = v
 
         # Check Admin account
         admin_res = await session.execute(select(User).where(User.username == settings.ADMIN_USERNAME))
@@ -281,7 +299,45 @@ app = FastAPI(
     version="1.0.0",
     description="Custom internal dashboard flagging risky assets in Qualys, proactive MISP FS-ISAC assessment, and KB remediation.",
     lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
+
+docs_security = HTTPBasic()
+
+
+def verify_docs_credentials(credentials: HTTPBasicCredentials = Depends(docs_security)):
+    correct_user = secrets.compare_digest(credentials.username, settings.DOCS_USERNAME)
+    correct_pass = secrets.compare_digest(credentials.password, settings.DOCS_PASSWORD)
+    if not (correct_user and correct_pass):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect API documentation credentials",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return credentials.username
+
+
+@app.get("/docs", include_in_schema=False)
+async def get_swagger_documentation(username: str = Depends(verify_docs_credentials)):
+    return get_swagger_ui_html(
+        openapi_url="/openapi.json",
+        title=f"{settings.PROJECT_NAME} - API Reference",
+    )
+
+
+@app.get("/openapi.json", include_in_schema=False)
+async def get_open_api_endpoint(username: str = Depends(verify_docs_credentials)):
+    if app.openapi_schema:
+        return app.openapi_schema
+    app.openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+    return app.openapi_schema
 
 # CORS setup
 app.add_middleware(

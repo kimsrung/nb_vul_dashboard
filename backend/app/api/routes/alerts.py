@@ -60,6 +60,7 @@ def _map_assessment_to_alert(a: MispCveAssessment) -> AlertItem:
         id=a.id,
         misp_event_id=misp_eid,
         cve_id=a.cve_id,
+        source=a.source or "MISP",
         title=a.title,
         description=a.description,
         severity=a.severity,
@@ -323,90 +324,6 @@ async def dispatch_telegram_alert(
         assessment.telegram_sent_at = datetime.now(timezone.utc)
         await db.commit()
     return result
-
-
-@router.post("/sync")
-async def sync_misp_and_assess(
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-    admin_or_analyst: User = Depends(require_analyst_or_admin),
-):
-    """Trigger on-demand fetch from MISP (FS-ISAC) and proactive inventory matching."""
-    settings_res = await db.execute(select(SystemSetting))
-    for row in settings_res.scalars().all():
-        k, v = row.key, row.value
-        if k == "misp_url" and v:
-            settings.MISP_URL = v
-        elif k == "misp_api_key" and v:
-            settings.MISP_API_KEY = v
-        elif k == "misp_creator_org" and v:
-            settings.MISP_CREATOR_ORG = v
-        elif k == "misp_tag_filter" and v:
-            settings.MISP_TAG_FILTER = v
-        elif k == "misp_mock_mode":
-            settings.MISP_MOCK_MODE = v.lower() in ("true", "1")
-
-    client = MispClient(
-        base_url=settings.MISP_URL,
-        api_key=settings.MISP_API_KEY,
-        creator_org=settings.MISP_CREATOR_ORG,
-        tag_filter=settings.MISP_TAG_FILTER,
-        mock_mode=settings.MISP_MOCK_MODE,
-    )
-    advisories = await client.fetch_fs_isac_events()
-
-    if not advisories:
-        return {
-            "success": True,
-            "message": "No new FS-ISAC advisories fetched from MISP.",
-            "alerts_created": 0,
-        }
-
-    alerts_created = 0
-    qualys_confirmed = 0
-    proactive_matches = 0
-    clean_count = 0
-
-    for adv in advisories:
-        record = await ProactiveAssessmentEngine.assess_cve(db, adv)
-        if record.affected_assets_count > 0:
-            alerts_created += 1
-            if record.match_type == "QUALYS_CONFIRMED":
-                qualys_confirmed += 1
-            else:
-                proactive_matches += 1
-
-            if (
-                settings.TELEGRAM_ENABLED
-                and (record.severity or "").upper() in ("CRITICAL", "HIGH")
-                and not record.dispatched_telegram
-            ):
-                try:
-                    tg_text = TelegramService.format_misp_assessment_alert(record)
-                    await TelegramService.send_message(tg_text)
-                    record.dispatched_telegram = True
-                except Exception as te:
-                    logger.error(f"Telegram dispatch failed: {te}")
-        else:
-            clean_count += 1
-
-    now_str = datetime.now(timezone.utc).isoformat()
-    sync_setting = await db.get(SystemSetting, "misp_last_sync_time")
-    if sync_setting:
-        sync_setting.value = now_str
-    else:
-        db.add(SystemSetting(key="misp_last_sync_time", value=now_str, description="Timestamp of last MISP FS-ISAC sync"))
-
-    await db.commit()
-
-    return {
-        "success": True,
-        "message": f"Synced {len(advisories)} FS-ISAC advisories: {alerts_created} active threat alerts ({qualys_confirmed} Qualys-confirmed, {proactive_matches} proactive pre-scan), {clean_count} clean.",
-        "alerts_created": alerts_created,
-        "qualys_confirmed": qualys_confirmed,
-        "proactive_matches": proactive_matches,
-        "clean_count": clean_count,
-    }
 
 
 @router.post("/simulate-event")

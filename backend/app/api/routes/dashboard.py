@@ -15,6 +15,7 @@ from app.schemas.dashboard import (
     RiskDistribution,
     OSFamilyBreakdown,
     ThreatIntelBreakdown,
+    SeverityBreakdown,
 )
 from app.schemas.asset import AssetListItem
 from app.services.sync_service import SyncService
@@ -67,10 +68,26 @@ async def get_dashboard_summary(
         vulns_q = vulns_q.where(Asset.owner_id == user.id)
 
     total_vulns = (await db.execute(vulns_q)).scalar() or 0
-    critical_vulns = (await db.execute(vulns_q.where(Detection.severity == 5))).scalar() or 0
-    high_vulns = (await db.execute(vulns_q.where(Detection.severity == 4))).scalar() or 0
+    sev5_count = (await db.execute(vulns_q.where(Detection.severity == 5))).scalar() or 0
+    sev4_count = (await db.execute(vulns_q.where(Detection.severity == 4))).scalar() or 0
+    sev3_count = (await db.execute(vulns_q.where(Detection.severity == 3))).scalar() or 0
+    sev2_count = (await db.execute(vulns_q.where(Detection.severity == 2))).scalar() or 0
+    sev1_count = (await db.execute(vulns_q.where(Detection.severity == 1))).scalar() or 0
+    critical_vulns = sev5_count
+    high_vulns = sev4_count
 
-    # Active Threat Alerts (FS-ISAC CVEs affecting asset inventory)
+    # MISP Threat Advisories & Matched Assets Count
+    misp_all_q = select(MispCveAssessment)
+    all_misp_advisories = (await db.execute(misp_all_q)).scalars().all()
+    misp_advisories_count = len(all_misp_advisories)
+    matched_asset_ids = set()
+    for adv in all_misp_advisories:
+        for aff in (adv.assessment_report or {}).get("affected_assets", []):
+            if aff.get("asset_id"):
+                matched_asset_ids.add(aff.get("asset_id"))
+    misp_matched_assets_count = len(matched_asset_ids)
+
+    # Active Threat Alerts (CVEs affecting asset inventory)
     alerts_q = select(MispCveAssessment).where(
         MispCveAssessment.affected_assets_count > 0,
         MispCveAssessment.status.in_(["Pending", "Acknowledged"]),
@@ -126,11 +143,15 @@ async def get_dashboard_summary(
             if row.get("zero_day"):
                 zero_day_c += 1
 
-    # Recent risky assets
-    recent_risky_q = select(Asset).where(Asset.is_risky == True)
+    # Recent risky / most affected assets
+    recent_risky_q = select(Asset).where(Asset.total_vulns > 0)
     if is_owner:
         recent_risky_q = recent_risky_q.where(Asset.owner_id == user.id)
-    recent_risky_q = recent_risky_q.order_by(Asset.risk_score.desc()).limit(5)
+    recent_risky_q = recent_risky_q.order_by(
+        Asset.critical_vulns.desc(),
+        Asset.high_vulns.desc(),
+        Asset.total_vulns.desc(),
+    ).limit(5)
     recent_risky = (await db.execute(recent_risky_q)).scalars().all()
 
     # Recent FS-ISAC alerts affecting inventory
@@ -165,6 +186,15 @@ async def get_dashboard_summary(
         total_vulns=total_vulns,
         critical_vulns=critical_vulns,
         high_vulns=high_vulns,
+        severity_breakdown=SeverityBreakdown(
+            sev5=sev5_count,
+            sev4=sev4_count,
+            sev3=sev3_count,
+            sev2=sev2_count,
+            sev1=sev1_count,
+        ),
+        misp_advisories_count=misp_advisories_count,
+        misp_matched_assets_count=misp_matched_assets_count,
         active_alerts=active_alerts,
         sla_breaches=0,  # Included in risk score
         risk_distribution=RiskDistribution(

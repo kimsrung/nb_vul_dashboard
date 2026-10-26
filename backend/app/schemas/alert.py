@@ -21,6 +21,7 @@ class AlertItem(BaseModel):
     id: int
     misp_event_id: Optional[str] = None
     cve_id: str
+    source: Optional[str] = "MISP"
     title: str
     description: str
     severity: str  # Critical, High, Medium, Low

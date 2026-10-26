@@ -96,22 +96,18 @@ async def update_remediation(
 
     await db.flush()
 
-    # Recalculate parent asset's risk score
+    # Recalculate parent asset's severity counts
     if asset:
-        # Load KB entries for these detections
-        qids = [d.qid for d in asset.detections]
-        kb_res = await db.execute(select(KnowledgeBase).where(KnowledgeBase.qid.in_(qids)))
-        kb_map = {kb.qid: kb for kb in kb_res.scalars().all()}
-
-        score, risk_lvl, is_risky, total_v, crit_v, high_v = RiskEngine.calculate_asset_risk(
-            asset.detections, kb_map, now=now
-        )
-        asset.risk_score = score
-        asset.risk_level = risk_lvl
-        asset.is_risky = is_risky
-        asset.total_vulns = total_v
-        asset.critical_vulns = crit_v
-        asset.high_vulns = high_v
+        counts = RiskEngine.count_asset_severities(asset.detections)
+        asset.total_vulns = counts["total"]
+        asset.critical_vulns = counts["sev5"]
+        asset.high_vulns = counts["sev4"]
+        asset.medium_vulns = counts["sev3"]
+        asset.low_vulns = counts["sev2"]
+        asset.info_vulns = counts["sev1"]
+        asset.risk_score = 0.0
+        asset.risk_level = "Critical" if counts["sev5"] > 0 else "High" if counts["sev4"] > 0 else "Medium" if counts["sev3"] > 0 else "Low"
+        asset.is_risky = (counts["sev5"] > 0)
         asset.updated_at = now
 
     # Audit log remediation update

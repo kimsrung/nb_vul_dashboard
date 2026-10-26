@@ -284,11 +284,16 @@ class ProactiveAssessmentEngine:
         record = existing_res.scalars().first()
 
         dispatched_now = False
+        source_name = advisory.get("source") or settings.MISP_CREATOR_ORG or "MISP"
+        ev_id = advisory.get("misp_event_id")
+        ev_date = advisory.get("misp_event_date")
         if record is None:
             record = MispCveAssessment(
                 cve_id=cve_id,
-                source="FS-ISAC",
-                title=advisory.get("title", f"FS-ISAC Advisory {cve_id}"),
+                misp_event_id=ev_id,
+                misp_event_date=ev_date,
+                source=source_name,
+                title=advisory.get("title", f"{source_name} Advisory {cve_id}"),
                 description=advisory.get("description", ""),
                 severity=advisory.get("severity", "High"),
                 cvss_score=advisory.get("cvss_score"),
@@ -307,6 +312,14 @@ class ProactiveAssessmentEngine:
             db.add(record)
             await db.flush()
         else:
+            if ev_date:
+                if not record.misp_event_date or ev_date > record.misp_event_date:
+                    record.misp_event_date = ev_date
+                    if ev_id:
+                        record.misp_event_id = ev_id
+            elif ev_id and not record.misp_event_id:
+                record.misp_event_id = ev_id
+
             # Preserve existing positive match if new advisory has 0 matches
             if len(affected_assets_data) == 0 and record.affected_assets_count > 0:
                 logger.info(f"Preserving existing positive match for {cve_id} ({record.affected_assets_count} assets, {record.match_type}) instead of overwriting with 0 matches.")

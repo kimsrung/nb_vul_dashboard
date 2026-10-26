@@ -51,10 +51,8 @@ async def get_settings(user: User = Depends(require_viewer)):
         telegram_bot_token_masked=_mask_token(settings.TELEGRAM_BOT_TOKEN),
         telegram_chat_id=settings.TELEGRAM_CHAT_ID,
         telegram_cooldown_hours=settings.TELEGRAM_COOLDOWN_HOURS,
-        risk_threshold_critical=settings.RISK_THRESHOLD_CRITICAL,
-        risk_threshold_high=settings.RISK_THRESHOLD_HIGH,
-        sla_critical_days=settings.SLA_CRITICAL_DAYS,
-        sla_high_days=settings.SLA_HIGH_DAYS,
+        docs_username=settings.DOCS_USERNAME,
+        docs_password_masked="••••••••" if settings.DOCS_PASSWORD else "Not Set",
     )
 
 
@@ -113,14 +111,10 @@ async def update_settings(
     if settings_in.telegram_cooldown_hours is not None:
         settings.TELEGRAM_COOLDOWN_HOURS = settings_in.telegram_cooldown_hours
 
-    if settings_in.risk_threshold_critical is not None:
-        settings.RISK_THRESHOLD_CRITICAL = settings_in.risk_threshold_critical
-    if settings_in.risk_threshold_high is not None:
-        settings.RISK_THRESHOLD_HIGH = settings_in.risk_threshold_high
-    if settings_in.sla_critical_days is not None:
-        settings.SLA_CRITICAL_DAYS = settings_in.sla_critical_days
-    if settings_in.sla_high_days is not None:
-        settings.SLA_HIGH_DAYS = settings_in.sla_high_days
+    if settings_in.docs_username is not None and settings_in.docs_username.strip():
+        settings.DOCS_USERNAME = settings_in.docs_username.strip()
+    if settings_in.docs_password is not None and settings_in.docs_password.strip() and settings_in.docs_password != "••••••••":
+        settings.DOCS_PASSWORD = settings_in.docs_password.strip()
 
     # Persist all current settings to database
     items_to_persist = {
@@ -147,10 +141,8 @@ async def update_settings(
         "telegram_bot_token": settings.TELEGRAM_BOT_TOKEN,
         "telegram_chat_id": settings.TELEGRAM_CHAT_ID,
         "telegram_cooldown_hours": str(settings.TELEGRAM_COOLDOWN_HOURS),
-        "risk_threshold_critical": str(settings.RISK_THRESHOLD_CRITICAL),
-        "risk_threshold_high": str(settings.RISK_THRESHOLD_HIGH),
-        "sla_critical_days": str(settings.SLA_CRITICAL_DAYS),
-        "sla_high_days": str(settings.SLA_HIGH_DAYS),
+        "docs_username": settings.DOCS_USERNAME,
+        "docs_password": settings.DOCS_PASSWORD,
     }
 
     for k, v in items_to_persist.items():
@@ -195,10 +187,8 @@ async def update_settings(
         telegram_bot_token_masked=_mask_token(settings.TELEGRAM_BOT_TOKEN),
         telegram_chat_id=settings.TELEGRAM_CHAT_ID,
         telegram_cooldown_hours=settings.TELEGRAM_COOLDOWN_HOURS,
-        risk_threshold_critical=settings.RISK_THRESHOLD_CRITICAL,
-        risk_threshold_high=settings.RISK_THRESHOLD_HIGH,
-        sla_critical_days=settings.SLA_CRITICAL_DAYS,
-        sla_high_days=settings.SLA_HIGH_DAYS,
+        docs_username=settings.DOCS_USERNAME,
+        docs_password_masked="••••••••" if settings.DOCS_PASSWORD else "Not Set",
     )
 
 

@@ -27,11 +27,9 @@ class SystemSettingsResponse(BaseModel):
     telegram_bot_token_masked: str
     telegram_chat_id: str
     telegram_cooldown_hours: int
-    
-    risk_threshold_critical: int
-    risk_threshold_high: int
-    sla_critical_days: int
-    sla_high_days: int
+
+    docs_username: str = "docs_admin"
+    docs_password_masked: str = "••••••••"
 
 
 class SystemSettingsUpdate(BaseModel):
@@ -60,11 +58,9 @@ class SystemSettingsUpdate(BaseModel):
     telegram_bot_token: Optional[str] = None
     telegram_chat_id: Optional[str] = None
     telegram_cooldown_hours: Optional[int] = None
-    
-    risk_threshold_critical: Optional[int] = None
-    risk_threshold_high: Optional[int] = None
-    sla_critical_days: Optional[int] = None
-    sla_high_days: Optional[int] = None
+
+    docs_username: Optional[str] = None
+    docs_password: Optional[str] = None
 
 
 class QualysTestRequest(BaseModel):

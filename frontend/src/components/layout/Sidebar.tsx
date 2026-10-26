@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Server, Bell, Settings, ShieldCheck, Users, ChevronLeft, ChevronRight, History } from 'lucide-react';
+import { LayoutDashboard, Server, Bell, Settings, ShieldCheck, Users, ChevronLeft, ChevronRight, History, Radio, FileCode2, ExternalLink } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface SidebarProps {
@@ -17,20 +17,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed = false,
   onToggleCollapse,
 }) => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isAnalyst } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+
+  const canViewDocs = isAdmin || isAnalyst;
 
   const navItems = [
     { id: 'dashboard', path: '/dashboard', label: 'Executive Overview', icon: LayoutDashboard },
     { id: 'assets', path: '/assets', label: 'Asset Inventory', icon: Server, matchPrefix: true },
     { id: 'alerts', path: '/alerts', label: 'Alert Center', icon: Bell, badge: activeAlertCount > 0 ? activeAlertCount : undefined },
+    ...(isAdmin ? [{ id: 'misp', path: '/misp', label: 'MISP Feed', icon: Radio }] : []),
     ...(isAdmin ? [{ id: 'users', path: '/users', label: 'User Management', icon: Users }] : []),
     { id: 'audit-logs', path: '/audit-logs', label: 'Audit & History Logs', icon: History },
     { id: 'settings', path: '/settings', label: 'Admin Settings', icon: Settings },
+    ...(canViewDocs ? [{ id: 'api-docs', path: '/docs', label: 'API Documentation', icon: FileCode2, external: true }] : []),
   ];
 
-  const handleNavClick = (item: typeof navItems[0]) => {
+  const handleNavClick = (item: (typeof navItems)[0]) => {
+    if ('external' in item && item.external) {
+      window.open(item.path, '_blank', 'noopener,noreferrer');
+      return;
+    }
     if (setCurrentTab) {
       setCurrentTab(item.id);
     }
@@ -74,6 +82,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-primary-400' : 'text-slate-400'}`} />
                     {!isCollapsed && <span className="truncate">{item.label}</span>}
                   </div>
+                  {'external' in item && item.external && !isCollapsed && (
+                    <ExternalLink className="w-3 h-3 text-slate-500 shrink-0" />
+                  )}
                   {item.badge !== undefined && (
                     isCollapsed ? (
                       <span className="absolute top-1.5 right-2 w-2 h-2 rounded-full bg-red-500 animate-pulse ring-2 ring-surface" />

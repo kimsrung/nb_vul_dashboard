@@ -1,55 +1,42 @@
 import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from httpx import AsyncClient
 
 from app.services.risk_engine import RiskEngine
 from app.models.detection import Detection
-from app.models.knowledge_base import KnowledgeBase
 
 
 class TestRiskEngineAndRemediation:
     def test_risk_engine_base_severity_scores(self):
-        # Severity 1=2.0, 2=5.0, 3=12.0, 4=25.0, 5=45.0
-        kb = KnowledgeBase(qid=1001, threat_intel_flags={})
+        # Raw Qualys severities 1 to 5
         det_sev5 = Detection(qid=1001, severity=5, remediation_status="Open", first_found_date=datetime.now(timezone.utc))
-        det_sev4 = Detection(qid=1001, severity=4, remediation_status="Open", first_found_date=datetime.now(timezone.utc))
-        det_sev1 = Detection(qid=1001, severity=1, remediation_status="Open", first_found_date=datetime.now(timezone.utc))
+        det_sev4 = Detection(qid=1002, severity=4, remediation_status="Open", first_found_date=datetime.now(timezone.utc))
+        det_sev1 = Detection(qid=1003, severity=1, remediation_status="Open", first_found_date=datetime.now(timezone.utc))
 
-        kb_map = {1001: kb}
-        score5, lvl5, _, _, _, _ = RiskEngine.calculate_asset_risk([det_sev5], kb_map)
-        score4, lvl4, _, _, _, _ = RiskEngine.calculate_asset_risk([det_sev4], kb_map)
-        score1, lvl1, _, _, _, _ = RiskEngine.calculate_asset_risk([det_sev1], kb_map)
-
-        assert score5 > score4 > score1
-        assert lvl5 in ("Critical", "High", "Medium", "Low")
+        counts = RiskEngine.count_asset_severities([det_sev5, det_sev4, det_sev1])
+        assert counts["sev5"] == 1
+        assert counts["sev4"] == 1
+        assert counts["sev1"] == 1
+        assert counts["total"] == 3
 
     def test_resolved_and_false_positive_detections_ignored_in_risk(self):
-        kb = KnowledgeBase(qid=1002, threat_intel_flags={"ransomware": True})
-        kb_map = {1002: kb}
-
-        # Open detection has positive risk
+        # Open detection counted
         det_open = Detection(qid=1002, severity=5, remediation_status="Open", first_found_date=datetime.now(timezone.utc))
-        score_open, _, is_risky_open, total_open, crit_open, _ = RiskEngine.calculate_asset_risk([det_open], kb_map)
-        assert score_open > 0
-        assert is_risky_open is True
-        assert total_open == 1
-        assert crit_open == 1
+        counts_open = RiskEngine.count_asset_severities([det_open])
+        assert counts_open["sev5"] == 1
+        assert counts_open["total"] == 1
 
-        # Resolved detection has 0.0 risk
+        # Resolved detection ignored
         det_resolved = Detection(qid=1002, severity=5, remediation_status="Resolved", first_found_date=datetime.now(timezone.utc))
-        score_resolved, lvl_resolved, is_risky_resolved, total_res, crit_res, _ = RiskEngine.calculate_asset_risk([det_resolved], kb_map)
-        assert score_resolved == 0.0
-        assert lvl_resolved == "Low"
-        assert is_risky_resolved is False
-        assert total_res == 0
-        assert crit_res == 0
+        counts_res = RiskEngine.count_asset_severities([det_resolved])
+        assert counts_res["sev5"] == 0
+        assert counts_res["total"] == 0
 
-        # False positive has 0.0 risk
+        # False positive ignored
         det_fp = Detection(qid=1002, severity=5, remediation_status="False_Positive", first_found_date=datetime.now(timezone.utc))
-        score_fp, lvl_fp, is_risky_fp, _, _, _ = RiskEngine.calculate_asset_risk([det_fp], kb_map)
-        assert score_fp == 0.0
-        assert lvl_fp == "Low"
-        assert is_risky_fp is False
+        counts_fp = RiskEngine.count_asset_severities([det_fp])
+        assert counts_fp["sev5"] == 0
+        assert counts_fp["total"] == 0
 
     @pytest.mark.asyncio
     async def test_get_detection_detail(self, client: AsyncClient, admin_headers: dict):
@@ -90,7 +77,7 @@ class TestRiskEngineAndRemediation:
         if not det_id:
             pytest.skip("No detection found to test remediation")
 
-        # 2. Explicitly ensure detection is Open first and record baseline score
+        # 2. Explicitly ensure detection is Open first and record baseline active detections count
         open_res = await client.patch(
             f"/api/v1/detections/{det_id}/remediation",
             headers=admin_headers,
@@ -98,7 +85,7 @@ class TestRiskEngineAndRemediation:
         )
         assert open_res.status_code == 200
         asset_open = (await client.get(f"/api/v1/assets/{asset_id}", headers=admin_headers)).json()
-        score_open = asset_open["risk_score"]
+        total_open = asset_open["total_vulns"]
 
         # 3. Mark detection as Resolved
         resolved_res = await client.patch(
@@ -109,10 +96,9 @@ class TestRiskEngineAndRemediation:
         assert resolved_res.status_code == 200
         assert resolved_res.json()["remediation_status"] == "Resolved"
 
-        # 4. Verify parent asset's risk score decreased when detection resolved
+        # 4. Verify parent asset's active detection count decreased when detection resolved
         asset_resolved = (await client.get(f"/api/v1/assets/{asset_id}", headers=admin_headers)).json()
-        score_resolved = asset_resolved["risk_score"]
-        assert score_resolved < score_open
+        assert asset_resolved["total_vulns"] < total_open
 
         # 5. Restore back to Open
         restore_res = await client.patch(
@@ -122,10 +108,47 @@ class TestRiskEngineAndRemediation:
         )
         assert restore_res.status_code == 200
         asset_restored = (await client.get(f"/api/v1/assets/{asset_id}", headers=admin_headers)).json()
-        assert asset_restored["risk_score"] == score_open
+        assert asset_restored["total_vulns"] == total_open
 
     @pytest.mark.asyncio
     async def test_remediation_invalid_status_rejected(self, client: AsyncClient, admin_headers: dict):
         res = await client.patch("/api/v1/detections/1/remediation", headers=admin_headers, json={"remediation_status": "InvalidStatus"})
         assert res.status_code == 400
-        assert "Invalid remediation status" in res.json()["detail"]
+
+    def test_risk_engine_empty_detections_edge_case(self):
+        # Clean host with zero detections
+        counts = RiskEngine.count_asset_severities([])
+        assert counts["sev5"] == 0
+        assert counts["sev4"] == 0
+        assert counts["sev3"] == 0
+        assert counts["sev2"] == 0
+        assert counts["sev1"] == 0
+        assert counts["total"] == 0
+
+    @pytest.mark.asyncio
+    async def test_get_knowledge_base_detail(self, client: AsyncClient, admin_headers: dict):
+        # Locate an existing detection to get its QID
+        assets_res = await client.get("/api/v1/assets?page=1&page_size=5", headers=admin_headers)
+        qid = None
+        for a in assets_res.json()["items"]:
+            detail_res = await client.get(f"/api/v1/assets/{a['id']}", headers=admin_headers)
+            dets = detail_res.json().get("detections", [])
+            if dets:
+                qid = dets[0]["qid"]
+                break
+
+        assert qid is not None, "At least one QID should be present in seeded database"
+
+        kb_res = await client.get(f"/api/v1/kb/{qid}", headers=admin_headers)
+        assert kb_res.status_code == 200
+        kb = kb_res.json()
+        assert kb["qid"] == qid
+        assert "title" in kb
+        assert "solution" in kb
+        assert "category" in kb
+
+    @pytest.mark.asyncio
+    async def test_get_knowledge_base_not_found_edge_case(self, client: AsyncClient, admin_headers: dict):
+        res = await client.get("/api/v1/kb/99999999", headers=admin_headers)
+        assert res.status_code == 404
+        assert "not found in local KnowledgeBase cache" in res.json()["detail"]

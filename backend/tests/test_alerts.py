@@ -80,3 +80,45 @@ class TestAlertsCenter:
         assert revert_res.status_code == 200
         assert revert_res.json()["status"] == "Pending"
         assert revert_res.json()["is_resolved"] is False
+
+    @pytest.mark.asyncio
+    async def test_sync_service_execution_and_alert_generation(self, db_session):
+        from app.services.sync_service import SyncService
+        result = await SyncService.run_sync(db=db_session, sync_mode="delta")
+        assert result.get("success") is True
+        assert "assets_updated" in result
+
+    @pytest.mark.asyncio
+    async def test_alerts_strictly_excludes_unmatched_cves(self, client: AsyncClient, admin_headers: dict):
+        """Verify that Alert Center (/alerts) strictly excludes CVEs with 0 affected assets,
+        while MISP Threat Feed (/misp/feed) includes them.
+        """
+        # 1. Fetch all alerts from Alert Center
+        alerts_res = await client.get("/api/v1/alerts?page=1&page_size=100", headers=admin_headers)
+        assert alerts_res.status_code == 200
+        alerts = alerts_res.json()["items"]
+
+        # Every alert in Alert Center must affect at least 1 server
+        for alert in alerts:
+            assert alert["affected_assets_count"] > 0
+            assert len(alert["affected_assets"]) > 0
+            assert alert["match_type"] in ("QUALYS_CONFIRMED", "INVENTORY_PROACTIVE")
+
+        # 2. Fetch MISP feed - verify it contains clean CVEs with 0 affected assets
+        misp_feed_res = await client.get("/api/v1/misp/feed?page=1&page_size=100", headers=admin_headers)
+        assert misp_feed_res.status_code == 200
+        feed_data = misp_feed_res.json()
+        assert feed_data["clean_count"] > 0
+
+        clean_cves = [item for item in feed_data["items"] if item["match_type"] == "NO_ASSETS_AFFECTED"]
+        assert len(clean_cves) > 0
+
+        # Sample clean CVE with 0 affected assets
+        sample_clean = clean_cves[0]
+        assert sample_clean["affected_assets_count"] == 0
+
+        # 3. Assert that querying Alert Center for this clean CVE yields 0 results
+        alert_search_res = await client.get(f"/api/v1/alerts?search={sample_clean['cve_id']}", headers=admin_headers)
+        assert alert_search_res.status_code == 200
+        assert alert_search_res.json()["total"] == 0
+        assert len(alert_search_res.json()["items"]) == 0

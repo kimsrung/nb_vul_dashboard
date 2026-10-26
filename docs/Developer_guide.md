@@ -1,20 +1,19 @@
-# AGENTS.md — Developer & AI Agent Guide
+# Developer & Technical Architecture Guide
 
-Welcome to the **Risk Alert Dashboard & KnowledgeBase Remediation Platform**. This document provides context, architectural decisions, and operational instructions for AI agents and developers working on this codebase.
+Welcome to the **Risk Alert Dashboard & KnowledgeBase Remediation Platform** engineering guide. This document provides core architectural context, component specifications, development workflows, and operational instructions for developers and maintainers working on this codebase.
 
 ---
 
 ## 1. Project Mission & Core Capabilities
 
-The platform monitors infrastructure security posture by integrating with the **Qualys Cloud Platform** and **MISP (FS-ISAC) Threat Intelligence**:
+The platform monitors enterprise infrastructure security posture by integrating with the **Qualys Cloud Platform** and **MISP (FS-ISAC) Threat Intelligence**:
 1. **Host Detection Ingestion**: Queries `/api/2.0/fo/asset/host/vm/detection/?action=list` to pull scanned assets, network metadata, operating systems, asset tags, and vulnerability detections.
 2. **KnowledgeBase (KB) Mapping**: Queries `/api/2.0/fo/knowledge_base/vuln/?action=list&details=All` to enrich findings with step-by-step fix guidance, vendor patch links, temporary workarounds, CVE references, and scanner diagnostic proof.
-3. **MISP (FS-ISAC) Proactive Threat Assessment**: Ingests emergency CVE advisories filtered strictly for `FS-ISAC`. Assesses exposure even when Qualys has not detected them yet by comparing vulnerable software and version criteria against server software inventory (`AssetSoftware`), producing evidence, confidence ratings, and shell verification commands.
-4. **Composite Risk Scoring Engine**: Calculates real-time asset risk based on Qualys Severity 1–5, Real-Time Threat Intel (RTI: Ransomware, Active in Wild, Zero-Day, RCE, Public Exploit), and SLA age breach penalties.
-5. **Remediation Action Tracking**: Interactive slide-over drawer allowing security teams to update vulnerability status (`Open`, `In Progress`, `Acknowledged`, `False Positive`, `Resolved`). Status changes automatically recalculate the parent asset's risk score in real-time.
-6. **Telegram Alerting**: Dispatches formatted HTML alert cards for both Qualys risk breaches and MISP FS-ISAC proactive threat advisories to designated Telegram channels.
+3. **MISP (FS-ISAC) Proactive Threat Assessment**: Ingests emergency CVE advisories filtered strictly for `FS-ISAC`. Consolidates 240+ raw FS-ISAC threat events into distinct unique CVE assessment records (tracking both original MISP event dates and platform ingestion timestamps). Assesses exposure even when Qualys has not detected them yet by comparing vulnerable software and version criteria against server software inventory (`AssetSoftware`), producing evidence, confidence ratings, and shell verification commands.
+4. **Raw Qualys Severity Tracking**: Categorizes vulnerability counts directly by raw Qualys Severity 1–5 (Sev 5 Critical, Sev 4 High, Sev 3 Medium, Sev 2 Low, Sev 1 Info), eliminating artificial synthetic risk score calculations.
+5. **Remediation Action Tracking**: Interactive slide-over drawer allowing security teams to update vulnerability status (`Open`, `In Progress`, `Acknowledged`, `False Positive`, `Resolved`). Status changes automatically recalculate the parent asset's active severity counters in real-time.
+6. **Telegram Alerting**: Dispatches formatted HTML alert cards whenever MISP threat intelligence CVE advisories match monitored server infrastructure (regardless of whether Qualys has detected them yet). Routine Qualys scan sync is excluded to prevent notification spam.
 7. **Role-Based Access Control (RBAC)**: Multi-role JWT authentication (`Admin`, `Analyst`, `Owner`, `Viewer`) with host ownership scoping.
-8. **Dual Mode Operation**: Built-in mock mode (`QUALYS_MOCK_MODE=true`, `MISP_MOCK_MODE=true`) for offline development/demo without live external credentials.
 
 ---
 
@@ -36,11 +35,16 @@ The platform monitors infrastructure security posture by integrating with the **
 
 ```
 dashboard_alert/
-├── AGENTS.md                       # Agent & maintainer instructions (this file)
 ├── README.md                       # User-facing documentation & quickstart
 ├── docker-compose.yml              # Turnkey Docker deployment (PostgreSQL, Backend, Frontend)
 ├── .env.example                    # Environment template with documented defaults
 ├── .gitignore                      # Git exclusion rules
+├── docs/                           # Architectural & integration guides
+│   ├── developer_guide.md          # Technical architecture & contributor instructions (this file)
+│   ├── overview.md                 # System architecture, RBAC matrix & workflows
+│   ├── Qualys.md                   # Qualys Cloud Platform & raw severity guide
+│   ├── MISP.md                     # MISP & FS-ISAC threat intelligence guide
+│   └── Qualys_MISP_work_together.md # Cross-platform synergy & conflict prevention
 ├── backend/
 │   ├── Dockerfile                  # Python 3.11-slim container spec
 │   ├── requirements.txt            # Python dependencies
@@ -75,11 +79,9 @@ dashboard_alert/
 │       │   └── settings.py         # SystemSettingsResponse, test requests
 │       ├── services/
 │       │   ├── qualys_client.py    # Qualys API v2 client & streaming XML parser
-│       │   ├── qualys_mock.py      # High-fidelity mock XML generator
 │       │   ├── misp_client.py      # MISP REST API client scoped to FS-ISAC
-│       │   ├── misp_mock.py        # FS-ISAC emergency advisory mock generator
 │       │   ├── proactive_assessment_engine.py # Pre-scan inventory matcher & evaluator
-│       │   ├── risk_engine.py      # Composite risk scoring computation
+│       │   ├── risk_engine.py      # Raw Qualys severity counter & level evaluator
 │       │   ├── audit_service.py    # Structured audit event logger
 │       │   ├── sync_service.py     # Ingestion & delta synchronization coordinator
 │       │   ├── telegram_service.py # Telegram bot HTML dispatch (Qualys + FS-ISAC alerts)
@@ -99,7 +101,7 @@ dashboard_alert/
 │               └── settings.py     # GET /settings, POST /settings, connection testers
 └── frontend/
     ├── Dockerfile                  # Multi-stage Vite build + Nginx Alpine runner
-    ├── nginx.conf                  # Nginx proxy forwarding /api to backend:8000
+    ├── nginx.conf                  # Nginx proxy forwarding /api and /docs to backend:8000
     ├── package.json                # React, Vite, Tailwind CSS, Lucide dependencies
     ├── tsconfig.json               # TypeScript configuration
     ├── vite.config.ts              # Vite config with local proxy to localhost:8000
@@ -116,18 +118,18 @@ dashboard_alert/
         ├── components/
         │   ├── layout/
         │   │   ├── Navbar.tsx      # Fixed top bar with collapse toggle & user session
-        │   │   └── Sidebar.tsx     # Collapsible sidebar nav (w-64 <-> w-16)
+        │   │   └── Sidebar.tsx     # Collapsible sidebar nav with RBAC links
         │   ├── common/
-        │   │   ├── RiskBadge.tsx   # Visual indicator for Critical/High/Medium/Low
         │   │   ├── SeverityTag.tsx # Qualys Severity 1 to 5 badges
         │   │   └── RemediationStatusBadge.tsx # Status pill for Open/Resolved/etc.
         │   └── remediation/
         │       └── RemediationDrawer.tsx # Slide-over drawer with KB solutions & action form
         └── pages/
             ├── DashboardPage.tsx   # Executive overview, KPI widgets, RTI metrics
-            ├── AssetsPage.tsx      # Paginated inventory table with server name, drag-resize, owner assignment, & admin delete
+            ├── AssetsPage.tsx      # Paginated inventory table with server name, owner assignment, & admin delete
             ├── AssetDetailPage.tsx # Host dossier with detections, installed software, & admin delete
-            ├── AlertsPage.tsx      # Threat alert center & FS-ISAC assessment report drawer (paginated)
+            ├── AlertsPage.tsx      # Threat alert center (strictly affecting monitored servers)
+            ├── MispPage.tsx        # Comprehensive MISP Threat Feed & FS-ISAC CVE assessments
             ├── AuditLogsPage.tsx   # Security audit trail & administrative history logs
             ├── UsersPage.tsx       # User role management (Admin, Analyst, Owner, Viewer)
             ├── SettingsPage.tsx    # Connection tester & settings editor
@@ -136,7 +138,7 @@ dashboard_alert/
 
 ---
 
-## 4. How to Run Locally (Step-by-Step)
+## 4. How to Run Locally
 
 ### Option A: Direct Local Run (Zero-Docker / Fast Development)
 
@@ -144,48 +146,33 @@ The backend uses PostgreSQL (`postgresql+asyncpg://qualys_user:qualys_secret_pas
 
 #### 1. Backend Terminal:
 ```bash
-cd /Users/kimsrung/workspace/nbc/dashboard_alert/backend
+cd backend
 
-# Activate the virtual environment
+# Activate virtual environment
 source venv/bin/activate
-
-# Install dependencies (already satisfied in venv, but for reference):
-pip install -r requirements.txt
 
 # Run FastAPI with auto-reload
 uvicorn app.main:app --reload --port 8000
 ```
-- The backend will automatically create database tables, seed default `admin` and `viewer` users, and execute an initial mock Qualys sync on startup.
 - Swagger UI Documentation: `http://localhost:8000/docs`
 
 #### 2. Frontend Terminal:
 ```bash
-cd /Users/kimsrung/workspace/nbc/dashboard_alert/frontend
-
-# Install dependencies (already installed)
-npm install
+cd frontend
 
 # Start Vite dev server
 npm run dev
 ```
-- The dashboard is accessible at: **`http://localhost:3000`** (Vite proxies all `/api` requests to `http://127.0.0.1:8000`).
+- The dashboard is accessible at: **`http://localhost:3000`** (Vite proxies all `/api` and `/docs` requests to `http://127.0.0.1:8000`).
 
 ---
 
 ### Option B: Docker Compose Run
 
-To run the containerized stack with PostgreSQL 16:
-
 ```bash
-cd /Users/kimsrung/workspace/nbc/dashboard_alert
-
-# Copy environment variables
+cd dashboard_alert
 cp .env.example .env
-
-# Build and launch all services in background
 docker compose up -d --build
-
-# View logs
 docker compose logs -f
 ```
 - Frontend UI: `http://localhost:3000`
@@ -194,55 +181,36 @@ docker compose logs -f
 
 ---
 
-## 5. Default Credentials & Role-Based Access Control (RBAC)
+## 5. Automated Testing Guidelines
 
-| Role | Username | Password | Permissions & Scoping |
-|---|---|---|---|
-| **Admin** | `admin` | `admin123` | Full access: trigger Qualys sync, manage user accounts & roles, assign server owners, edit settings, test Telegram |
-| **Analyst** | `analyst` | `analyst123` | Triage & SecOps: inspect all infrastructure, assign server owners, update remediation status, mark alerts resolved |
-| **Owner** | `owner_appcore` | `owner123` | Scoped Host Ownership: **only** sees and remediates vulnerabilities on their assigned servers (e.g. `bk-appcore-sit`) |
-| **Viewer** | `viewer` | `viewer123` | Read-only audit access: view dashboard, inspect all assets and KB remediation advice without edit permissions |
-
----
-
-## 6. How to Run Automated Tests
-
-To run the comprehensive test suite covering Authentication, RBAC, Asset Inventory & PoC, Risk Engine recalculations, MISP Threat Intelligence & ZeroMQ simulation, Threat Alerts, Settings, and Telegram alert formatting:
-
+To run the full automated test suite (all 48 tests across 8 modules):
 ```bash
-cd /Users/kimsrung/workspace/nbc/dashboard_alert/backend
-
-# Run full pytest suite (all 30 tests)
+cd backend
 PYTHONPATH=. ./venv/bin/pytest
 
-# Run a specific test module
-PYTHONPATH=. ./venv/bin/pytest tests/test_assets_poc.py
-PYTHONPATH=. ./venv/bin/pytest tests/test_auth_rbac.py
-PYTHONPATH=. ./venv/bin/pytest tests/test_risk_remediation.py
-PYTHONPATH=. ./venv/bin/pytest tests/test_misp_assessment.py
-PYTHONPATH=. ./venv/bin/pytest tests/test_alerts.py
-PYTHONPATH=. ./venv/bin/pytest tests/test_settings_audit.py
+# Run the complete end-to-end happy path integration test
+PYTHONPATH=. ./venv/bin/pytest tests/test_integration_happy_path.py
 ```
 
 To verify the frontend build:
 ```bash
-cd /Users/kimsrung/workspace/nbc/dashboard_alert/frontend
+cd frontend
 npm run build
 ```
 
 ---
 
-## 7. Crucial Architectural Rules for AI Agents
+## 6. Crucial Architectural Rules
 
-When editing or extending this codebase, adhere to the following rules:
-
-1. **Risk Recalculation Dependency**:
-   Whenever a detection's remediation status changes (e.g. via `PATCH /api/v1/detections/{id}/remediation`), **always** recalculate the parent `Asset`'s `risk_score`, `risk_level`, and `is_risky` using `RiskEngine.calculate_asset_risk`. Never update a detection without refreshing the parent asset score.
-2. **Qualys Mock vs Live**:
-   Never remove `qualys_mock.py`. The mock generator guarantees that developers and CI/CD pipelines can run tests without real Qualys credentials or burning API rate limits. Ensure any new Qualys fields added to `qualys_client.py` are also mirrored in `qualys_mock.py`.
+1. **Severity Count Recalculation Dependency**:
+   Whenever a detection's remediation status changes (e.g. via `PATCH /api/v1/detections/{id}/remediation`), **always** recalculate the parent `Asset`'s active severity counters (`critical_vulns`, `high_vulns`, `medium_vulns`, `low_vulns`, `info_vulns`, and `total_vulns`) using `RiskEngine.count_asset_severities`. Never update a detection without refreshing the parent asset counters.
+2. **API Rate Limiting & Concurrency Control**:
+   Qualys Cloud Platform restricts API concurrency to 2 concurrent requests per subscription. The backend enforces `asyncio.Lock()` (`sync_lock`) in `SyncService` to prevent overlapping synchronization runs and preserves API quotas by prioritizing incremental delta sync.
 3. **Safe XML Parsing**:
    Always use `defusedxml.ElementTree` instead of Python's standard `xml.etree.ElementTree` to prevent XML entity expansion (Billion Laughs / XXE) attacks from external Qualys responses.
 4. **RBAC Enforcement**:
    Every write endpoint (`POST`, `PATCH`, `PUT`, `DELETE`) must depend on `require_admin` from `app.api.deps`. Read-only endpoints (`GET`) must depend on `require_viewer`.
 5. **Database Portability**:
    Maintain compatibility with both SQLite (`sqlite+aiosqlite`) and PostgreSQL (`postgresql+asyncpg`). Avoid database-specific raw SQL dialect syntax.
+6. **API Documentation Protection**:
+   The interactive Swagger UI (`/docs`) and OpenAPI schema (`/openapi.json`) are secured using HTTP Basic Authentication (`verify_docs_credentials`). ReDoc (`/redoc`) is disabled. Default credentials (`DOCS_USERNAME="docs_admin"`, `DOCS_PASSWORD="docs123"`) can be customized via `.env` or updated dynamically by administrators via Admin Settings (`POST /api/v1/settings`).

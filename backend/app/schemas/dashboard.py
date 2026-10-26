@@ -11,6 +11,14 @@ class RiskDistribution(BaseModel):
     low: int = 0
 
 
+class SeverityBreakdown(BaseModel):
+    sev5: int = 0
+    sev4: int = 0
+    sev3: int = 0
+    sev2: int = 0
+    sev1: int = 0
+
+
 class OSFamilyBreakdown(BaseModel):
     name: str
     count: int
@@ -29,6 +37,9 @@ class DashboardSummaryResponse(BaseModel):
     total_vulns: int
     critical_vulns: int
     high_vulns: int
+    severity_breakdown: SeverityBreakdown = SeverityBreakdown()
+    misp_advisories_count: int = 0
+    misp_matched_assets_count: int = 0
     active_alerts: int
     sla_breaches: int
     risk_distribution: RiskDistribution

@@ -7,6 +7,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { AssetsPage } from './pages/AssetsPage';
 import { AssetDetailPage } from './pages/AssetDetailPage';
 import { AlertsPage } from './pages/AlertsPage';
+import { MispPage } from './pages/MispPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { UsersPage } from './pages/UsersPage';
 import { AuditLogsPage } from './pages/AuditLogsPage';
@@ -74,7 +75,7 @@ const MainApp: React.FC = () => {
             <Route path="/assets" element={<AssetsPage />} />
             <Route path="/assets/:id" element={<AssetDetailPage />} />
             <Route path="/alerts" element={<AlertsPage />} />
-            <Route path="/misp" element={<Navigate to="/alerts" replace />} />
+            <Route path="/misp" element={isAdmin ? <MispPage /> : <Navigate to="/dashboard" replace />} />
             <Route path="/users" element={isAdmin ? <UsersPage /> : <Navigate to="/dashboard" replace />} />
             <Route path="/audit-logs" element={<AuditLogsPage />} />
             <Route path="/settings" element={<SettingsPage />} />

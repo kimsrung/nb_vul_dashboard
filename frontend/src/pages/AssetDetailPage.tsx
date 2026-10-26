@@ -6,13 +6,13 @@ import {
   UserCheck, Pencil, Users
 } from 'lucide-react';
 import { AssetDetail, DetectionItem, SoftwareItem, OwnerOption, apiClient } from '../api/client';
-import { RiskBadge } from '../components/common/RiskBadge';
+import { SeverityPills } from '../components/common/SeverityPills';
 import { SeverityTag } from '../components/common/SeverityTag';
 import { RemediationStatusBadge } from '../components/common/RemediationStatusBadge';
 import { RemediationDrawer } from '../components/remediation/RemediationDrawer';
 import { useAuth } from '../context/AuthContext';
 import { TablePagination } from '../components/common/TablePagination';
-import { formatDateYMD } from '../utils/date';
+import { formatDateTimeYMD } from '../utils/date';
 import { EditAssetModal } from '../components/assets/EditAssetModal';
 
 interface AssetDetailPageProps {
@@ -268,7 +268,14 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId: propA
                 <span className="font-mono text-xs text-sky-300 bg-sky-950/60 border border-sky-500/30 px-2 py-0.5 rounded">
                   {asset.ip_address}
                 </span>
-                <RiskBadge level={asset.risk_level} score={asset.risk_score} />
+                <SeverityPills
+                  sev5={asset.critical_vulns}
+                  sev4={asset.high_vulns}
+                  sev3={asset.medium_vulns}
+                  sev2={asset.low_vulns}
+                  sev1={asset.info_vulns}
+                  total={asset.total_vulns}
+                />
               </div>
               <p className="text-xs font-mono text-slate-400 mt-0.5">
                 {asset.fqdn || 'No FQDN'} &bull; NetBIOS: {asset.netbios_name || 'N/A'} &bull; Qualys Host ID: {asset.qualys_id}
@@ -276,28 +283,35 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId: propA
             </div>
           </div>
 
-          <div className="flex items-center gap-6 bg-slate-950/60 px-5 py-3 rounded-xl border border-slate-800">
-            <div className="text-center" title="Scale: Low (<15), Medium (15-39), High (40-79), Critical (≥80)">
-              <div className="text-[10px] uppercase font-semibold text-slate-400">Risk Score</div>
-              <div className="text-xl font-bold font-mono text-rose-400">{asset.risk_score}</div>
-              <div className="text-[10px] text-slate-500 font-mono">
-                {asset.risk_score >= 80 ? '≥80 Crit' : asset.risk_score >= 40 ? '≥40 High' : asset.risk_score >= 15 ? '≥15 Med' : '<15 Low'}
-              </div>
+          <div className="flex items-center gap-3 bg-slate-950/60 px-4 py-2.5 rounded-xl border border-slate-800 flex-wrap">
+            <div className="text-center px-2">
+              <div className="text-[10px] uppercase font-bold text-rose-400">Sev 5 (Crit)</div>
+              <div className="text-lg font-bold font-mono text-rose-400">{asset.critical_vulns}</div>
             </div>
-            <div className="w-px h-8 bg-slate-800" />
-            <div className="text-center">
-              <div className="text-[10px] uppercase font-semibold text-slate-400">Critical</div>
-              <div className="text-xl font-bold font-mono text-red-400">{asset.critical_vulns}</div>
+            <div className="w-px h-7 bg-slate-800" />
+            <div className="text-center px-2">
+              <div className="text-[10px] uppercase font-bold text-orange-400">Sev 4 (High)</div>
+              <div className="text-lg font-bold font-mono text-orange-400">{asset.high_vulns}</div>
             </div>
-            <div className="w-px h-8 bg-slate-800" />
-            <div className="text-center">
-              <div className="text-[10px] uppercase font-semibold text-slate-400">High</div>
-              <div className="text-xl font-bold font-mono text-amber-400">{asset.high_vulns}</div>
+            <div className="w-px h-7 bg-slate-800" />
+            <div className="text-center px-2">
+              <div className="text-[10px] uppercase font-bold text-amber-400">Sev 3 (Med)</div>
+              <div className="text-lg font-bold font-mono text-amber-400">{asset.medium_vulns ?? 0}</div>
             </div>
-            <div className="w-px h-8 bg-slate-800" />
-            <div className="text-center">
-              <div className="text-[10px] uppercase font-semibold text-slate-400">Total Detections</div>
-              <div className="text-xl font-bold font-mono text-slate-200">{asset.detections.length}</div>
+            <div className="w-px h-7 bg-slate-800" />
+            <div className="text-center px-2">
+              <div className="text-[10px] uppercase font-bold text-sky-400">Sev 2 (Low)</div>
+              <div className="text-lg font-bold font-mono text-sky-400">{asset.low_vulns ?? 0}</div>
+            </div>
+            <div className="w-px h-7 bg-slate-800" />
+            <div className="text-center px-2">
+              <div className="text-[10px] uppercase font-bold text-slate-400">Sev 1 (Info)</div>
+              <div className="text-lg font-bold font-mono text-slate-300">{asset.info_vulns ?? 0}</div>
+            </div>
+            <div className="w-px h-7 bg-slate-800" />
+            <div className="text-center px-2">
+              <div className="text-[10px] uppercase font-bold text-slate-400">Total Detections</div>
+              <div className="text-lg font-bold font-mono text-slate-100">{asset.detections.length}</div>
             </div>
           </div>
         </div>
@@ -315,7 +329,7 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId: propA
           <div>
             <span className="text-slate-400 block mb-0.5">Last Qualys Scan</span>
             <span className="text-slate-200 font-mono">
-              {formatDateYMD(asset.last_scan_date, 'N/A')}
+              {formatDateTimeYMD(asset.last_scan_date, true, 'N/A')}
             </span>
           </div>
           <div>
@@ -768,8 +782,8 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId: propA
                   <span className="text-slate-200">{asset.ip_address}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Risk Score:</span>
-                  <span className="text-orange-400 font-semibold">{asset.risk_score} ({asset.risk_level})</span>
+                  <span className="text-slate-400">Qualys Severities:</span>
+                  <span className="text-orange-400 font-semibold">{asset.critical_vulns} Sev 5, {asset.high_vulns} Sev 4</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Active Vulns:</span>

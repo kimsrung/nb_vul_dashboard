@@ -31,8 +31,11 @@ class Asset(Base):
     is_active = Column(Boolean, default=True, nullable=False, index=True)  # False if decommissioned / not reporting in Qualys
     
     total_vulns = Column(Integer, default=0, nullable=False)
-    critical_vulns = Column(Integer, default=0, nullable=False)
-    high_vulns = Column(Integer, default=0, nullable=False)
+    critical_vulns = Column(Integer, default=0, nullable=False)  # Sev 5
+    high_vulns = Column(Integer, default=0, nullable=False)      # Sev 4
+    medium_vulns = Column(Integer, default=0, nullable=False)    # Sev 3
+    low_vulns = Column(Integer, default=0, nullable=False)       # Sev 2
+    info_vulns = Column(Integer, default=0, nullable=False)      # Sev 1
 
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)

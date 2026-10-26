@@ -278,24 +278,25 @@ class SyncService:
                         await db.execute(select(Detection).where(Detection.asset_id == asset.id))
                     ).scalars().all()
 
-                    score, risk_lvl, is_risky, total_v, crit_v, high_v = RiskEngine.calculate_asset_risk(
-                        all_asset_detections, kb_map, now=now
-                    )
+                    counts = RiskEngine.count_asset_severities(all_asset_detections)
 
                     was_risky = asset.is_risky
-                    asset.risk_score = score
-                    asset.risk_level = risk_lvl
-                    asset.is_risky = is_risky
-                    asset.total_vulns = total_v
-                    asset.critical_vulns = crit_v
-                    asset.high_vulns = high_v
+                    asset.risk_score = 0.0
+                    asset.risk_level = "Critical" if counts["sev5"] > 0 else "High" if counts["sev4"] > 0 else "Medium" if counts["sev3"] > 0 else "Low"
+                    asset.is_risky = (counts["sev5"] > 0)
+                    asset.total_vulns = counts["total"]
+                    asset.critical_vulns = counts["sev5"]
+                    asset.high_vulns = counts["sev4"]
+                    asset.medium_vulns = counts["sev3"]
+                    asset.low_vulns = counts["sev2"]
+                    asset.info_vulns = counts["sev1"]
                     assets_updated += 1
 
                     # Extract installed software from all detections into AssetSoftware
                     await cls._sync_discovered_software(db, asset.id, all_asset_detections, now)
 
-                    # Check Alert & Telegram Dispatch
-                    if is_risky:
+                    # In-app Alert record for Critical assets (Telegram dispatch reserved for MISP advisories)
+                    if asset.is_risky:
                         cooldown_cutoff = now - timedelta(hours=settings.TELEGRAM_COOLDOWN_HOURS)
                         recent_alert_res = await db.execute(
                             select(Alert)
@@ -307,18 +308,7 @@ class SyncService:
 
                         server_display = asset.server_name or (asset.fqdn.split(".")[0] if asset.fqdn else asset.netbios_name or "Unknown-Host")
                         alert_title = f"{server_display}: {asset.ip_address or 'Unknown IP'}"
-                        active_dets = [
-                            d for d in all_asset_detections
-                            if d.status != "Fixed" and d.remediation_status not in ("Resolved", "False_Positive")
-                        ]
-                        top_dets = sorted(active_dets, key=lambda d: d.severity, reverse=True)
-                        alert_msg = f"scored {score:.1f} with {crit_v} Critical and {high_v} High vulnerabilities."
-
-                        dispatched_telegram = False
-                        if settings.TELEGRAM_ENABLED and (recent_alert is None or not was_risky):
-                            tg_text = TelegramService.format_asset_alert(asset, top_dets, kb_map)
-                            tg_result = await TelegramService.send_message(tg_text)
-                            dispatched_telegram = tg_result.get("success", False)
+                        alert_msg = f"has {counts['sev5']} Critical (Sev 5) and {counts['sev4']} High (Sev 4) vulnerabilities."
 
                         if recent_alert is None or not was_risky:
                             alert_record = Alert(
@@ -326,10 +316,9 @@ class SyncService:
                                 alert_type="RISK_FLAGGED",
                                 title=alert_title,
                                 message=alert_msg,
-                                severity=risk_lvl,
+                                severity=asset.risk_level,
                                 is_resolved=False,
-                                dispatched_to_telegram=dispatched_telegram,
-                                telegram_sent_at=now if dispatched_telegram else None,
+                                dispatched_to_telegram=False,
                                 created_at=now,
                             )
                             db.add(alert_record)

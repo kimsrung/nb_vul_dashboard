@@ -71,13 +71,25 @@ export interface AssetListItem {
   os_family: string | null;
   tags: string[];
   last_scan_date: string | null;
-  risk_score: number;
-  risk_level: 'Critical' | 'High' | 'Medium' | 'Low';
-  is_risky: boolean;
+  risk_score?: number;
+  risk_level?: 'Critical' | 'High' | 'Medium' | 'Low';
+  is_risky?: boolean;
   is_active: boolean;
   total_vulns: number;
   critical_vulns: number;
   high_vulns: number;
+  severity_breakdown?: {
+    sev5: number;
+    sev4: number;
+    sev3: number;
+    sev2: number;
+    sev1: number;
+  };
+  misp_advisories_count?: number;
+  misp_matched_assets_count?: number;
+  medium_vulns?: number;
+  low_vulns?: number;
+  info_vulns?: number;
 }
 
 export interface PaginatedAssetsResponse {
@@ -146,6 +158,7 @@ export interface AlertItem {
   id: number;
   misp_event_id?: string;
   cve_id: string;
+  source?: string;
   title: string;
   description: string;
   severity: string;
@@ -184,6 +197,15 @@ export interface DashboardSummary {
   total_vulns: number;
   critical_vulns: number;
   high_vulns: number;
+  severity_breakdown?: {
+    sev5: number;
+    sev4: number;
+    sev3: number;
+    sev2: number;
+    sev1: number;
+  };
+  misp_advisories_count?: number;
+  misp_matched_assets_count?: number;
   active_alerts: number;
   sla_breaches: number;
   risk_distribution: {
@@ -230,10 +252,8 @@ export interface SystemSettings {
   telegram_bot_token_masked: string;
   telegram_chat_id: string;
   telegram_cooldown_hours: number;
-  risk_threshold_critical: number;
-  risk_threshold_high: number;
-  sla_critical_days: number;
-  sla_high_days: number;
+  docs_username?: string;
+  docs_password_masked?: string;
 }
 
 export interface SoftwareItem {
@@ -269,4 +289,69 @@ export interface PaginatedAuditLogsResponse {
   page: number;
   page_size: number;
   total_pages: number;
+}
+
+export interface MispAssessmentListItem {
+  id: number;
+  misp_event_id?: string | null;
+  misp_event_date?: string | null;
+  cve_id: string;
+  source: string;
+  title: string;
+  description: string;
+  severity: string;
+  cvss_score: number | null;
+  affected_product: string;
+  vulnerable_versions: string;
+  fixed_versions: string | null;
+  match_type: string;
+  confidence: string;
+  affected_assets_count: number;
+  dispatched_telegram: boolean;
+  telegram_sent_at: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MispAssessmentDetail extends MispAssessmentListItem {
+  assessment_report: {
+    summary?: string;
+    affected_assets?: AffectedServerItem[];
+    recommended_actions?: string;
+    verification_command?: string;
+    matched_qid?: number;
+    vulnerable_versions?: string;
+    affected_product?: string;
+  };
+}
+
+export interface PaginatedMispFeedResponse {
+  items: MispAssessmentListItem[];
+  total: number;
+  total_events?: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  pre_scan_count: number;
+  confirmed_count: number;
+  clean_count: number;
+}
+
+export interface MispSummary {
+  total_advisories: number;
+  total_events?: number;
+  pre_scan_matches: number;
+  qualys_confirmed: number;
+  at_risk_assets: number;
+  last_sync_time: string | null;
+}
+
+export interface MispSyncResponse {
+  success: boolean;
+  message: string;
+  assessments_run: number;
+  pre_scan_matches: number;
+  qualys_confirmed: number;
+  clean_cves: number;
 }

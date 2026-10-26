@@ -24,6 +24,8 @@ class MispAssessmentReport(BaseModel):
 
 class MispAssessmentListItem(BaseModel):
     id: int
+    misp_event_id: Optional[str] = None
+    misp_event_date: Optional[datetime] = None
     cve_id: str
     source: str
     title: str
@@ -50,6 +52,18 @@ class MispAssessmentDetail(MispAssessmentListItem):
     assessment_report: Dict[str, Any] = {}
 
 
+class PaginatedMispFeedResponse(BaseModel):
+    items: List[MispAssessmentListItem]
+    total: int
+    total_events: Optional[int] = None
+    page: int
+    page_size: int
+    total_pages: int
+    pre_scan_count: int = 0
+    confirmed_count: int = 0
+    clean_count: int = 0
+
+
 class MispSyncResponse(BaseModel):
     success: bool
     message: str
@@ -65,6 +79,7 @@ class MispStatusUpdate(BaseModel):
 
 class MispSummary(BaseModel):
     total_advisories: int
+    total_events: Optional[int] = None
     pre_scan_matches: int
     qualys_confirmed: int
     at_risk_assets: int
