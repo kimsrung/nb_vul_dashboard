@@ -857,19 +857,53 @@ html:not(.dark) .bg-slate-900 {
   color: #334155 !important;
 }
 
-/* Sync dropdown menus */
+/* Sync dropdown menus (Day Mode Premium Card Styling) */
 html:not(.dark) .bg-slate-900.border-slate-700 {
   background-color: #ffffff !important;
-  border-color: #e2e8f0 !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  border-color: #cbd5e1 !important;     /* slate-300 crisp border */
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.05) !important;
 }
 
 html:not(.dark) .bg-slate-900.border-slate-700 button {
-  border-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;     /* slate-200 clean divider */
 }
 
-html:not(.dark) .bg-slate-900.border-slate-700 button:hover {
-  background-color: #f8fafc !important;
+/* Distinct hover backgrounds */
+html:not(.dark) .bg-slate-900.border-slate-700 button:first-child:hover {
+  background-color: #f0f9ff !important; /* sky-50 subtle brand tint */
+}
+
+html:not(.dark) .bg-slate-900.border-slate-700 button:last-child:hover {
+  background-color: #fffbeb !important; /* amber-50 subtle warm tint */
+}
+
+/* Titles and icons in day mode */
+html:not(.dark) .bg-slate-900.border-slate-700 .text-sky-300,
+html:not(.dark) .bg-slate-900.border-slate-700 .text-sky-400 {
+  color: #0284c7 !important;            /* sky-600 */
+}
+
+html:not(.dark) .bg-slate-900.border-slate-700 .text-amber-300,
+html:not(.dark) .bg-slate-900.border-slate-700 .text-amber-400 {
+  color: #b45309 !important;            /* amber-700 */
+}
+
+/* High-contrast badge pills in day mode */
+html:not(.dark) .bg-slate-900.border-slate-700 span[class*="bg-sky-500"] {
+  background-color: #e0f2fe !important; /* sky-100 */
+  border-color: #bae6fd !important;     /* sky-200 */
+  color: #0369a1 !important;            /* sky-700 */
+}
+
+html:not(.dark) .bg-slate-900.border-slate-700 span[class*="bg-amber-500"] {
+  background-color: #fef3c7 !important; /* amber-100 */
+  border-color: #fde68a !important;     /* amber-200 */
+  color: #92400e !important;            /* amber-800 */
+}
+
+/* Descriptions in day mode */
+html:not(.dark) .bg-slate-900.border-slate-700 p[class*="text-slate-400"] {
+  color: #475569 !important;            /* slate-600 rich readable text */
 }
 
 /* Scrollbars */

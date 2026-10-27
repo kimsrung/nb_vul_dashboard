@@ -4,7 +4,7 @@ import {
   Search, RefreshCw, Server, RotateCw, RotateCcw,
   Trash2, AlertTriangle, X, CheckCircle2, AlertCircle, ArrowUp, ArrowDown,
   Calendar, ShieldAlert, Activity, ArrowUpRight, ChevronDown,
-  UserCheck, Pencil, Mail, Users
+  UserCheck, Pencil, Mail, Users, Zap, Database
 } from 'lucide-react';
 import { AssetListItem, PaginatedAssetsResponse, OwnerOption, apiClient } from '../api/client';
 import { SeverityPills } from '../components/common/SeverityPills';
@@ -255,32 +255,49 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
               </button>
 
               {isSyncMenuOpen && (
-                <div className="absolute right-0 top-full mt-1.5 w-60 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl py-1 z-50 animate-in fade-in zoom-in-95 duration-150">
-                  <button
-                    onClick={() => handleSyncNow('delta')}
-                    className="w-full text-left px-3.5 py-2 hover:bg-slate-800/80 transition-colors flex flex-col gap-0.5 border-b border-slate-800 cursor-pointer"
-                  >
-                    <span className="text-xs font-bold text-sky-300 flex items-center justify-between">
-                      Smart Delta Sync
-                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300">Fast</span>
-                    </span>
-                    <span className="text-[11px] text-slate-400">
-                      Fetches only detections updated since last watermark
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => handleSyncNow('full')}
-                    className="w-full text-left px-3.5 py-2 hover:bg-slate-800/80 transition-colors flex flex-col gap-0.5 cursor-pointer"
-                  >
-                    <span className="text-xs font-bold text-amber-300 flex items-center justify-between">
-                      Full Reconciliation Sync
-                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300">Deep</span>
-                    </span>
-                    <span className="text-[11px] text-slate-400">
-                      Paginates all hosts & identifies decommissioned assets
-                    </span>
-                  </button>
-                </div>
+                <>
+                  {/* Invisible backdrop for outside click dismiss */}
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsSyncMenuOpen(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-1.5 w-80 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl py-1.5 z-50 whitespace-normal animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
+                    <button
+                      onClick={() => handleSyncNow('delta')}
+                      className="group w-full text-left px-3.5 py-2.5 hover:bg-slate-800/80 transition-all flex flex-col gap-1 border-b border-slate-800 cursor-pointer whitespace-normal"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-sky-300 flex items-center gap-1.5">
+                          <Zap className="w-3.5 h-3.5 text-sky-400 group-hover:scale-110 transition-transform shrink-0" />
+                          <span>Smart Delta Sync</span>
+                        </span>
+                        <span className="text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 shrink-0">
+                          Fast
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 pl-5 leading-relaxed whitespace-normal">
+                        Fetches only detections updated since last watermark
+                      </p>
+                    </button>
+                    <button
+                      onClick={() => handleSyncNow('full')}
+                      className="group w-full text-left px-3.5 py-2.5 hover:bg-slate-800/80 transition-all flex flex-col gap-1 cursor-pointer whitespace-normal"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                          <Database className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
+                          <span>Full Reconciliation Sync</span>
+                        </span>
+                        <span className="text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
+                          Deep
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 pl-5 leading-relaxed whitespace-normal">
+                        Paginates all hosts & identifies decommissioned assets
+                      </p>
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           )}
