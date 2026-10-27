@@ -9,6 +9,7 @@ export const SettingsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Form states - Qualys
   const [qualysUrl, setQualysUrl] = useState<string>('');
@@ -103,6 +104,7 @@ export const SettingsPage: React.FC = () => {
     e.preventDefault();
     setIsSaving(true);
     setSaveSuccess(false);
+    setSaveError(null);
 
     try {
       const payload: any = {
@@ -150,8 +152,14 @@ export const SettingsPage: React.FC = () => {
       setSaveSuccess(true);
       fetchSettings();
       setTimeout(() => setSaveSuccess(false), 4000);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to save settings', err);
+      const detail = err.response?.data?.detail;
+      const msg = typeof detail === 'string'
+        ? detail
+        : (Array.isArray(detail) ? detail.map((d: any) => d.msg).join(', ') : 'Failed to save settings. Please verify configuration values.');
+      setSaveError(msg);
+      setTimeout(() => setSaveError(null), 6000);
     } finally {
       setIsSaving(false);
     }
@@ -291,6 +299,12 @@ export const SettingsPage: React.FC = () => {
         </div>
       )}
 
+      {saveError && (
+        <div className="p-4 rounded-xl bg-rose-950/40 border border-rose-800 text-rose-400 text-xs font-semibold flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" /> {saveError}
+        </div>
+      )}
+
       <form onSubmit={handleSaveSettings} className="space-y-6">
         {/* Section 1: Qualys Cloud API */}
         <div className="p-6 rounded-2xl bg-surface border border-surfaceBorder space-y-4">
@@ -401,23 +415,29 @@ export const SettingsPage: React.FC = () => {
                 <h3 className="text-sm font-bold text-slate-100">MISP Threat Intelligence (FS-ISAC Feed)</h3>
               </div>
             </div>
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-purple-400">
-              <input
-                type="checkbox"
-                checked={mispEnabled}
-                onChange={(e) => setMispEnabled(e.target.checked)}
-                disabled={!isAdmin}
-                className="sr-only"
-              />
+            <button
+              type="button"
+              role="switch"
+              aria-checked={mispEnabled}
+              onClick={() => setMispEnabled(!mispEnabled)}
+              disabled={!isAdmin}
+              className={`flex items-center gap-2 text-xs font-bold transition-colors cursor-pointer select-none focus:outline-none ${
+                mispEnabled ? 'text-purple-400' : 'text-slate-500'
+              }`}
+            >
               {mispEnabled ? (
-                <ToggleRight className="w-6 h-6 text-purple-400" />
+                <ToggleRight className="w-6 h-6 text-purple-400 shrink-0" />
               ) : (
-                <ToggleLeft className="w-6 h-6 text-slate-600" />
+                <ToggleLeft className="w-6 h-6 text-slate-500 shrink-0" />
               )}
-              <span>{mispEnabled ? 'Feed Enabled' : 'Disabled'}</span>
-            </label>
+              <span className="w-24 text-left">{mispEnabled ? 'Feed Enabled' : 'Disabled'}</span>
+            </button>
           </div>
 
+          {/* MISP content fields - cleanly grayed out when disabled */}
+          <div className={`space-y-4 transition-opacity duration-200 ${
+            mispEnabled ? 'opacity-100' : 'opacity-40 pointer-events-none select-none'
+          }`}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-slate-300 mb-1">MISP API Endpoint (Base URL)</label>
@@ -677,6 +697,7 @@ export const SettingsPage: React.FC = () => {
               </div>
             )}
           </div>
+          </div>
         </div>
 
         {/* Section 3: Telegram Bot Integration */}
@@ -686,24 +707,30 @@ export const SettingsPage: React.FC = () => {
               <Send className="w-4 h-4 text-sky-400" />
               <h3 className="text-sm font-bold text-slate-100">Telegram Alert Integration</h3>
             </div>
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-sky-400">
-              <input
-                type="checkbox"
-                checked={telegramEnabled}
-                onChange={(e) => setTelegramEnabled(e.target.checked)}
-                disabled={!isAdmin}
-                className="sr-only"
-              />
+            <button
+              type="button"
+              role="switch"
+              aria-checked={telegramEnabled}
+              onClick={() => setTelegramEnabled(!telegramEnabled)}
+              disabled={!isAdmin}
+              className={`flex items-center gap-2 text-xs font-bold transition-colors cursor-pointer select-none focus:outline-none ${
+                telegramEnabled ? 'text-sky-400' : 'text-slate-500'
+              }`}
+            >
               {telegramEnabled ? (
-                <ToggleRight className="w-6 h-6 text-sky-400" />
+                <ToggleRight className="w-6 h-6 text-sky-400 shrink-0" />
               ) : (
-                <ToggleLeft className="w-6 h-6 text-slate-600" />
+                <ToggleLeft className="w-6 h-6 text-slate-500 shrink-0" />
               )}
-              <span>{telegramEnabled ? 'Alerts Enabled' : 'Disabled'}</span>
-            </label>
+              <span className="w-24 text-left">{telegramEnabled ? 'Alerts Enabled' : 'Disabled'}</span>
+            </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Telegram content fields - cleanly grayed out when disabled */}
+          <div className={`space-y-4 transition-opacity duration-200 ${
+            telegramEnabled ? 'opacity-100' : 'opacity-40 pointer-events-none select-none'
+          }`}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-slate-300 mb-1">Telegram Bot Token</label>
               <input
@@ -767,6 +794,7 @@ export const SettingsPage: React.FC = () => {
                 {telegramTestResult.message}
               </div>
             )}
+          </div>
           </div>
         </div>
 

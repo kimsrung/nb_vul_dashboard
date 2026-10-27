@@ -316,6 +316,31 @@ html:not(.dark) textarea {
   color: #0f172a !important;            /* slate-900 */
 }
 
+/* Disabled form controls & action buttons (Day mode) */
+html:not(.dark) input:disabled,
+html:not(.dark) select:disabled,
+html:not(.dark) textarea:disabled {
+  background-color: #f1f5f9 !important; /* slate-100 */
+  border-color: #e2e8f0 !important;     /* slate-200 */
+  color: #94a3b8 !important;            /* slate-400 */
+  cursor: not-allowed !important;
+}
+
+html:not(.dark) button:disabled {
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #94a3b8 !important;
+  cursor: not-allowed !important;
+}
+
+/* Base disabled cursor for all themes */
+input:disabled,
+select:disabled,
+textarea:disabled,
+button:disabled {
+  cursor: not-allowed;
+}
+
 html:not(.dark) input::placeholder,
 html:not(.dark) textarea::placeholder {
   color: #94a3b8 !important;            /* slate-400 */

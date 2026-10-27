@@ -55,7 +55,7 @@ const MainApp: React.FC = () => {
   }
 
   return (
-    <div className="h-screen w-screen bg-background flex flex-col overflow-hidden">
+    <div className="h-screen w-full max-w-full bg-background flex flex-col overflow-hidden">
       <Navbar 
         onSyncTriggered={fetchSummary} 
         syncStatus={summary?.sync_status} 
