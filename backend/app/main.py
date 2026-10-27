@@ -104,6 +104,8 @@ async def init_db_and_seed():
                 settings.MISP_FEED_TAG = v
             elif k == "misp_enabled":
                 settings.MISP_ENABLED = v.lower() in ("true", "1")
+            elif k == "misp_verify_ssl":
+                settings.MISP_VERIFY_SSL = v.lower() in ("true", "1")
             elif k == "misp_mock_mode":
                 settings.MISP_MOCK_MODE = v.lower() in ("true", "1")
             elif k == "misp_sync_interval_hours" and v.isdigit():
@@ -339,11 +341,19 @@ async def get_open_api_endpoint(username: str = Depends(verify_docs_credentials)
     )
     return app.openapi_schema
 
-# CORS setup
+# CORS setup - Parse allowed origins and enforce secure credential handling
+_raw_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
+if "*" in _raw_origins:
+    cors_origins = ["*"]
+    cors_credentials = False
+else:
+    cors_origins = _raw_origins
+    cors_credentials = True
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=cors_origins,
+    allow_credentials=cors_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )

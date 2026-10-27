@@ -242,6 +242,7 @@ export interface SystemSettings {
   misp_feed_tag: string;
   misp_enabled: boolean;
   misp_mock_mode: boolean;
+  misp_verify_ssl?: boolean;
   misp_sync_interval_hours: number;
   misp_zmq_enabled?: boolean;
   misp_zmq_host?: string;

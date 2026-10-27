@@ -16,6 +16,7 @@ class SystemSettingsResponse(BaseModel):
     misp_feed_tag: str
     misp_enabled: bool
     misp_mock_mode: bool
+    misp_verify_ssl: bool = True
     misp_sync_interval_hours: int
     misp_zmq_enabled: bool = False
     misp_zmq_host: str = ""
@@ -47,6 +48,7 @@ class SystemSettingsUpdate(BaseModel):
     misp_feed_tag: Optional[str] = None
     misp_enabled: Optional[bool] = None
     misp_mock_mode: Optional[bool] = None
+    misp_verify_ssl: Optional[bool] = None
     misp_sync_interval_hours: Optional[int] = None
     misp_zmq_enabled: Optional[bool] = None
     misp_zmq_host: Optional[str] = None
@@ -77,6 +79,7 @@ class MispTestRequest(BaseModel):
     misp_tag_filter: Optional[str] = None
     misp_feed_tag: Optional[str] = None
     misp_mock_mode: Optional[bool] = None
+    misp_verify_ssl: Optional[bool] = None
     misp_zmq_enabled: Optional[bool] = None
     misp_zmq_host: Optional[str] = None
     misp_zmq_port: Optional[int] = None

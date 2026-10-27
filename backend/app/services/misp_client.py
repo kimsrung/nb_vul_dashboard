@@ -20,6 +20,7 @@ class MispClient:
         tag_filter: Optional[str] = None,
         feed_tag: Optional[str] = None,
         mock_mode: Optional[bool] = None,
+        verify_ssl: Optional[bool] = None,
     ):
         self.base_url = (base_url or settings.MISP_URL).rstrip("/")
         self.api_key = api_key or settings.MISP_API_KEY
@@ -27,6 +28,7 @@ class MispClient:
         self.tag_filter = (tag_filter if tag_filter is not None else settings.MISP_TAG_FILTER).strip()
         self.feed_tag = (feed_tag if feed_tag is not None else settings.MISP_FEED_TAG).strip()
         self.mock_mode = mock_mode if mock_mode is not None else settings.MISP_MOCK_MODE
+        self.verify_ssl = verify_ssl if verify_ssl is not None else settings.MISP_VERIFY_SSL
         self.last_events_count = 0
 
     async def test_connection(self) -> Dict[str, Any]:
@@ -53,7 +55,7 @@ class MispClient:
         }
 
         try:
-            async with httpx.AsyncClient(timeout=15.0, verify=False) as client:
+            async with httpx.AsyncClient(timeout=15.0, verify=self.verify_ssl) as client:
                 resp = await client.get(endpoint, headers=headers)
                 if resp.status_code == 200:
                     data = resp.json()
@@ -136,7 +138,7 @@ class MispClient:
             payload["tags"] = [self.tag_filter]
 
         try:
-            async with httpx.AsyncClient(timeout=30.0, verify=False) as client:
+            async with httpx.AsyncClient(timeout=30.0, verify=self.verify_ssl) as client:
                 resp = await client.post(endpoint, headers=headers, json=payload)
                 resp.raise_for_status()
                 data = resp.json()

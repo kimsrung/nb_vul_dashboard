@@ -41,6 +41,7 @@ async def get_settings(user: User = Depends(require_viewer)):
         misp_feed_tag=settings.MISP_FEED_TAG,
         misp_enabled=settings.MISP_ENABLED,
         misp_mock_mode=settings.MISP_MOCK_MODE,
+        misp_verify_ssl=settings.MISP_VERIFY_SSL,
         misp_sync_interval_hours=settings.MISP_SYNC_INTERVAL_HOURS,
         misp_zmq_enabled=settings.MISP_ZMQ_ENABLED,
         misp_zmq_host=settings.MISP_ZMQ_HOST,
@@ -89,6 +90,8 @@ async def update_settings(
         settings.MISP_ENABLED = settings_in.misp_enabled
     if settings_in.misp_mock_mode is not None:
         settings.MISP_MOCK_MODE = settings_in.misp_mock_mode
+    if settings_in.misp_verify_ssl is not None:
+        settings.MISP_VERIFY_SSL = settings_in.misp_verify_ssl
     if settings_in.misp_sync_interval_hours is not None:
         settings.MISP_SYNC_INTERVAL_HOURS = settings_in.misp_sync_interval_hours
     if settings_in.misp_zmq_enabled is not None:
@@ -131,6 +134,7 @@ async def update_settings(
         "misp_feed_tag": settings.MISP_FEED_TAG,
         "misp_enabled": "true" if settings.MISP_ENABLED else "false",
         "misp_mock_mode": "true" if settings.MISP_MOCK_MODE else "false",
+        "misp_verify_ssl": "true" if settings.MISP_VERIFY_SSL else "false",
         "misp_sync_interval_hours": str(settings.MISP_SYNC_INTERVAL_HOURS),
         "misp_zmq_enabled": "true" if settings.MISP_ZMQ_ENABLED else "false",
         "misp_zmq_host": settings.MISP_ZMQ_HOST,
@@ -177,6 +181,7 @@ async def update_settings(
         misp_feed_tag=settings.MISP_FEED_TAG,
         misp_enabled=settings.MISP_ENABLED,
         misp_mock_mode=settings.MISP_MOCK_MODE,
+        misp_verify_ssl=settings.MISP_VERIFY_SSL,
         misp_sync_interval_hours=settings.MISP_SYNC_INTERVAL_HOURS,
         misp_zmq_enabled=settings.MISP_ZMQ_ENABLED,
         misp_zmq_host=settings.MISP_ZMQ_HOST,
@@ -230,6 +235,7 @@ async def test_misp_connection(
         tag_filter=test_req.misp_tag_filter,
         feed_tag=test_req.misp_feed_tag,
         mock_mode=test_req.misp_mock_mode,
+        verify_ssl=test_req.misp_verify_ssl,
     )
     result = await client.test_connection()
     return result

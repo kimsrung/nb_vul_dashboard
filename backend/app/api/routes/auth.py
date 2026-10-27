@@ -1,10 +1,10 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.security import verify_password, hash_password, create_access_token
+from app.core.security import verify_password, hash_password, create_access_token, login_limiter
 from app.models.user import User
 from app.models.asset import Asset
 from app.schemas.auth import LoginRequest, Token, UserResponse, UserCreate, UserUpdate
@@ -14,11 +14,21 @@ router = APIRouter(prefix="/auth", tags=["Authentication & User Management"])
 
 
 @router.post("/login", response_model=Token)
-async def login(login_data: LoginRequest, db: AsyncSession = Depends(get_db)):
+async def login(login_data: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    client_ip = request.client.host if request.client else "unknown"
+    rate_key = f"{client_ip}:{login_data.username}"
+
+    if login_limiter.is_rate_limited(rate_key):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many failed login attempts. Please try again after 60 seconds.",
+        )
+
     res = await db.execute(select(User).where(User.username == login_data.username))
     user = res.scalar_one_or_none()
 
     if not user or not verify_password(login_data.password, user.hashed_password):
+        login_limiter.record_attempt(rate_key)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -30,6 +40,7 @@ async def login(login_data: LoginRequest, db: AsyncSession = Depends(get_db)):
             detail="Inactive user account",
         )
 
+    login_limiter.clear(rate_key)
     token = create_access_token(subject=user.username, role=user.role)
     return Token(
         access_token=token,

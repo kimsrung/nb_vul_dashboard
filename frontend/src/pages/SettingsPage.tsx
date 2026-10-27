@@ -27,6 +27,7 @@ export const SettingsPage: React.FC = () => {
   const [mispFeedTag, setMispFeedTag] = useState<string>('FS-ISAC');
   const [mispEnabled, setMispEnabled] = useState<boolean>(true);
   const [mispMockMode, setMispMockMode] = useState<boolean>(true);
+  const [mispVerifySsl, setMispVerifySsl] = useState<boolean>(true);
   const [mispSyncInterval, setMispSyncInterval] = useState<number>(2);
   const [mispZmqEnabled, setMispZmqEnabled] = useState<boolean>(true);
   const [mispZmqHost, setMispZmqHost] = useState<string>('10.20.40.19');
@@ -77,6 +78,7 @@ export const SettingsPage: React.FC = () => {
       setMispFeedTag(data.misp_feed_tag || 'FS-ISAC');
       setMispEnabled(data.misp_enabled ?? true);
       setMispMockMode(data.misp_mock_mode ?? true);
+      setMispVerifySsl(data.misp_verify_ssl ?? true);
       setMispSyncInterval(data.misp_sync_interval_hours ?? 2);
       setMispZmqEnabled(data.misp_zmq_enabled ?? true);
       setMispZmqHost(data.misp_zmq_host || '10.20.40.19');
@@ -119,6 +121,7 @@ export const SettingsPage: React.FC = () => {
         misp_feed_tag: mispFeedTag,
         misp_enabled: mispEnabled,
         misp_mock_mode: mispMockMode,
+        misp_verify_ssl: mispVerifySsl,
         misp_sync_interval_hours: Number(mispSyncInterval),
         misp_zmq_enabled: mispZmqEnabled,
         misp_zmq_host: mispZmqHost,
@@ -197,6 +200,7 @@ export const SettingsPage: React.FC = () => {
         misp_tag_filter: mispTagFilter,
         misp_feed_tag: mispFeedTag,
         misp_mock_mode: mispMockMode,
+        misp_verify_ssl: mispVerifySsl,
         misp_zmq_enabled: mispZmqEnabled,
         misp_zmq_host: mispZmqHost,
         misp_zmq_port: Number(mispZmqPort),
@@ -511,7 +515,7 @@ export const SettingsPage: React.FC = () => {
               <span className="text-[10px] text-slate-500 mt-1 block">Frequency of proactive inventory matching background job</span>
             </div>
 
-            <div className="flex items-center gap-3 md:col-span-2 pt-2">
+            <div className="flex flex-col gap-2.5 md:col-span-2 pt-2">
               <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-200">
                 <input
                   type="checkbox"
@@ -521,6 +525,22 @@ export const SettingsPage: React.FC = () => {
                   className="rounded border-slate-700 text-purple-600 focus:ring-0 bg-slate-900 w-4 h-4"
                 />
                 <span>Enable Mock / Offline Demo Feed (Simulates FS-ISAC emergency CVE advisories and pre-scan matches)</span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-200">
+                <input
+                  type="checkbox"
+                  checked={mispVerifySsl}
+                  onChange={(e) => setMispVerifySsl(e.target.checked)}
+                  disabled={!isAdmin || !mispEnabled}
+                  className="rounded border-slate-700 text-purple-600 focus:ring-0 bg-slate-900 w-4 h-4"
+                />
+                <span className="flex items-center gap-1.5 flex-wrap">
+                  <span>Verify SSL Certificate</span>
+                  <span className="text-[10px] text-slate-400 font-normal">
+                    (Enforces strict TLS validation. Uncheck if connecting to internal servers with incomplete certificate chains)
+                  </span>
+                </span>
               </label>
             </div>
           </div>

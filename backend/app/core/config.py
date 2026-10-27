@@ -22,10 +22,11 @@ class Settings(BaseSettings):
     # Database: PostgreSQL (asyncpg)
     DATABASE_URL: str = "postgresql+asyncpg://risk_alert_user:risk_alert_secret_password@localhost:5432/risk_alert_db"
 
-    # Security / JWT
+    # Security / JWT & CORS
     SECRET_KEY: str = "qualys-risk-alert-super-secret-key-change-in-production-2026"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
+    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000,http://127.0.0.1:8000"
 
     # Default Seed Users
     ADMIN_USERNAME: str = "admin"
@@ -53,6 +54,7 @@ class Settings(BaseSettings):
     # MISP Threat Intelligence (FS-ISAC / CIRCL Feed) Configuration
     MISP_URL: str = "https://misp.internal.corp"
     MISP_API_KEY: str = ""
+    MISP_VERIFY_SSL: bool = True
     MISP_CREATOR_ORG: str = "FS-ISAC"  # "FS-ISAC" for production, "CIRCL" for local testing, or "*" for all orgs
     MISP_TAG_FILTER: str = ""  # Empty for CIRCL/flexible extraction, or "vulnerability:CVE%" for strict taxonomy
     MISP_FEED_TAG: str = "FS-ISAC"
