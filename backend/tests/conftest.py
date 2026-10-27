@@ -3,13 +3,24 @@ import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.main import app, init_db_and_seed
 from app.core.database import AsyncSessionLocal
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def initialize_test_database():
-    """Ensure database schema and default seed data are ready before tests run."""
+    """Ensure database schema and default seed data are clean and ready before tests run."""
+    from app.core.database import engine, Base
+
+    # Ensure automated tests run in self-contained mock mode without requiring live cloud APIs
+    settings.QUALYS_MOCK_MODE = True
+    settings.MISP_MOCK_MODE = True
+
+    # Drop and recreate clean tables for deterministic test session isolation
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+
     await init_db_and_seed()
     yield
     # Session teardown: cleanly stop background ZeroMQ task if spawned during tests

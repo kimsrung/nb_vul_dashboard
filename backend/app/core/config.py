@@ -19,8 +19,8 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Risk Alert Dashboard"
     API_V1_STR: str = "/api/v1"
 
-    # Database: Supports PostgreSQL (asyncpg) or SQLite (aiosqlite)
-    DATABASE_URL: str = "postgresql+asyncpg://qualys_user:qualys_secret_password@localhost:5432/qualys_alert_db"
+    # Database: PostgreSQL (asyncpg)
+    DATABASE_URL: str = "postgresql+asyncpg://risk_alert_user:risk_alert_secret_password@localhost:5432/risk_alert_db"
 
     # Security / JWT
     SECRET_KEY: str = "qualys-risk-alert-super-secret-key-change-in-production-2026"

@@ -20,15 +20,18 @@ Tracks active findings by **raw Qualys Severity 1–5** (Sev 5 Critical to Sev 1
 
 ---
 
-## 💻 How to Run Locally
+## 💻 How to Run
 
-You can run the application either **directly on your machine** (using local PostgreSQL or SQLite) or using **Docker Compose** (PostgreSQL mode).
+You can run the application in three ways:
+1. **Direct Local Run** (Python venv + Node Vite)
+2. **Docker Compose Development Stack** (Hot-reloading backend & frontend inside Docker)
+3. **Docker Compose Production Stack** (Hardened multi-worker backend & Nginx Alpine)
 
 ---
 
-### Option 1: Direct Local Run (Recommended for Development)
+### Option 1: Direct Local Run (Host Machine)
 
-The backend connects to PostgreSQL (`postgresql+asyncpg://qualys_user:qualys_secret_password@localhost:5432/qualys_alert_db`), with instant fallback to SQLite (`sqlite+aiosqlite:///./dashboard_alert.db`).
+The backend connects to PostgreSQL (`postgresql+asyncpg://risk_alert_user:risk_alert_secret_password@localhost:5432/risk_alert_db`).
 
 #### Prerequisites
 - **Python**: 3.11+ (`python3 --version`)
@@ -54,9 +57,9 @@ pip install -r requirements.txt
 # Start FastAPI backend server:
 uvicorn app.main:app --reload --port 8000
 ```
-- The backend will start on **`http://localhost:8000`**.
-- It will automatically initialize the database schema and seed the default `admin` and `viewer` accounts.
-- Interactive Swagger API docs are available at **`http://localhost:8000/docs`** (protected by HTTP Basic Auth; default credentials: **`docs_admin`** / **`docs123`**, configurable in Admin Settings).
+- The backend starts on **`http://localhost:8000`**.
+- It automatically initializes database tables and seeds default user accounts.
+- Interactive Swagger API docs are available at **`http://localhost:8000/docs`** (HTTP Basic Auth: `docs_admin` / `docs123`).
 
 #### Step 2: Start the React Frontend
 Open a second terminal:
@@ -70,46 +73,65 @@ npm install
 npm run dev
 ```
 - The dashboard is accessible at: **`http://localhost:3000`**.
-- The Vite development server automatically proxies all `/api` requests to `http://127.0.0.1:8000`.
+- Vite dev server automatically proxies `/api` and `/docs` to `http://127.0.0.1:8000`.
 
 ---
 
-### Option 2: Docker Compose Run (Production / PostgreSQL Mode)
+### Option 2: Docker Compose Development Stack (Live Hot-Reload)
 
-To run the containerized stack with **PostgreSQL 16**, **FastAPI**, and **React on Nginx**:
+Runs **PostgreSQL 16**, **FastAPI** with `uvicorn --reload`, and **Vite Dev Server** with Hot Module Replacement (HMR) inside Docker containers with local code volume bind-mounts.
 
-#### Prerequisites
-- **Docker** and **Docker Compose** installed and running.
-
-#### Steps:
 ```bash
-# 1. Clone repository & navigate to directory
-cd dashboard_alert
+# 1. Start the development stack with live reload
+docker compose -f docker-compose.dev.yml up --build
 
-# 2. Copy the environment template
-cp .env.example .env
+# Or run in background:
+docker compose -f docker-compose.dev.yml up -d --build
 
-# 3. Build and launch all containers
-docker compose up -d --build
+# 2. View live logs
+docker compose -f docker-compose.dev.yml logs -f
 
-# 4. Check container status
-docker compose ps
+# 3. Stop development stack
+docker compose -f docker-compose.dev.yml down
 ```
 
-#### Access Points:
-- **Frontend Dashboard**: `http://localhost:3000`
-- **Backend API Docs**: `http://localhost:8000/docs`
-- **PostgreSQL Database**: `localhost:5432`
+#### Development Access Points:
+- **Frontend Dashboard (Vite HMR)**: `http://localhost:3000`
+- **Backend API & Swagger Docs**: `http://localhost:8000/docs`
+- **PostgreSQL Database**: `localhost:5432` (User: `risk_alert_dev_user`, Password: `risk_alert_dev_password`, DB: `risk_alert_dev_db`)
 
-To view live logs:
+---
+
+### Option 3: Docker Compose Production Stack (Hardened & Multi-Worker)
+
+Deploys the production stack with a **non-root multi-worker FastAPI** container, pre-compiled React assets served via **Alpine Nginx** with gzip compression and security headers, and an internal PostgreSQL network.
+
 ```bash
-docker compose logs -f
+# 1. Prepare production environment variables
+cp .env.production.example .env.production
+# Edit .env.production and set your secure passwords & API keys:
+# nano .env.production
+
+# 2. Build and launch production containers
+docker compose -f docker-compose.prod.yml up -d --build
+
+# 3. Check container health status
+docker compose -f docker-compose.prod.yml ps
+
+# 4. View production logs
+docker compose -f docker-compose.prod.yml logs -f
+
+# 5. Stop production stack
+docker compose -f docker-compose.prod.yml down
 ```
 
-To stop all containers:
-```bash
-docker compose down
-```
+#### Production Access Points:
+- **Frontend & Unified API (Nginx)**: `http://localhost:80` (or `http://localhost:${FRONTEND_PORT:-80}`)
+- **Interactive API Documentation**: `http://localhost:80/docs`
+- **Health Check Endpoint**: `http://localhost:80/health`
+- **Database & Backend**: Kept internal to the Docker network for maximum security (not exposed to external host ports).
+
+*Note: You can also use the default `docker compose up -d --build` command, which runs the production configuration.*
 
 ---
 

@@ -1,9 +1,11 @@
 from typing import Optional, Dict, Any, List
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class AuditLogItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     action: str
     target_type: str
@@ -15,9 +17,6 @@ class AuditLogItem(BaseModel):
     ip_address: Optional[str] = None
     details: Dict[str, Any] = {}
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class PaginatedAuditLogsResponse(BaseModel):

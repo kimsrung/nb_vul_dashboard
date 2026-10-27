@@ -1,0 +1,62 @@
+version: '3.8'
+
+# ==============================================================================
+# Development Stack: Live Hot-Reloading for Backend & Frontend
+# Usage: docker compose -f docker-compose.dev.yml up --build
+# ==============================================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: risk_alert_dev_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-risk_alert_dev_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-risk_alert_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-risk_alert_dev_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - risk_alert_pgdata_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-risk_alert_dev_user} -d ${POSTGRES_DB:-risk_alert_dev_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: risk_alert_dev_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env.development
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-risk_alert_dev_user}:${POSTGRES_PASSWORD:-risk_alert_dev_password}@postgres:5432/${POSTGRES_DB:-risk_alert_dev_db}
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: risk_alert_dev_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      VITE_BACKEND_URL: http://backend:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+
+volumes:
+  risk_alert_pgdata_dev:

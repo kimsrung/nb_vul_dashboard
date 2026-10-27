@@ -22,7 +22,7 @@ The platform monitors enterprise infrastructure security posture by integrating 
 | Tier | Technologies |
 |---|---|
 | **Backend** | Python 3.11+, FastAPI, Uvicorn, Pydantic v2, Pydantic-Settings |
-| **Database & ORM** | SQLAlchemy 2.0 (Async), aiosqlite (local SQLite), asyncpg (PostgreSQL), Greenlet |
+| **Database & ORM** | SQLAlchemy 2.0 (Async), asyncpg (PostgreSQL), Greenlet |
 | **Background Jobs** | APScheduler (AsyncIOScheduler) |
 | **HTTP & XML Parsing** | HTTPX (async client), DefusedXML (safe ElementTree XML parser) |
 | **Security & Auth** | PyJWT, Bcrypt, OAuth2 Password Bearer |
@@ -36,8 +36,12 @@ The platform monitors enterprise infrastructure security posture by integrating 
 ```
 dashboard_alert/
 ├── README.md                       # User-facing documentation & quickstart
-├── docker-compose.yml              # Turnkey Docker deployment (PostgreSQL, Backend, Frontend)
+├── docker-compose.yml              # Default production deployment stack
+├── docker-compose.dev.yml          # Live hot-reloading development stack
+├── docker-compose.prod.yml         # Hardened multi-worker production stack
 ├── .env.example                    # Environment template with documented defaults
+├── .env.development                # Development presets (mock mode enabled)
+├── .env.production.example         # Production template with security guidelines
 ├── .gitignore                      # Git exclusion rules
 ├── docs/                           # Architectural & integration guides
 │   ├── developer_guide.md          # Technical architecture & contributor instructions (this file)
@@ -46,15 +50,15 @@ dashboard_alert/
 │   ├── MISP.md                     # MISP & FS-ISAC threat intelligence guide
 │   └── Qualys_MISP_work_together.md # Cross-platform synergy & conflict prevention
 ├── backend/
-│   ├── Dockerfile                  # Python 3.11-slim container spec
+│   ├── Dockerfile                  # Hardened production container spec (non-root, multi-worker)
+│   ├── Dockerfile.dev              # Development container spec (uvicorn live reload)
 │   ├── requirements.txt            # Python dependencies
-│   ├── dashboard_alert.db          # Local SQLite database (when running locally)
 │   ├── venv/                       # Local Python virtual environment
 │   └── app/
 │       ├── main.py                 # FastAPI application, startup lifespan, DB seeding
 │       ├── core/
 │       │   ├── config.py           # Pydantic BaseSettings (.env loading)
-│       │   ├── database.py         # Async engine & sessionmaker (SQLite / PostgreSQL)
+│       │   ├── database.py         # Async engine & sessionmaker (PostgreSQL)
 │       │   └── security.py         # Bcrypt password hashing & JWT encoding/decoding
 │       ├── models/                 # SQLAlchemy async models
 │       │   ├── user.py             # User model (admin, analyst, owner, viewer)
@@ -100,12 +104,13 @@ dashboard_alert/
 │               ├── audit_logs.py   # GET /audit-logs (paginated history trail)
 │               └── settings.py     # GET /settings, POST /settings, connection testers
 └── frontend/
-    ├── Dockerfile                  # Multi-stage Vite build + Nginx Alpine runner
-    ├── nginx.conf                  # Nginx proxy forwarding /api and /docs to backend:8000
+    ├── Dockerfile                  # Multi-stage production build + Nginx Alpine runner
+    ├── Dockerfile.dev              # Development container spec (Vite HMR dev server)
+    ├── nginx.conf                  # Nginx proxy forwarding /api, /docs, /health to backend:8000
     ├── package.json                # React, Vite, Tailwind CSS, Lucide dependencies
     ├── tsconfig.json               # TypeScript configuration
-    ├── vite.config.ts              # Vite config with local proxy to localhost:8000
-    ├── tailwind.config.js          # Dark theme palette definition
+    ├── vite.config.ts              # Vite config with dynamic proxy to backend
+    ├── tailwind.config.js          # Theme palette definition (Day & Night modes)
     ├── index.html                  # HTML template
     └── src/
         ├── main.tsx                # React DOM root entrypoint
@@ -142,7 +147,7 @@ dashboard_alert/
 
 ### Option A: Direct Local Run (Zero-Docker / Fast Development)
 
-The backend uses PostgreSQL (`postgresql+asyncpg://qualys_user:qualys_secret_password@localhost:5432/qualys_alert_db`), with seamless fallback to SQLite (`sqlite+aiosqlite:///./dashboard_alert.db`).
+The backend uses PostgreSQL (`postgresql+asyncpg://risk_alert_user:risk_alert_secret_password@localhost:5432/risk_alert_db`).
 
 #### 1. Backend Terminal:
 ```bash
@@ -167,23 +172,38 @@ npm run dev
 
 ---
 
-### Option B: Docker Compose Run
+### Option B: Docker Compose Development Stack (Live Hot-Reload)
+
+Runs PostgreSQL 16, FastAPI (`uvicorn --reload`), and Vite Dev Server (HMR) with volume bind-mounts:
 
 ```bash
-cd dashboard_alert
-cp .env.example .env
-docker compose up -d --build
-docker compose logs -f
+docker compose -f docker-compose.dev.yml up --build
 ```
 - Frontend UI: `http://localhost:3000`
-- Backend API Docs: `http://localhost:8000/docs`
-- PostgreSQL Port: `5432`
+- Backend API & Swagger Docs: `http://localhost:8000/docs`
+- PostgreSQL Port: `localhost:5432` (`risk_alert_dev_user` / `risk_alert_dev_password`)
+
+---
+
+### Option C: Docker Compose Production Stack (Hardened & Multi-Worker)
+
+Deploys the production stack with a non-root multi-worker FastAPI backend and Alpine Nginx reverse proxy on port 80:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+# Or use standard default:
+docker compose up -d --build
+```
+- Unified Web & API: `http://localhost:80`
+- Interactive API Docs: `http://localhost:80/docs`
+- Health Check Endpoint: `http://localhost:80/health`
+- Database & Backend: Kept internal to the Docker network for maximum security.
 
 ---
 
 ## 5. Automated Testing Guidelines
 
-To run the full automated test suite (all 48 tests across 8 modules):
+To run the full automated test suite (53 tests across 9 modules):
 ```bash
 cd backend
 PYTHONPATH=. ./venv/bin/pytest
@@ -210,7 +230,7 @@ npm run build
    Always use `defusedxml.ElementTree` instead of Python's standard `xml.etree.ElementTree` to prevent XML entity expansion (Billion Laughs / XXE) attacks from external Qualys responses.
 4. **RBAC Enforcement**:
    Every write endpoint (`POST`, `PATCH`, `PUT`, `DELETE`) must depend on `require_admin` from `app.api.deps`. Read-only endpoints (`GET`) must depend on `require_viewer`.
-5. **Database Portability**:
-   Maintain compatibility with both SQLite (`sqlite+aiosqlite`) and PostgreSQL (`postgresql+asyncpg`). Avoid database-specific raw SQL dialect syntax.
+5. **Database Standard**:
+   Standardize on PostgreSQL (`postgresql+asyncpg`) across all deployment environments. Ensure queries use standard async SQLAlchemy ORM practices.
 6. **API Documentation Protection**:
    The interactive Swagger UI (`/docs`) and OpenAPI schema (`/openapi.json`) are secured using HTTP Basic Authentication (`verify_docs_credentials`). ReDoc (`/redoc`) is disabled. Default credentials (`DOCS_USERNAME="docs_admin"`, `DOCS_PASSWORD="docs123"`) can be customized via `.env` or updated dynamically by administrators via Admin Settings (`POST /api/v1/settings`).

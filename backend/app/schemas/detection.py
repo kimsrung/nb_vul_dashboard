@@ -1,10 +1,12 @@
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from app.schemas.knowledge_base import KnowledgeBaseItem
 
 
 class DetectionItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     asset_id: int
     qid: int
@@ -21,9 +23,6 @@ class DetectionItem(BaseModel):
     remediation_notes: Optional[str] = None
     updated_by: Optional[str] = None
     knowledge_base: Optional[KnowledgeBaseItem] = None
-
-    class Config:
-        from_attributes = True
 
 
 class RemediationUpdate(BaseModel):

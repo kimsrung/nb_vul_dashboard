@@ -1,10 +1,12 @@
 from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from app.schemas.detection import DetectionItem
 
 
 class AssetListItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     qualys_id: str
     server_name: Optional[str] = None
@@ -30,9 +32,6 @@ class AssetListItem(BaseModel):
     medium_vulns: int = 0
     low_vulns: int = 0
     info_vulns: int = 0
-
-    class Config:
-        from_attributes = True
 
 
 class AssetDetail(AssetListItem):

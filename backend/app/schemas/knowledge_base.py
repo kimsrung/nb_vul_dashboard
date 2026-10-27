@@ -1,8 +1,10 @@
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class KnowledgeBaseItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     qid: int
     title: str
     category: Optional[str] = None
@@ -17,6 +19,3 @@ class KnowledgeBaseItem(BaseModel):
     workaround: Optional[str] = None
     cve_list: Optional[List[str]] = None
     threat_intel_flags: Optional[Dict[str, Any]] = None
-
-    class Config:
-        from_attributes = True
