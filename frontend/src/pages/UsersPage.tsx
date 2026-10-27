@@ -247,7 +247,7 @@ export const UsersPage: React.FC = () => {
 
       {/* Role Guide Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
-        <div className="p-3 rounded-xl bg-slate-900/60 border border-purple-900/40 space-y-1">
+        <div className="p-3 rounded-xl bg-purple-950/20 border border-purple-900/40 space-y-1">
           <div className="font-bold text-purple-300 flex items-center gap-1.5">
             👑 Admin
           </div>
@@ -255,7 +255,7 @@ export const UsersPage: React.FC = () => {
             Full platform authority: trigger Qualys scans, manage settings, assign owners, add users.
           </p>
         </div>
-        <div className="p-3 rounded-xl bg-slate-900/60 border border-indigo-900/40 space-y-1">
+        <div className="p-3 rounded-xl bg-indigo-950/20 border border-indigo-900/40 space-y-1">
           <div className="font-bold text-indigo-300 flex items-center gap-1.5">
             🛡️ Analyst
           </div>
@@ -263,7 +263,7 @@ export const UsersPage: React.FC = () => {
             Security Operations: triage vulnerabilities, assign server owners, resolve security alerts.
           </p>
         </div>
-        <div className="p-3 rounded-xl bg-slate-900/60 border border-sky-900/40 space-y-1">
+        <div className="p-3 rounded-xl bg-sky-950/20 border border-sky-900/40 space-y-1">
           <div className="font-bold text-sky-300 flex items-center gap-1.5">
             💻 Owner
           </div>
@@ -271,7 +271,7 @@ export const UsersPage: React.FC = () => {
             Scoped ownership: only views and remediates vulnerabilities on their assigned servers.
           </p>
         </div>
-        <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 space-y-1">
+        <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-700 space-y-1">
           <div className="font-bold text-slate-300 flex items-center gap-1.5">
             👁️ Viewer
           </div>

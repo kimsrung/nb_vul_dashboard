@@ -230,15 +230,18 @@ export const MispPage: React.FC = () => {
 
       {/* KPI Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <div className="p-4 rounded-xl bg-surface/60 border border-surfaceBorder">
-          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-            Evaluated CVE Advisories
-          </span>
-          <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-2xl font-bold text-slate-100">{total}</span>
-            <span className="text-xs text-slate-400 font-medium">unique CVEs</span>
+        <div className="p-4 rounded-xl bg-purple-950/20 border border-purple-900/40">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-purple-400 uppercase tracking-wider block">
+              Evaluated CVE Advisories
+            </span>
+            <Radio className="w-4 h-4 text-purple-400" />
           </div>
-          <span className="text-[10px] text-purple-300/80 mt-1 block">
+          <div className="flex items-baseline gap-2 mt-1">
+            <span className="text-2xl font-bold font-mono text-purple-300">{total}</span>
+            <span className="text-xs text-purple-400 font-medium">unique CVEs</span>
+          </div>
+          <span className="text-[10px] text-purple-400/90 mt-1 block">
             Consolidated from {totalEvents} FS-ISAC Events
           </span>
         </div>
@@ -278,7 +281,7 @@ export const MispPage: React.FC = () => {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="p-4 rounded-xl bg-surface/60 border border-surfaceBorder space-y-3">
+      <div className="p-4 rounded-xl bg-surface border border-surfaceBorder space-y-3">
         <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
           {/* Search Box */}
           <div className="relative flex-1">

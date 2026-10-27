@@ -621,7 +621,7 @@ export const SettingsPage: React.FC = () => {
 
               <div className="pt-1">
                 <span className="text-[10px] text-slate-500 block mb-1 font-mono">CLI Subscriber Command:</span>
-                <div className="bg-slate-950 p-2 rounded text-emerald-400 text-[11px] font-mono overflow-x-auto select-all">
+                <div className="bg-slate-950 p-2 rounded-lg border border-surfaceBorder text-emerald-400 text-[11px] font-mono overflow-x-auto select-all">
                   python -m app.services.misp_zmq_subscriber --host {mispZmqHost || '10.20.40.19'} --port {mispZmqPort || 50000} {mispZmqUsername ? `--username "${mispZmqUsername}"` : ''}
                 </div>
               </div>

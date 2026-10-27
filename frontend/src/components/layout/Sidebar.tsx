@@ -72,14 +72,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   title={isCollapsed ? item.label : undefined}
                   className={`w-full relative flex items-center ${
                     isCollapsed ? 'justify-center h-10 px-0' : 'justify-between px-3 py-2.5'
-                  } rounded-xl text-xs font-semibold transition-all ${
+                  } rounded-xl text-xs font-semibold border transition-colors duration-150 focus:outline-none ${
                     isActive
-                      ? 'bg-primary-600/10 text-primary-400 border border-primary-500/30 shadow-xs'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                      ? 'bg-primary-600/10 text-primary-400 border-primary-500/30 shadow-xs'
+                      : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                   }`}
                 >
                   <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-2.5'}`}>
-                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-primary-400' : 'text-slate-400'}`} />
+                    <Icon className={`w-4 h-4 shrink-0 transition-colors duration-150 ${isActive ? 'text-primary-400' : 'text-slate-400'}`} />
                     {!isCollapsed && <span className="truncate">{item.label}</span>}
                   </div>
                   {'external' in item && item.external && !isCollapsed && (
@@ -147,14 +147,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={onToggleCollapse}
             className={`w-full flex items-center ${
               isCollapsed ? 'justify-center p-2' : 'justify-between px-3 py-2'
-            } rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 text-xs transition-colors border border-transparent hover:border-slate-800`}
+            } rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 text-xs transition-colors duration-150 border border-transparent hover:border-slate-800 focus:outline-none`}
             title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {!isCollapsed && <span>Collapse Sidebar</span>}
             {isCollapsed ? (
-              <ChevronRight className="w-4 h-4 text-sky-400" />
+              <ChevronRight className="w-4 h-4 text-sky-400 shrink-0" />
             ) : (
-              <ChevronLeft className="w-4 h-4 text-slate-400" />
+              <ChevronLeft className="w-4 h-4 text-slate-400 shrink-0" />
             )}
           </button>
         )}

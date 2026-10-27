@@ -1,6 +1,7 @@
 import React from 'react';
-import { Shield, User, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Shield, User, LogOut, PanelLeftClose, PanelLeftOpen, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 interface NavbarProps {
   onSyncTriggered?: () => void;
@@ -14,6 +15,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onToggleSidebar,
 }) => {
   const { username, role, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <header className="h-16 shrink-0 border-b border-surfaceBorder bg-surface/90 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between sticky top-0 z-40 select-none">
@@ -46,7 +48,21 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
+        {/* Theme Mode Toggle (Night / Day) */}
+        <button
+          onClick={toggleTheme}
+          className="p-2 rounded-xl text-slate-400 hover:text-slate-100 hover:bg-slate-800/80 transition-colors border border-surfaceBorder"
+          title={theme === 'dark' ? "Switch to Day Mode (Light)" : "Switch to Night Mode (Dark)"}
+          aria-label="Toggle theme mode"
+        >
+          {theme === 'dark' ? (
+            <Sun className="w-4 h-4 text-amber-400 hover:text-amber-300 transition-colors" />
+          ) : (
+            <Moon className="w-4 h-4 text-sky-600 hover:text-sky-500 transition-colors" />
+          )}
+        </button>
+
         {/* User profile & Role Badge */}
         <div className="flex items-center gap-2 pl-2">
           <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300">

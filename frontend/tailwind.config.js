@@ -8,9 +8,9 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: '#0b0f19',
-        surface: '#111827',
-        surfaceBorder: '#1f2937',
+        background: 'rgb(var(--color-bg) / <alpha-value>)',
+        surface: 'rgb(var(--color-surface) / <alpha-value>)',
+        surfaceBorder: 'rgb(var(--color-border) / <alpha-value>)',
         primary: {
           50: '#f0f9ff',
           100: '#e0f2fe',

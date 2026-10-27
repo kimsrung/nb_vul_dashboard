@@ -3,6 +3,9 @@
 @tailwind utilities;
 
 :root {
+  --color-bg: 11 15 25;       /* #0b0f19 */
+  --color-surface: 17 24 39;   /* #111827 */
+  --color-border: 31 41 55;    /* #1f2937 */
   color-scheme: dark;
 }
 
@@ -110,4 +113,1163 @@ body {
 .html-solution th {
   background-color: #0f172a;
   color: #f1f5f9;
+}
+
+/* ==========================================================================
+   BASE TABLE HEADERS (Night Mode Brand Alignment - Sky / Indigo)
+   ========================================================================== */
+
+thead,
+thead tr,
+thead th,
+thead th.bg-slate-900\/80 {
+  background-color: #0c1a2e !important;              /* navy/sky-950 brand tint */
+  color: #7dd3fc !important;                         /* sky-300 brand text */
+  border-color: rgba(56, 189, 248, 0.22) !important; /* sky-400 22% border */
+  font-weight: 700 !important;
+}
+
+thead th button,
+thead th span {
+  color: #7dd3fc !important;
+  font-weight: 700 !important;
+}
+
+thead th svg {
+  color: #38bdf8 !important;                         /* sky-400 icons */
+}
+
+/* Inactive sort arrows in Night mode */
+thead th svg.text-slate-600,
+thead th svg[class*="opacity-60"] {
+  color: rgba(125, 211, 252, 0.4) !important;
+  opacity: 1 !important;
+}
+
+/* Active sort arrows in Night mode */
+thead th svg.text-sky-400,
+thead th svg.text-indigo-400,
+thead th svg.text-purple-400 {
+  color: #38bdf8 !important;
+}
+
+/* Hover state on sortable table headers in Night mode */
+thead th.cursor-pointer:hover,
+thead th button:hover {
+  background-color: rgba(14, 165, 233, 0.15) !important;
+  color: #f0f9ff !important;
+}
+
+thead th.cursor-pointer:hover span,
+thead th button:hover span,
+thead th.cursor-pointer:hover svg,
+thead th button:hover svg {
+  color: #f0f9ff !important;
+}
+
+/* ==========================================================================
+   DAY / LIGHT MODE THEME STYLING
+   Activates when html does not have the .dark class (or has .light)
+   ========================================================================== */
+
+html:not(.dark) {
+  --color-bg: 248 250 252;     /* #f8fafc (slate-50) */
+  --color-surface: 255 255 255;/* #ffffff (pure white) */
+  --color-border: 226 232 240; /* #e2e8f0 (slate-200) */
+  color-scheme: light;
+}
+
+html:not(.dark) body {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+/* Base structural surfaces */
+html:not(.dark) .bg-background {
+  background-color: #f8fafc !important;
+}
+
+html:not(.dark) .bg-surface {
+  background-color: #ffffff !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+}
+
+html:not(.dark) .border-surfaceBorder {
+  border-color: #e2e8f0 !important;
+}
+
+/* ==========================================================================
+   1. TABLE HEADERS & ROWS (Day Mode Brand Alignment - Sky / Indigo)
+   ========================================================================== */
+
+html:not(.dark) thead,
+html:not(.dark) thead tr,
+html:not(.dark) thead th,
+html:not(.dark) thead th.bg-slate-900\/80,
+html:not(.dark) thead .bg-slate-900\/80 {
+  background-color: #f0f9ff !important; /* sky-50 subtle brand tint */
+  color: #0369a1 !important;            /* sky-700/800 deep brand text */
+  border-color: #bae6fd !important;     /* sky-200 brand border */
+  font-weight: 700 !important;
+}
+
+html:not(.dark) thead th button,
+html:not(.dark) thead th span {
+  color: #0369a1 !important;
+  font-weight: 700 !important;
+}
+
+html:not(.dark) thead th svg {
+  color: #0284c7 !important;            /* sky-600 icons */
+}
+
+/* Inactive sort arrows in Day mode */
+html:not(.dark) thead th svg.text-slate-600,
+html:not(.dark) thead th svg[class*="opacity-60"] {
+  color: #7dd3fc !important;
+  opacity: 1 !important;
+}
+
+/* Active sort arrows in Day mode */
+html:not(.dark) thead th svg.text-sky-400,
+html:not(.dark) thead th svg.text-indigo-400,
+html:not(.dark) thead th svg.text-purple-400 {
+  color: #0284c7 !important;            /* sky-600 */
+}
+
+/* Table header sort hover state in Day mode */
+html:not(.dark) thead th.cursor-pointer:hover,
+html:not(.dark) thead th button:hover {
+  background-color: #e0f2fe !important; /* sky-100 */
+  color: #0c4a6e !important;            /* sky-900 deepest text */
+}
+
+html:not(.dark) thead th.cursor-pointer:hover span,
+html:not(.dark) thead th button:hover span {
+  color: #0c4a6e !important;
+}
+
+html:not(.dark) thead th.cursor-pointer:hover svg,
+html:not(.dark) thead th button:hover svg {
+  color: #0c4a6e !important;
+}
+
+html:not(.dark) tbody tr {
+  background-color: #ffffff;
+  border-color: #f1f5f9 !important;
+}
+
+html:not(.dark) tbody tr:hover,
+html:not(.dark) .hover\:bg-slate-800\/40:hover,
+html:not(.dark) .hover\:bg-slate-800\/50:hover,
+html:not(.dark) .hover\:bg-slate-800\/60:hover,
+html:not(.dark) .hover\:bg-slate-800\/80:hover {
+  background-color: #f8fafc !important; /* slate-50 hover */
+}
+
+/* ==========================================================================
+   2. TOOLBARS, INPUTS & SELECTS (Day Mode)
+   ========================================================================== */
+
+/* Refresh, Sort & Action Buttons in Light Mode (excluding sidebar navigation) */
+html:not(.dark) button:not(aside button)[class*="bg-slate-800"],
+html:not(.dark) button:not(aside button).bg-slate-800,
+html:not(.dark) button:not(aside button)[class*="bg-slate-950"],
+html:not(.dark) button:not(aside button).bg-slate-950 {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;     /* slate-300 */
+  color: #334155 !important;            /* slate-700 */
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+}
+
+html:not(.dark) button:not(aside button)[class*="bg-slate-800"]:hover,
+html:not(.dark) button:not(aside button).bg-slate-800:hover,
+html:not(.dark) button:not(aside button)[class*="bg-slate-950"]:hover,
+html:not(.dark) button:not(aside button).bg-slate-950:hover,
+html:not(.dark) button:not(aside button)[class*="hover:bg-slate-700"]:hover,
+html:not(.dark) button:not(aside button).hover\:bg-slate-700:hover,
+html:not(.dark) button:not(aside button)[class*="hover:border-slate-700"]:hover {
+  background-color: #f1f5f9 !important; /* slate-100 */
+  border-color: #94a3b8 !important;     /* slate-400 */
+  color: #0f172a !important;            /* slate-900 */
+}
+
+html:not(.dark) button:not(aside button)[class*="bg-slate-950"] span,
+html:not(.dark) button:not(aside button).bg-slate-950 span,
+html:not(.dark) button:not(aside button)[class*="bg-slate-800"] span,
+html:not(.dark) button:not(aside button).bg-slate-800 span {
+  color: #334155 !important;
+}
+
+html:not(.dark) button:not(aside button)[class*="bg-slate-950"]:hover span,
+html:not(.dark) button:not(aside button).bg-slate-950:hover span,
+html:not(.dark) button:not(aside button)[class*="bg-slate-800"]:hover span,
+html:not(.dark) button:not(aside button).bg-slate-800:hover span {
+  color: #0f172a !important;
+}
+
+/* Search inputs, text fields, textareas */
+html:not(.dark) input,
+html:not(.dark) textarea {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;     /* slate-300 */
+  color: #0f172a !important;            /* slate-900 */
+}
+
+html:not(.dark) input::placeholder,
+html:not(.dark) textarea::placeholder {
+  color: #94a3b8 !important;            /* slate-400 */
+}
+
+html:not(.dark) input:focus,
+html:not(.dark) select:focus,
+html:not(.dark) textarea:focus {
+  border-color: #0284c7 !important;     /* sky-600 */
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15) !important;
+}
+
+/* Dropdown select elements */
+html:not(.dark) select {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;     /* slate-300 */
+  color: #0f172a !important;            /* slate-900 */
+  cursor: pointer;
+}
+
+html:not(.dark) select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+/* Toolbar checkbox wrappers & pill groups */
+html:not(.dark) label.bg-slate-950,
+html:not(.dark) div.bg-slate-950 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #334155 !important;
+}
+
+html:not(.dark) label.bg-slate-950 span {
+  color: #334155 !important;
+}
+
+/* Filter checkboxes */
+html:not(.dark) input[type="checkbox"] {
+  background-color: #ffffff !important;
+  border-color: #94a3b8 !important;
+}
+
+/* Filter reset button */
+html:not(.dark) button.bg-slate-900 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+html:not(.dark) button.bg-slate-900:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* Status Filter Tabs (e.g. Active / Remediated in AlertsPage) */
+html:not(.dark) div.bg-slate-950 button.text-slate-400 {
+  color: #64748b !important;
+}
+
+html:not(.dark) div.bg-slate-950 button.text-slate-400:hover {
+  color: #0f172a !important;
+}
+
+/* ==========================================================================
+   3. SIDEBAR NAVIGATION (Day Mode)
+   ========================================================================== */
+
+html:not(.dark) aside {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 1px 0 3px 0 rgba(0, 0, 0, 0.03);
+}
+
+html:not(.dark) aside span.text-slate-500 {
+  color: #64748b !important;
+}
+
+/* Sidebar Navigation Items Base Reset */
+html:not(.dark) aside nav button {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Inactive navigation item */
+html:not(.dark) aside nav button.text-slate-400,
+html:not(.dark) aside nav button:not(.bg-primary-600\/10) {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  color: #475569 !important;            /* slate-600 */
+}
+
+html:not(.dark) aside nav button.text-slate-400 svg,
+html:not(.dark) aside nav button:not(.bg-primary-600\/10) svg {
+  color: #64748b !important;            /* slate-500 */
+}
+
+html:not(.dark) aside nav button.text-slate-400:hover,
+html:not(.dark) aside nav button:not(.bg-primary-600\/10):hover {
+  background-color: #f1f5f9 !important; /* slate-100 */
+  border-color: transparent !important;
+  box-shadow: none !important;
+  color: #0f172a !important;            /* slate-900 */
+}
+
+html:not(.dark) aside nav button.text-slate-400:hover svg,
+html:not(.dark) aside nav button:not(.bg-primary-600\/10):hover svg {
+  color: #0f172a !important;
+}
+
+/* Active navigation item */
+html:not(.dark) aside nav button.bg-primary-600\/10 {
+  background-color: #f0f9ff !important; /* sky-50 subtle brand tint */
+  color: #0369a1 !important;            /* sky-700 deep brand text */
+  border-color: #bae6fd !important;     /* sky-200 brand border */
+  box-shadow: 0 1px 2px 0 rgba(14, 165, 233, 0.08) !important;
+  font-weight: 700 !important;
+}
+
+html:not(.dark) aside nav button.bg-primary-600\/10 svg {
+  color: #0284c7 !important;            /* sky-600 brand icon */
+}
+
+html:not(.dark) aside nav button.bg-primary-600\/10:hover {
+  background-color: #e0f2fe !important; /* sky-100 */
+  border-color: #7dd3fc !important;     /* sky-300 */
+  color: #0369a1 !important;
+}
+
+html:not(.dark) aside nav button.bg-primary-600\/10:hover svg {
+  color: #0284c7 !important;
+}
+
+/* Sidebar Collapse Toggle Button in Day Mode */
+html:not(.dark) aside button:not(nav button) {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  color: #64748b !important;
+}
+
+html:not(.dark) aside button:not(nav button):hover {
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: none !important;
+  color: #0f172a !important;
+}
+
+html:not(.dark) aside button:not(nav button) svg {
+  color: #64748b !important;
+}
+
+html:not(.dark) aside button:not(nav button):hover svg {
+  color: #0f172a !important;
+}
+
+/* Sidebar Qualys Coverage Box */
+html:not(.dark) aside [class*="bg-slate-900"] {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html:not(.dark) aside [class*="bg-slate-900"] .text-slate-400 {
+  color: #475569 !important;            /* slate-600 */
+}
+
+/* Sidebar RBAC Box */
+html:not(.dark) aside [class*="bg-gradient-to-br"] {
+  background-image: none !important;
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+/* ==========================================================================
+   4. NAVBAR HEADER (Day Mode)
+   ========================================================================== */
+
+html:not(.dark) header {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
+}
+
+html:not(.dark) header h1 {
+  color: #0f172a !important;
+}
+
+html:not(.dark) header p {
+  color: #64748b !important;
+}
+
+html:not(.dark) header .border-slate-800 {
+  border-color: #e2e8f0 !important;
+}
+
+html:not(.dark) header button:hover {
+  background-color: #f1f5f9 !important;
+}
+
+/* User avatar container in header */
+html:not(.dark) header .bg-slate-800 {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+html:not(.dark) header .bg-slate-800 svg {
+  color: #475569 !important;
+}
+
+/* ==========================================================================
+   5. TEXT COLOR INVERSIONS & ACCENTS (Day Mode)
+   ========================================================================== */
+
+html:not(.dark) .text-slate-100 {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .text-slate-200 {
+  color: #1e293b !important;
+}
+
+html:not(.dark) .text-slate-300 {
+  color: #334155 !important;
+}
+
+html:not(.dark) .text-slate-400 {
+  color: #64748b !important;
+}
+
+html:not(.dark) .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+/* High-contrast colored accents */
+html:not(.dark) .text-red-400,
+html:not(.dark) .text-red-300 {
+  color: #dc2626 !important;
+}
+
+html:not(.dark) .text-orange-400,
+html:not(.dark) .text-orange-300 {
+  color: #ea580c !important;
+}
+
+html:not(.dark) .text-amber-400,
+html:not(.dark) .text-amber-300 {
+  color: #d97706 !important;
+}
+
+html:not(.dark) .text-yellow-400,
+html:not(.dark) .text-yellow-300 {
+  color: #ca8a04 !important;
+}
+
+html:not(.dark) .text-emerald-400,
+html:not(.dark) .text-emerald-300 {
+  color: #059669 !important;
+}
+
+html:not(.dark) .text-sky-400,
+html:not(.dark) .text-sky-300 {
+  color: #0284c7 !important;
+}
+
+html:not(.dark) .text-blue-400,
+html:not(.dark) .text-blue-300 {
+  color: #2563eb !important;
+}
+
+html:not(.dark) .text-indigo-400,
+html:not(.dark) .text-indigo-300 {
+  color: #4f46e5 !important;
+}
+
+html:not(.dark) .text-purple-400,
+html:not(.dark) .text-purple-300 {
+  color: #7c3aed !important;
+}
+
+/* High-contrast opacity variants from Tailwind */
+html:not(.dark) .text-purple-300\/80,
+html:not(.dark) .text-purple-400\/80,
+html:not(.dark) .text-purple-400\/90 {
+  color: #7c3aed !important;
+}
+
+html:not(.dark) .text-purple-500\/80 {
+  color: #6b21a8 !important;
+}
+
+html:not(.dark) .text-amber-200\/80,
+html:not(.dark) .text-amber-300\/80 {
+  color: #92400e !important;
+}
+
+html:not(.dark) .text-amber-500\/80 {
+  color: #b45309 !important;
+}
+
+html:not(.dark) .text-red-500\/80,
+html:not(.dark) .text-red-400\/80 {
+  color: #b91c1c !important;
+}
+
+html:not(.dark) .text-sky-500\/80,
+html:not(.dark) .text-sky-400\/80 {
+  color: #0369a1 !important;
+}
+
+html:not(.dark) .text-emerald-500\/80,
+html:not(.dark) .text-emerald-400\/80 {
+  color: #047857 !important;
+}
+
+/* Invert stark white text on light backgrounds */
+html:not(.dark) strong.text-white,
+html:not(.dark) span.text-white:not([class*="bg-sky-600"]):not([class*="bg-red-600"]):not([class*="bg-primary-600"]),
+html:not(.dark) b.text-white {
+  color: #0f172a !important;
+}
+
+/* ==========================================================================
+   6. KPI & ALERT CARDS (Day Mode)
+   ========================================================================== */
+
+html:not(.dark) .bg-red-950\/20,
+html:not(.dark) .bg-red-950\/40,
+html:not(.dark) .bg-red-950\/60,
+html:not(.dark) .bg-rose-950\/20,
+html:not(.dark) .bg-rose-950\/40,
+html:not(.dark) .bg-rose-950\/60 {
+  background-color: rgba(255, 228, 230, 0.7) !important; /* rose-100 */
+  border-color: #fda4af !important;                        /* rose-300 */
+}
+
+html:not(.dark) .bg-amber-950\/20,
+html:not(.dark) .bg-amber-950\/40 {
+  background-color: rgba(254, 243, 199, 0.7) !important; /* amber-100 */
+  border-color: #fcd34d !important;                        /* amber-300 */
+}
+
+html:not(.dark) .bg-sky-950\/20,
+html:not(.dark) .bg-sky-950\/40,
+html:not(.dark) .bg-sky-950\/60 {
+  background-color: rgba(224, 242, 254, 0.7) !important; /* sky-100 */
+  border-color: #7dd3fc !important;                        /* sky-300 */
+}
+
+html:not(.dark) .bg-purple-950\/20,
+html:not(.dark) .bg-purple-950\/60 {
+  background-color: rgba(243, 232, 255, 0.7) !important;
+  border-color: #d8b4fe !important;
+}
+
+html:not(.dark) .bg-indigo-950\/20,
+html:not(.dark) .bg-indigo-950\/60 {
+  background-color: rgba(224, 231, 255, 0.7) !important;
+  border-color: #c7d2fe !important;
+}
+
+html:not(.dark) .bg-emerald-950\/20,
+html:not(.dark) .bg-emerald-950\/40 {
+  background-color: rgba(209, 250, 229, 0.7) !important;
+  border-color: #6ee7b7 !important;
+}
+
+html:not(.dark) .bg-orange-950\/20,
+html:not(.dark) .bg-orange-950\/30,
+html:not(.dark) .bg-orange-950\/40 {
+  background-color: rgba(255, 237, 213, 0.7) !important;
+  border-color: #fed7aa !important;
+}
+
+html:not(.dark) .bg-blue-950\/20,
+html:not(.dark) .bg-blue-950\/30,
+html:not(.dark) .bg-blue-950\/40 {
+  background-color: rgba(239, 246, 255, 0.7) !important;
+  border-color: #bfdbfe !important;
+}
+
+/* Themed KPI Card Dividers in Day Mode */
+html:not(.dark) .border-sky-900\/40 {
+  border-color: #bae6fd !important; /* sky-200 */
+}
+
+html:not(.dark) .border-amber-900\/40 {
+  border-color: #fde68a !important; /* amber-200 */
+}
+
+html:not(.dark) .border-rose-900\/40 {
+  border-color: #fecdd3 !important; /* rose-200 */
+}
+
+/* Themed KPI Icon Containers in Day Mode */
+html:not(.dark) div[class*="bg-sky-500/10"] {
+  background-color: #ffffff !important;
+  border-color: #bae6fd !important;
+  color: #0284c7 !important;
+  box-shadow: 0 1px 2px 0 rgba(2, 132, 199, 0.1) !important;
+}
+
+html:not(.dark) div[class*="bg-amber-500/10"] {
+  background-color: #ffffff !important;
+  border-color: #fde68a !important;
+  color: #d97706 !important;
+  box-shadow: 0 1px 2px 0 rgba(217, 119, 6, 0.1) !important;
+}
+
+html:not(.dark) div[class*="bg-rose-500/10"] {
+  background-color: #ffffff !important;
+  border-color: #fecdd3 !important;
+  color: #e11d48 !important;
+  box-shadow: 0 1px 2px 0 rgba(225, 29, 72, 0.1) !important;
+}
+
+/* Themed KPI Action Pill Buttons in Day Mode */
+html:not(.dark) button[class*="bg-sky-500/10"] {
+  background-color: #ffffff !important;
+  border-color: #bae6fd !important;
+  color: #0369a1 !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+}
+
+html:not(.dark) button[class*="bg-sky-500/10"]:hover {
+  background-color: #f0f9ff !important;
+  border-color: #7dd3fc !important;
+  color: #0284c7 !important;
+}
+
+html:not(.dark) button[class*="bg-amber-500/10"] {
+  background-color: #ffffff !important;
+  border-color: #fde68a !important;
+  color: #b45309 !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+}
+
+html:not(.dark) button[class*="bg-amber-500/10"]:hover {
+  background-color: #fef3c7 !important;
+  border-color: #fcd34d !important;
+  color: #92400e !important;
+}
+
+html:not(.dark) button[class*="bg-rose-500/10"] {
+  background-color: #ffffff !important;
+  border-color: #fecdd3 !important;
+  color: #be123c !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+}
+
+html:not(.dark) button[class*="bg-rose-500/10"]:hover {
+  background-color: #ffe4e6 !important;
+  border-color: #fda4af !important;
+  color: #9f1239 !important;
+}
+
+/* Role Description Guide Cards on Users Page (Day Mode Badge Color Alignment) */
+html:not(.dark) div.bg-purple-950\/20 {
+  background-color: #faf5ff !important; /* purple-50 matching Admin tag */
+  border-color: #e9d5ff !important;     /* purple-200 */
+}
+
+html:not(.dark) div.bg-purple-950\/20 .text-purple-300 {
+  color: #6b21a8 !important;            /* purple-700 deep domain title */
+}
+
+html:not(.dark) div.bg-indigo-950\/20 {
+  background-color: #eef2ff !important; /* indigo-50 matching Analyst tag */
+  border-color: #c7d2fe !important;     /* indigo-200 */
+}
+
+html:not(.dark) div.bg-indigo-950\/20 .text-indigo-300 {
+  color: #3730a3 !important;            /* indigo-700 deep domain title */
+}
+
+html:not(.dark) div.bg-sky-950\/20 {
+  background-color: #f0f9ff !important; /* sky-50 matching Owner tag */
+  border-color: #bae6fd !important;     /* sky-200 */
+}
+
+html:not(.dark) div.bg-sky-950\/20 .text-sky-300 {
+  color: #0369a1 !important;            /* sky-700 deep domain title */
+}
+
+html:not(.dark) div.bg-slate-800\/40 {
+  background-color: #f1f5f9 !important; /* slate-100 matching Viewer tag */
+  border-color: #cbd5e1 !important;     /* slate-300 */
+}
+
+html:not(.dark) div.bg-slate-800\/40 .text-slate-300 {
+  color: #334155 !important;            /* slate-700 title */
+}
+
+/* Crisp Slate-700 Body text inside role cards */
+html:not(.dark) div.bg-purple-950\/20 p,
+html:not(.dark) div.bg-indigo-950\/20 p,
+html:not(.dark) div.bg-sky-950\/20 p,
+html:not(.dark) div.bg-slate-800\/40 p {
+  color: #334155 !important;
+}
+
+/* ==========================================================================
+   7. PAGINATION & DROPDOWNS (Day Mode)
+   ========================================================================== */
+
+html:not(.dark) .bg-slate-900\/80,
+html:not(.dark) .bg-slate-900 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #334155 !important;
+}
+
+/* Sync dropdown menus */
+html:not(.dark) .bg-slate-900.border-slate-700 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+}
+
+html:not(.dark) .bg-slate-900.border-slate-700 button {
+  border-color: #f1f5f9 !important;
+}
+
+html:not(.dark) .bg-slate-900.border-slate-700 button:hover {
+  background-color: #f8fafc !important;
+}
+
+/* Scrollbars */
+html:not(.dark) ::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+html:not(.dark) ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+html:not(.dark) ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* ==========================================================================
+   8. INNER BOXES, ASSET INVENTORY CARDS, BANNERS & MODALS (Day Mode)
+   ========================================================================== */
+
+/* Universal wildcard for inner boxes with dark backgrounds (paragraphs, pre blocks, code, containers) */
+html:not(.dark) div[class*="bg-slate-950"],
+html:not(.dark) p[class*="bg-slate-950"],
+html:not(.dark) pre[class*="bg-slate-950"],
+html:not(.dark) code[class*="bg-slate-950"],
+html:not(.dark) section[class*="bg-slate-950"],
+html:not(.dark) div[class*="bg-slate-900"],
+html:not(.dark) p[class*="bg-slate-900"],
+html:not(.dark) pre[class*="bg-slate-900"],
+html:not(.dark) section[class*="bg-slate-900"],
+html:not(.dark) [class*="bg-slate-950/70"],
+html:not(.dark) [class*="bg-slate-950/60"],
+html:not(.dark) [class*="bg-slate-950/80"],
+html:not(.dark) [class*="bg-slate-900/40"],
+html:not(.dark) [class*="bg-slate-900/50"],
+html:not(.dark) [class*="bg-slate-900/60"] {
+  background-color: #f8fafc !important; /* slate-50 */
+  border-color: #e2e8f0 !important;     /* slate-200 */
+}
+
+/* Ensure paragraph blocks (e.g. Threat Intelligence Analysis) have clean readable text */
+html:not(.dark) p[class*="bg-slate-950"],
+html:not(.dark) p[class*="bg-slate-900"] {
+  color: #334155 !important;            /* slate-700 */
+}
+
+/* Audit Log Detail & Preformatted Blocks */
+html:not(.dark) pre,
+html:not(.dark) pre[class*="bg-slate-950"],
+html:not(.dark) pre.bg-slate-950 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: inset 0 1px 2px 0 rgba(0, 0, 0, 0.03) !important;
+}
+
+/* Terminal / Shell Verification Command Blocks */
+html:not(.dark) div.font-mono.text-emerald-400,
+html:not(.dark) div[class*="bg-slate-950"] code,
+html:not(.dark) code.text-emerald-400 {
+  color: #047857 !important;            /* emerald-700 */
+}
+
+html:not(.dark) code.text-purple-300 {
+  color: #6b21a8 !important;            /* purple-700 */
+}
+
+/* Progress bar background track in Dashboard & Telemetry */
+html:not(.dark) .h-2.rounded-full.bg-slate-800,
+html:not(.dark) div.bg-slate-800:not(button):not(span) {
+  background-color: #e2e8f0 !important; /* slate-200 */
+}
+
+/* Modal and Drawer Backdrop in Light Mode */
+html:not(.dark) .bg-black\/70,
+html:not(.dark) .bg-black\/60 {
+  background-color: rgba(15, 23, 42, 0.45) !important;
+}
+
+/* Prevent blur / washed-out rendering of bg-surface/60 */
+html:not(.dark) .bg-surface\/60 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
+}
+
+/* Modal and Drawer header bars */
+html:not(.dark) div[class*="bg-slate-900/50"].border-b,
+html:not(.dark) div[class*="bg-slate-900/60"].border-b {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Card inner dividers */
+html:not(.dark) [class*="border-slate-800"],
+html:not(.dark) [class*="border-slate-700"] {
+  border-color: #e2e8f0 !important;
+}
+
+/* Badges inside Asset Inventory cards */
+html:not(.dark) span[class*="bg-sky-950"] {
+  background-color: #f0f9ff !important; /* sky-50 */
+  color: #0369a1 !important;            /* sky-700 */
+  border-color: #bae6fd !important;     /* sky-200 */
+}
+
+html:not(.dark) span[class*="bg-slate-900"] {
+  background-color: #f0f9ff !important; /* sky-50 */
+  color: #0369a1 !important;            /* sky-700 */
+  border-color: #bae6fd !important;     /* sky-200 */
+}
+
+html:not(.dark) span[class*="bg-slate-800/80"] {
+  background-color: #fef3c7 !important; /* amber-50 */
+  color: #b45309 !important;            /* amber-700 */
+  border-color: #fde68a !important;     /* amber-200 */
+}
+
+html:not(.dark) span[class*="bg-red-950"] {
+  background-color: #fef2f2 !important; /* red-50 */
+  color: #b91c1c !important;            /* red-700 */
+  border-color: #fecaca !important;     /* red-200 */
+}
+
+/* Severity Pills inactive badge */
+html:not(.dark) span[class*="bg-slate-800/40"] {
+  background-color: #f1f5f9 !important; /* slate-100 */
+  color: #94a3b8 !important;            /* slate-400 */
+  border-color: #e2e8f0 !important;     /* slate-200 */
+}
+
+/* Dashboard Welcome Banner */
+html:not(.dark) [class*="bg-gradient-to-r from-slate-900"] {
+  background-image: linear-gradient(to right, #ffffff, #f8fafc, #f0f9ff) !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+html:not(.dark) [class*="bg-gradient-to-r from-slate-900"] h2 {
+  color: #0f172a !important;
+}
+
+html:not(.dark) [class*="bg-gradient-to-r from-slate-900"] p {
+  color: #475569 !important;
+}
+
+html:not(.dark) [class*="bg-gradient-to-r from-slate-900"] div[class*="bg-slate-950"] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+}
+
+/* Card Rings in Light Mode */
+html:not(.dark) .ring-red-950 {
+  --tw-ring-color: #fee2e2 !important;
+}
+
+html:not(.dark) .ring-amber-950 {
+  --tw-ring-color: #fef3c7 !important;
+}
+
+/* Rendered HTML solutions and pre/code in Light mode */
+html:not(.dark) .html-solution code {
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #7c3aed;
+}
+
+html:not(.dark) .html-solution pre {
+  background-color: #f8fafc;
+  border-color: #e2e8f0;
+  color: #0f172a;
+}
+
+html:not(.dark) .html-solution strong,
+html:not(.dark) .html-solution b {
+  color: #0f172a;
+}
+
+html:not(.dark) .html-solution th {
+  background-color: #f1f5f9;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+html:not(.dark) .html-solution th,
+html:not(.dark) .html-solution td {
+  border-color: #cbd5e1;
+}
+
+/* ==========================================================================
+   9. COMPREHENSIVE BADGES & STATUS PILLS (Day Mode)
+   ========================================================================== */
+
+/* Red / Rose Badges (Critical, Risky, Open, Sev 5, Ransomware RTI) */
+html:not(.dark) span[class*="bg-red-950"],
+html:not(.dark) span[class*="bg-rose-500/10"],
+html:not(.dark) span[class*="bg-rose-500/20"],
+html:not(.dark) span[class*="bg-rose-600/20"],
+html:not(.dark) span[class*="bg-rose-600/30"],
+html:not(.dark) span[class*="bg-red-500/10"],
+html:not(.dark) span[class*="bg-red-500/20"],
+html:not(.dark) span[class*="bg-red-600/20"],
+html:not(.dark) span[class*="bg-red-600/30"] {
+  background-color: #fef2f2 !important; /* red-50 */
+  color: #b91c1c !important;            /* red-700 */
+  border-color: #fecaca !important;     /* red-200 */
+}
+
+/* Orange Badges (High, Sev 4, RTI Exploit in Wild) */
+html:not(.dark) span[class*="bg-orange-950"],
+html:not(.dark) span[class*="bg-orange-500/10"],
+html:not(.dark) span[class*="bg-orange-500/20"],
+html:not(.dark) span[class*="bg-orange-600/20"],
+html:not(.dark) span[class*="bg-orange-600/30"] {
+  background-color: #fff7ed !important; /* orange-50 */
+  color: #c2410c !important;            /* orange-700 */
+  border-color: #fed7aa !important;     /* orange-200 */
+}
+
+/* Amber / Yellow Badges (Medium, Sev 3, Acknowledged, Inactive) */
+html:not(.dark) span[class*="bg-amber-950"],
+html:not(.dark) span[class*="bg-amber-500/10"],
+html:not(.dark) span[class*="bg-amber-500/20"],
+html:not(.dark) span[class*="bg-amber-600/20"],
+html:not(.dark) span[class*="bg-amber-600/30"],
+html:not(.dark) span[class*="bg-yellow-500/10"],
+html:not(.dark) span[class*="bg-yellow-600/20"] {
+  background-color: #fffbeb !important; /* amber-50 */
+  color: #b45309 !important;            /* amber-700 */
+  border-color: #fde68a !important;     /* amber-200 */
+}
+
+/* Purple Badges (Admin Role, False Positive, Zero-Day) */
+html:not(.dark) span[class*="bg-purple-950"],
+html:not(.dark) span[class*="bg-purple-500/10"],
+html:not(.dark) span[class*="bg-purple-500/20"],
+html:not(.dark) span[class*="bg-purple-600/30"] {
+  background-color: #faf5ff !important; /* purple-50 */
+  color: #6b21a8 !important;            /* purple-700 */
+  border-color: #e9d5ff !important;     /* purple-200 */
+}
+
+/* Indigo Badges (Analyst Role, Pre-Scan Proactive) */
+html:not(.dark) span[class*="bg-indigo-950"],
+html:not(.dark) span[class*="bg-indigo-500/10"],
+html:not(.dark) span[class*="bg-indigo-500/20"],
+html:not(.dark) span[class*="bg-indigo-600/10"],
+html:not(.dark) span[class*="bg-indigo-600/20"] {
+  background-color: #eef2ff !important; /* indigo-50 */
+  color: #3730a3 !important;            /* indigo-700 */
+  border-color: #c7d2fe !important;     /* indigo-200 */
+}
+
+/* Sky / Blue Badges (Owner Role, In Progress, Qualys Confirmed, Sev 2, IP Address) */
+html:not(.dark) span[class*="bg-sky-950"],
+html:not(.dark) span[class*="bg-blue-950"],
+html:not(.dark) span[class*="bg-sky-500/10"],
+html:not(.dark) span[class*="bg-sky-500/20"],
+html:not(.dark) span[class*="bg-blue-500/10"],
+html:not(.dark) span[class*="bg-blue-600/20"],
+html:not(.dark) span[class*="bg-blue-600/30"] {
+  background-color: #f0f9ff !important; /* sky-50 */
+  color: #0369a1 !important;            /* sky-700 */
+  border-color: #bae6fd !important;     /* sky-200 */
+}
+
+/* Emerald / Green Badges (Resolved, Clean, Low Risk) */
+html:not(.dark) span[class*="bg-emerald-950"],
+html:not(.dark) span[class*="bg-emerald-500/10"],
+html:not(.dark) span[class*="bg-emerald-500/20"] {
+  background-color: #ecfdf5 !important; /* emerald-50 */
+  color: #047857 !important;            /* emerald-700 */
+  border-color: #a7f3d0 !important;     /* emerald-200 */
+}
+
+/* Neutral / Slate Badges (Viewer Role, Sev 1 Info, Tags, Source MISP) */
+html:not(.dark) span[class*="bg-slate-800"],
+html:not(.dark) span[class*="bg-slate-700"] {
+  background-color: #f1f5f9 !important; /* slate-100 */
+  color: #334155 !important;            /* slate-700 */
+  border-color: #cbd5e1 !important;     /* slate-300 */
+}
+
+/* SVGs inside badge spans automatically match text color */
+html:not(.dark) span[class*="rounded"] svg {
+  color: currentColor !important;
+}
+
+/* Buttons acting as badges/action pills */
+html:not(.dark) button[class*="bg-indigo-600/20"],
+html:not(.dark) button[class*="bg-indigo-600/10"] {
+  background-color: #eef2ff !important;
+  color: #3730a3 !important;
+  border-color: #c7d2fe !important;
+}
+
+html:not(.dark) button[class*="bg-sky-600/20"],
+html:not(.dark) button[class*="bg-sky-600/10"] {
+  background-color: #f0f9ff !important;
+  color: #0369a1 !important;
+  border-color: #bae6fd !important;
+}
+
+html:not(.dark) button[class*="bg-red-950/40"] {
+  background-color: #fef2f2 !important;
+  color: #b91c1c !important;
+  border-color: #fecaca !important;
+}
+
+/* Purple action buttons (Simulate ZeroMQ Threat Event, etc.) */
+html:not(.dark) button[class*="bg-purple-950"],
+html:not(.dark) button.bg-purple-950 {
+  background-color: #faf5ff !important; /* purple-50 */
+  border-color: #d8b4fe !important;     /* purple-300 */
+  color: #6b21a8 !important;            /* purple-700 */
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+}
+
+html:not(.dark) button[class*="bg-purple-950"]:hover,
+html:not(.dark) button.bg-purple-950:hover {
+  background-color: #f3e8ff !important; /* purple-100 */
+  border-color: #c084fc !important;     /* purple-400 */
+  color: #581c87 !important;            /* purple-900 */
+}
+
+html:not(.dark) button[class*="bg-purple-950"] svg,
+html:not(.dark) button.bg-purple-950 svg,
+html:not(.dark) button[class*="bg-purple-950"] span,
+html:not(.dark) button.bg-purple-950 span {
+  color: currentColor !important;
+}
+
+/* Emerald action / toggle buttons (Auto-Subscriber Enabled, etc.) */
+html:not(.dark) button[class*="bg-emerald-950"],
+html:not(.dark) button.bg-emerald-950 {
+  background-color: #ecfdf5 !important; /* emerald-50 */
+  border-color: #a7f3d0 !important;     /* emerald-200 */
+  color: #047857 !important;            /* emerald-700 */
+}
+
+html:not(.dark) button[class*="bg-emerald-950"]:hover,
+html:not(.dark) button.bg-emerald-950:hover {
+  background-color: #d1fae5 !important; /* emerald-100 */
+  border-color: #6ee7b7 !important;     /* emerald-300 */
+  color: #065f46 !important;            /* emerald-800 */
+}
+
+html:not(.dark) button[class*="bg-emerald-950"] svg,
+html:not(.dark) button.bg-emerald-950 svg {
+  color: currentColor !important;
+}
+
+/* Settings test connection buttons */
+html:not(.dark) button[class*="bg-slate-800"].text-purple-400,
+html:not(.dark) button.text-purple-400 {
+  background-color: #faf5ff !important; /* purple-50 */
+  border-color: #d8b4fe !important;     /* purple-300 */
+  color: #6b21a8 !important;            /* purple-700 */
+}
+
+html:not(.dark) button[class*="bg-slate-800"].text-purple-400:hover,
+html:not(.dark) button.text-purple-400:hover {
+  background-color: #f3e8ff !important; /* purple-100 */
+  border-color: #c084fc !important;     /* purple-400 */
+  color: #581c87 !important;            /* purple-900 */
+}
+
+html:not(.dark) button[class*="bg-slate-800"].text-sky-400,
+html:not(.dark) button.text-sky-400 {
+  background-color: #f0f9ff !important; /* sky-50 */
+  border-color: #bae6fd !important;     /* sky-200 */
+  color: #0369a1 !important;            /* sky-700 */
+}
+
+html:not(.dark) button[class*="bg-slate-800"].text-sky-400:hover,
+html:not(.dark) button.text-sky-400:hover {
+  background-color: #e0f2fe !important; /* sky-100 */
+  border-color: #7dd3fc !important;     /* sky-300 */
+  color: #0284c7 !important;            /* sky-800 */
+}
+
+/* ZeroMQ Threat Stream Box in Admin Settings */
+html:not(.dark) div[class*="border-purple-900"] {
+  background-color: #faf5ff !important; /* purple-50 */
+  border-color: #e9d5ff !important;     /* purple-200 */
+}
+
+html:not(.dark) div[class*="border-purple-900"] h4 {
+  color: #581c87 !important;            /* purple-900 */
+}
+
+html:not(.dark) div[class*="border-purple-900"] p {
+  color: #475569 !important;            /* slate-600 */
+}
+
+html:not(.dark) div[class*="border-purple-900"] .bg-slate-900 {
+  background-color: #ffffff !important; /* crisp white inside lavender */
+  border-color: #e9d5ff !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.03);
+}
+
+html:not(.dark) div[class*="border-purple-900"] .bg-slate-900 span.text-slate-200 {
+  color: #0f172a !important;
+}
+
+/* Test Connection Results & Status Banners */
+html:not(.dark) div[class*="bg-emerald-950"].text-emerald-400 {
+  background-color: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+  color: #047857 !important;
+}
+
+html:not(.dark) div[class*="bg-emerald-950"].text-emerald-400 span,
+html:not(.dark) div[class*="bg-emerald-950"].text-emerald-400 svg {
+  color: #047857 !important;
+}
+
+html:not(.dark) div[class*="bg-red-950"].text-red-400 {
+  background-color: #fef2f2 !important;
+  border-color: #fecaca !important;
+  color: #b91c1c !important;
+}
+
+html:not(.dark) div[class*="bg-red-950"].text-red-400 span,
+html:not(.dark) div[class*="bg-red-950"].text-red-400 svg {
+  color: #b91c1c !important;
 }

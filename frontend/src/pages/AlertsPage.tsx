@@ -215,15 +215,15 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
 
       {/* KPI Metric Summary Widgets */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-        <div className="p-4 rounded-xl bg-surface/60 border border-surfaceBorder">
+        <div className="p-4 rounded-xl bg-purple-950/20 border border-purple-900/40">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+            <span className="text-[11px] font-semibold text-purple-400 uppercase tracking-wider">
               Active Threat Alerts
             </span>
             <Bell className="w-4 h-4 text-purple-400" />
           </div>
-          <div className="text-2xl font-bold font-mono text-slate-100 mt-1">{activeCount}</div>
-          <span className="text-[10px] text-slate-500 mt-0.5 block">Unresolved CVE advisories</span>
+          <div className="text-2xl font-bold font-mono text-purple-300 mt-1">{activeCount}</div>
+          <span className="text-[10px] text-purple-400/80 mt-0.5 block">Unresolved CVE advisories</span>
         </div>
 
         <div className="p-4 rounded-xl bg-red-950/20 border border-red-900/40">

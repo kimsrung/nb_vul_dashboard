@@ -134,87 +134,109 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         </div>
       </div>
 
-      {/* Minimalist 3-KPI Cards Grid */}
+      {/* Themed 3-KPI Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {/* Total Assets */}
-        <div className="p-5 rounded-2xl bg-surface border border-surfaceBorder hover:border-slate-700 transition-all shadow-md">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider">Assets Monitored</span>
-            <div className="p-2 rounded-lg bg-sky-950/60 border border-sky-800/40 text-sky-400">
-              <Server className="w-5 h-5" />
+        <div className="p-5 rounded-2xl bg-sky-950/20 border border-sky-900/40 hover:border-sky-700/60 transition-all shadow-lg hover:shadow-sky-500/5 group flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-bold text-sky-400 uppercase tracking-wider">
+                Assets Monitored
+              </span>
+              <div className="p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 shadow-sm shadow-sky-500/10 group-hover:scale-105 transition-transform">
+                <Server className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <div className="text-3xl sm:text-4xl font-black text-sky-400 font-mono tracking-tight">
+                {summary.total_assets}
+              </div>
+              <span className="text-xs text-slate-400 font-medium">hosts enrolled</span>
             </div>
           </div>
-          <div className="text-3xl font-black text-slate-100 font-mono">{summary.total_assets}</div>
-          <div className="text-xs text-slate-400 mt-2 flex items-center justify-between border-t border-slate-800/60 pt-2.5">
-            <span>Scoped in Qualys VMDR</span>
+          <div className="text-xs text-slate-400 mt-4 flex items-center justify-between border-t border-sky-900/40 pt-3">
+            <span className="text-slate-300 font-medium">Scoped in Qualys VMDR</span>
             <button
               onClick={() => handleNavigateTab('assets')}
-              className="text-sky-400 hover:text-sky-300 font-medium inline-flex items-center gap-1"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 text-xs font-semibold border border-sky-500/20 hover:border-sky-500/40 transition-colors cursor-pointer"
             >
-              View Inventory &rarr;
+              <span>View Inventory</span>
+              <span className="group-hover:translate-x-0.5 transition-transform">&rarr;</span>
             </button>
           </div>
         </div>
 
         {/* Total Vulnerabilities (only Critical & High highlights) */}
-        <div className="p-5 rounded-2xl bg-surface border border-surfaceBorder hover:border-slate-700 transition-all shadow-md">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider">Total Vulnerabilities</span>
-            <div className="p-2 rounded-lg bg-amber-950/60 border border-amber-800/40 text-amber-400">
-              <Bug className="w-5 h-5" />
+        <div className="p-5 rounded-2xl bg-amber-950/20 border border-amber-900/40 hover:border-amber-700/60 transition-all shadow-lg hover:shadow-amber-500/5 group flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">
+                Total Vulnerabilities
+              </span>
+              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 shadow-sm shadow-amber-500/10 group-hover:scale-105 transition-transform">
+                <Bug className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <div className="text-3xl sm:text-4xl font-black text-amber-400 font-mono tracking-tight">
+                {summary.total_vulns}
+              </div>
+              <span className="text-xs text-slate-400 font-medium">active detections</span>
             </div>
           </div>
-          <div className="flex items-baseline gap-3">
-            <div className="text-3xl font-black text-slate-100 font-mono">{summary.total_vulns}</div>
-            <span className="text-xs text-slate-400 font-medium">active detections</span>
-          </div>
-          <div className="text-xs text-slate-400 mt-2 flex items-center justify-between border-t border-slate-800/60 pt-2.5">
-            <span className="text-slate-300 font-mono">
-              <strong className="text-red-400">{summary.critical_vulns}</strong> Critical &bull; <strong className="text-amber-400">{summary.high_vulns}</strong> High
+          <div className="text-xs text-slate-400 mt-4 flex items-center justify-between border-t border-amber-900/40 pt-3">
+            <span className="text-slate-300 font-mono text-xs">
+              <strong className="text-red-400 font-bold">{summary.critical_vulns}</strong> Crit &bull; <strong className="text-amber-400 font-bold">{summary.high_vulns}</strong> High
             </span>
             <button
               onClick={() => handleNavigateTab('assets')}
-              className="text-sky-400 hover:text-sky-300 font-medium inline-flex items-center gap-1 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold border border-amber-500/20 hover:border-amber-500/40 transition-colors cursor-pointer"
             >
-              View All &rarr;
+              <span>View All</span>
+              <span className="group-hover:translate-x-0.5 transition-transform">&rarr;</span>
             </button>
           </div>
         </div>
 
         {/* MISP Threat Intelligence Advisories */}
-        <div className="p-5 rounded-2xl bg-surface border border-surfaceBorder hover:border-slate-700 transition-all shadow-md">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider">MISP Threat Intelligence</span>
-            <div className="flex items-center gap-2">
-              {isAdmin && (
-                <button
-                  onClick={() => handleNavigateTab('misp')}
-                  className="text-[11px] font-semibold text-purple-400 hover:text-purple-300 transition-colors cursor-pointer"
-                  title="View all ingested CVEs including clean / 0-exposure records"
-                >
-                  All Feed &rarr;
-                </button>
-              )}
-              <div className="p-2 rounded-lg bg-rose-950/60 border border-rose-800/40 text-rose-400">
-                <ShieldAlert className="w-5 h-5" />
+        <div className="p-5 rounded-2xl bg-rose-950/20 border border-rose-900/40 hover:border-rose-700/60 transition-all shadow-lg hover:shadow-rose-500/5 group flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-bold text-rose-400 uppercase tracking-wider">
+                MISP Threat Intelligence
+              </span>
+              <div className="flex items-center gap-2">
+                {isAdmin && (
+                  <button
+                    onClick={() => handleNavigateTab('misp')}
+                    className="text-[11px] font-semibold text-rose-400/80 hover:text-rose-300 transition-colors cursor-pointer underline decoration-rose-500/40"
+                    title="View all ingested CVEs including clean / 0-exposure records"
+                  >
+                    All Feed &rarr;
+                  </button>
+                )}
+                <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 shadow-sm shadow-rose-500/10 group-hover:scale-105 transition-transform">
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
               </div>
             </div>
-          </div>
-          <div className="flex items-baseline gap-3">
-            <div className="text-3xl font-black text-rose-400 font-mono">
-              {summary.misp_advisories_count ?? summary.active_alerts}
+            <div className="flex items-baseline gap-2">
+              <div className="text-3xl sm:text-4xl font-black text-rose-400 font-mono tracking-tight">
+                {summary.misp_advisories_count ?? summary.active_alerts}
+              </div>
+              <span className="text-xs text-slate-400 font-medium">advisories cataloged</span>
             </div>
-            <span className="text-xs text-slate-400 font-medium">advisories cataloged</span>
           </div>
-          <div className="text-xs text-slate-400 mt-2 flex items-center justify-between border-t border-slate-800/60 pt-2.5">
-            <span className="text-slate-300 font-mono">
-              <strong className="text-rose-400">{summary.misp_matched_assets_count ?? summary.active_alerts}</strong> exposed servers
+          <div className="text-xs text-slate-400 mt-4 flex items-center justify-between border-t border-rose-900/40 pt-3">
+            <span className="text-slate-300 font-mono text-xs">
+              <strong className="text-rose-400 font-bold">{summary.misp_matched_assets_count ?? summary.active_alerts}</strong> exposed servers
             </span>
             <button
               onClick={() => handleNavigateTab('alerts')}
-              className="text-sky-400 hover:text-sky-300 font-medium inline-flex items-center gap-1 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-semibold border border-rose-500/20 hover:border-rose-500/40 transition-colors cursor-pointer"
             >
-              Alert Center &rarr;
+              <span>Alert Center</span>
+              <span className="group-hover:translate-x-0.5 transition-transform">&rarr;</span>
             </button>
           </div>
         </div>

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Shield, Lock, User, ArrowRight, AlertCircle } from 'lucide-react';
+import { Shield, Lock, User, ArrowRight, AlertCircle, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 
 export const LoginPage: React.FC = () => {
   const { login } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [username, setUsername] = useState<string>('admin');
   const [password, setPassword] = useState<string>('admin123');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -21,7 +23,22 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0b0f19] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative">
+      {/* Floating Theme Toggle */}
+      <button
+        type="button"
+        onClick={toggleTheme}
+        className="absolute top-6 right-6 p-2.5 rounded-2xl bg-surface border border-surfaceBorder text-slate-400 hover:text-slate-100 shadow-lg transition-all"
+        title={theme === 'dark' ? "Switch to Day Mode (Light)" : "Switch to Night Mode (Dark)"}
+        aria-label="Toggle theme mode"
+      >
+        {theme === 'dark' ? (
+          <Sun className="w-5 h-5 text-amber-400" />
+        ) : (
+          <Moon className="w-5 h-5 text-sky-600" />
+        )}
+      </button>
+
       <div className="w-full max-w-md bg-surface border border-surfaceBorder rounded-2xl shadow-2xl p-8 space-y-6">
         <div className="text-center space-y-2">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20 mx-auto mb-3">
