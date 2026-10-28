@@ -771,10 +771,27 @@ export const SettingsPage: React.FC = () => {
                 value={telegramChatId}
                 onChange={(e) => setTelegramChatId(e.target.value)}
                 disabled={!isAdmin || !telegramEnabled}
-                placeholder="e.g. -1001234567890 or @sec_alerts_channel"
+                placeholder="e.g. -1002142256980 or @sec_alerts_channel"
                 className="w-full bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-100 font-mono focus:outline-none focus:border-primary-500 disabled:opacity-50"
               />
-              <span className="text-[10px] text-slate-500 mt-1 block">Destination channel or security group chat ID</span>
+              <span className="text-[10px] text-slate-400 mt-1 block">
+                Destination channel, group, or chat ID. <span className="text-sky-400 font-semibold">Tip:</span> Channels &amp; supergroups must start with <code className="text-sky-300 font-mono font-semibold">-100</code> (e.g. <span className="text-slate-300 font-mono">-1002142256980</span>) and the bot must be an Admin.
+              </span>
+              {telegramChatId && /^\-[1-9]\d{8,11}$/.test(telegramChatId.trim()) && !telegramChatId.trim().startsWith('-100') && (
+                <div className="mt-1.5 flex items-center justify-between gap-1.5 text-[11px] text-amber-300 bg-amber-950/50 border border-amber-800/70 rounded-lg px-2.5 py-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+                    <span className="truncate">Channel ID missing <code className="font-mono font-bold text-amber-200">-100</code> prefix.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setTelegramChatId(`-100${telegramChatId.trim().slice(1)}`)}
+                    className="shrink-0 px-2 py-0.5 rounded bg-amber-900/60 hover:bg-amber-800 text-amber-200 text-[10px] font-bold border border-amber-700/60 transition-colors cursor-pointer"
+                  >
+                    Format to -100{telegramChatId.trim().slice(1)}
+                  </button>
+                </div>
+              )}
             </div>
 
             <div>

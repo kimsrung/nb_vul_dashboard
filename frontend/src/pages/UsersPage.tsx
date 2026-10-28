@@ -413,7 +413,7 @@ export const UsersPage: React.FC = () => {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => handleOpenEdit(u)}
-                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+                          className="p-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 transition-colors cursor-pointer"
                           title="Edit User"
                         >
                           <Edit2 className="w-3.5 h-3.5" />

@@ -105,3 +105,26 @@ class TestSettingsAuditAndTelegram:
         assert "10.20.6.190" in msg
         assert "PROACTIVE PRE-SCAN MATCH" in msg
         assert "dpkg -l openssh-server" in msg
+
+    def test_telegram_chat_id_normalization(self):
+        # Channel/supergroup ID missing -100 prefix
+        assert TelegramService.normalize_chat_id("-2142256980") == "-1002142256980"
+        # Already normalized channel ID
+        assert TelegramService.normalize_chat_id("-1002142256980") == "-1002142256980"
+        # Public channel username handle
+        assert TelegramService.normalize_chat_id("@sec_alerts") == "@sec_alerts"
+        # Personal user direct chat ID (positive int)
+        assert TelegramService.normalize_chat_id("2142256980") == "2142256980"
+        # Empty or None
+        assert TelegramService.normalize_chat_id(None) == ""
+        assert TelegramService.normalize_chat_id("") == ""
+
+    @pytest.mark.asyncio
+    async def test_update_settings_normalizes_telegram_chat_id(self, client: AsyncClient, admin_headers: dict):
+        update_payload = {
+            "telegram_chat_id": "-2142256980",
+        }
+        res = await client.post("/api/v1/settings", headers=admin_headers, json=update_payload)
+        assert res.status_code == 200
+        # Check that it auto-normalized to -100 format in response and DB
+        assert res.json()["telegram_chat_id"] == "-1002142256980"

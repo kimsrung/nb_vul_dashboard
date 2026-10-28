@@ -110,7 +110,7 @@ async def update_settings(
     if settings_in.telegram_bot_token is not None and settings_in.telegram_bot_token.strip():
         settings.TELEGRAM_BOT_TOKEN = settings_in.telegram_bot_token.strip()
     if settings_in.telegram_chat_id is not None:
-        settings.TELEGRAM_CHAT_ID = settings_in.telegram_chat_id.strip()
+        settings.TELEGRAM_CHAT_ID = TelegramService.normalize_chat_id(settings_in.telegram_chat_id)
     if settings_in.telegram_cooldown_hours is not None:
         settings.TELEGRAM_COOLDOWN_HOURS = settings_in.telegram_cooldown_hours
 

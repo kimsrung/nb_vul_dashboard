@@ -488,7 +488,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                     <td className="py-3 px-4 text-right">
                       <button
                         onClick={() => handleSelectAsset(asset.id)}
-                        className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-400 hover:text-sky-300 font-semibold border border-slate-700 transition-colors text-[11px]"
+                        className="px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 font-semibold transition-colors text-[11px] cursor-pointer"
                       >
                         Inspect Findings
                       </button>

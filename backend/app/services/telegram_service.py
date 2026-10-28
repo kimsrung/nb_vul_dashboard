@@ -10,36 +10,69 @@ logger = logging.getLogger(__name__)
 
 class TelegramService:
     @staticmethod
+    def normalize_chat_id(chat_id: Optional[str]) -> str:
+        """
+        Normalize Telegram Chat ID.
+        - Telegram channels and supergroups require the '-100' prefix.
+        - If an administrator supplies a 9-11 digit group ID with a single leading hyphen (e.g. -2142256980)
+          without the '100' prefix, automatically prepend '100' after the hyphen (-1002142256980).
+        """
+        if not chat_id:
+            return ""
+        cid = str(chat_id).strip()
+        if cid.startswith("@"):
+            return cid
+        import re
+        if re.match(r"^-[1-9]\d{8,11}$", cid) and not cid.startswith("-100"):
+            return f"-100{cid[1:]}"
+        return cid
+
+    @staticmethod
     async def send_message(
         text: str,
         bot_token: Optional[str] = None,
         chat_id: Optional[str] = None,
         parse_mode: str = "HTML",
     ) -> Dict[str, Any]:
-        """Send message via Telegram Bot API."""
+        """Send message via Telegram Bot API with automatic channel ID normalization and fallback."""
         token = bot_token or settings.TELEGRAM_BOT_TOKEN
-        cid = chat_id or settings.TELEGRAM_CHAT_ID
+        raw_cid = chat_id or settings.TELEGRAM_CHAT_ID
 
-        if not token or not cid:
+        if not token or not raw_cid:
             return {"success": False, "message": "Telegram Bot Token or Chat ID not configured."}
 
+        # Try normalized chat ID first (auto-resolves missing -100 for channels/supergroups)
+        cid = TelegramService.normalize_chat_id(raw_cid)
         url = f"https://api.telegram.org/bot{token}/sendMessage"
-        payload = {
-            "chat_id": cid,
-            "text": text,
-            "parse_mode": parse_mode,
-            "disable_web_page_preview": True,
-        }
 
-        try:
+        async def _do_post(target_cid: str):
+            payload = {
+                "chat_id": target_cid,
+                "text": text,
+                "parse_mode": parse_mode,
+                "disable_web_page_preview": True,
+            }
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.post(url, json=payload)
                 data = resp.json()
-                if resp.status_code == 200 and data.get("ok"):
+                return resp.status_code, data
+
+        try:
+            status_code, data = await _do_post(cid)
+            if status_code == 200 and data.get("ok"):
+                note = " (auto-normalized to -100 channel format)" if cid != str(raw_cid).strip() else ""
+                return {"success": True, "message": f"Telegram alert dispatched successfully.{note}"}
+
+            # If normalized failed with chat not found and differed from raw_cid, attempt raw_cid
+            if cid != str(raw_cid).strip():
+                status_code, data = await _do_post(str(raw_cid).strip())
+                if status_code == 200 and data.get("ok"):
                     return {"success": True, "message": "Telegram alert dispatched successfully."}
-                else:
-                    err_desc = data.get("description", resp.text)
-                    return {"success": False, "message": f"Telegram API error: {err_desc}"}
+
+            err_desc = data.get("description", str(data))
+            if "chat not found" in err_desc.lower():
+                err_desc += " (Tip: Channels & supergroups require '-100' prefix, e.g. -1002142256980, and the bot must be an Admin. Personal chats require clicking /start first.)"
+            return {"success": False, "message": f"Telegram API error: {err_desc}"}
         except Exception as e:
             logger.error(f"Failed to send Telegram alert: {e}")
             return {"success": False, "message": f"Network error sending Telegram message: {str(e)}"}

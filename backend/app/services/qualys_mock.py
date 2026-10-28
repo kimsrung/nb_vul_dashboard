@@ -284,6 +284,7 @@ MOCK_HOST_DETECTION_XML = """<?xml version="1.0" encoding="UTF-8" ?>
         <OS>Red Hat Enterprise Linux 8.8</OS>
         <LAST_SCAN_DATETIME>2026-10-20T01:15:00Z</LAST_SCAN_DATETIME>
         <TAG_LIST>
+          <TAG><NAME>Bakong SIT</NAME></TAG>
           <TAG><NAME>Production</NAME></TAG>
           <TAG><NAME>Java</NAME></TAG>
           <TAG><NAME>Analytics</NAME></TAG>
@@ -410,6 +411,7 @@ MOCK_HOST_DETECTION_DELTA_XML = """<?xml version="1.0" encoding="UTF-8" ?>
         <OS>Red Hat Enterprise Linux 8.8</OS>
         <LAST_SCAN_DATETIME>2026-10-22T04:00:00Z</LAST_SCAN_DATETIME>
         <TAG_LIST>
+          <TAG><NAME>Bakong SIT</NAME></TAG>
           <TAG><NAME>Production</NAME></TAG>
           <TAG><NAME>Java</NAME></TAG>
           <TAG><NAME>Analytics</NAME></TAG>

@@ -1,3 +1,4 @@
+import re
 import pytest
 from playwright.sync_api import Page, expect
 
@@ -48,11 +49,11 @@ class TestMispThreatIntelSuite:
         row = page.locator("table tbody tr").filter(has_text="CVE-2024-6387")
         expect(row.first).to_be_visible(timeout=10000)
 
-        # Assert Proactive Pre-Scan badge is present in the row
-        expect(row.locator("text=Proactive Pre-Scan").first).to_be_visible()
+        # Assert match classification badge is present in the row
+        expect(row.get_by_text(re.compile(r"Qualys Confirmed|Proactive Pre-Scan")).first).to_be_visible()
 
         # Assert affected infrastructure count badge
-        expect(row.locator("text=servers").first).to_be_visible()
+        expect(row.get_by_text(re.compile(r"\d+\s+server")).first).to_be_visible()
 
         # Click Details button on the matching row
         detail_btn = row.locator('button:has-text("Details")').first

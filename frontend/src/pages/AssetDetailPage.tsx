@@ -587,7 +587,7 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId: propA
                       <td className="py-3 px-4 text-right">
                         <button
                           onClick={() => handleOpenRemediation(det)}
-                          className="px-3 py-1.5 rounded-lg bg-sky-600/10 hover:bg-sky-600/20 text-sky-400 border border-sky-500/30 text-xs font-semibold transition-colors flex items-center gap-1 ml-auto"
+                          className="px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 text-xs font-semibold transition-colors flex items-center gap-1 ml-auto cursor-pointer"
                         >
                           <Wrench className="w-3.5 h-3.5" /> View Fix Guidance & Proof
                         </button>

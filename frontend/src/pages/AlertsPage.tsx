@@ -634,7 +634,7 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
                             e.stopPropagation();
                             handleOpenDetail(al);
                           }}
-                          className="px-3 py-1.5 rounded-lg bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 text-xs font-semibold transition-colors cursor-pointer"
+                          className="px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 text-xs font-semibold transition-colors cursor-pointer"
                         >
                           Assessment <br/>Report &rarr;
                         </button>

@@ -16,7 +16,8 @@ import {
   Check,
   X,
   Server,
-  AlertCircle
+  AlertCircle,
+  Package
 } from 'lucide-react';
 import { apiClient, MispAssessmentListItem, MispAssessmentDetail, PaginatedMispFeedResponse } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -507,12 +508,23 @@ export const MispPage: React.FC = () => {
                       {/* Advisory Title & Product */}
                       <td className="py-3.5 px-4">
                         <div className="font-semibold text-slate-200 line-clamp-1">{adv.title}</div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 font-mono text-[10px] text-purple-300">
-                            {adv.affected_product} {adv.vulnerable_versions ? `(${adv.vulnerable_versions})` : ''}
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                          {/* Product Chip */}
+                          <span className="day-misp-product-chip inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-mono text-[11px] font-semibold bg-purple-950/60 text-purple-300 border border-purple-800/60">
+                            <Package className="w-3 h-3 text-purple-400 shrink-0" />
+                            <span>{adv.affected_product}</span>
                           </span>
+
+                          {/* Version Constraint Pill */}
+                          {adv.vulnerable_versions && (
+                            <span className="day-misp-version-chip inline-flex items-center px-1.5 py-0.5 rounded font-mono text-[10px] font-medium bg-amber-950/40 text-amber-300 border border-amber-800/50">
+                              {adv.vulnerable_versions}
+                            </span>
+                          )}
+
+                          {/* Description Snippet */}
                           {adv.description && adv.description !== adv.title && (
-                            <span className="text-[11px] text-slate-500 truncate max-w-xs">
+                            <span className="day-misp-desc text-[11px] text-slate-400 truncate max-w-xs" title={adv.description}>
                               {adv.description}
                             </span>
                           )}
@@ -578,7 +590,7 @@ export const MispPage: React.FC = () => {
                       {/* MISP Event Date */}
                       <td className="py-3.5 px-4 font-mono text-xs whitespace-nowrap">
                         {adv.misp_event_date ? (
-                          <span className="text-purple-300 font-semibold">{formatDateYMD(adv.misp_event_date)}</span>
+                          <span className="text-sky-400 font-semibold">{formatDateYMD(adv.misp_event_date)}</span>
                         ) : adv.misp_event_id ? (
                           <span className="text-slate-400 text-[11px]">Event #{adv.misp_event_id}</span>
                         ) : (
@@ -596,7 +608,7 @@ export const MispPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => openDetail(adv.id)}
-                          className="px-3 py-1.5 rounded-lg bg-purple-600/10 hover:bg-purple-600/20 text-purple-400 border border-purple-500/30 text-xs font-semibold transition-colors cursor-pointer"
+                          className="px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 text-xs font-semibold transition-colors cursor-pointer"
                         >
                           Details &rarr;
                         </button>
@@ -668,7 +680,7 @@ export const MispPage: React.FC = () => {
                     <h2 className="text-base font-bold text-slate-100 mt-2">{selectedDetail.title}</h2>
                     <div className="flex items-center gap-3 mt-1.5 text-[11px] text-slate-400 font-mono flex-wrap">
                       {selectedDetail.misp_event_date && (
-                        <span>MISP Published: <span className="text-purple-300 font-semibold">{formatDateYMD(selectedDetail.misp_event_date)}</span></span>
+                        <span>MISP Published: <span className="text-sky-400 font-semibold">{formatDateYMD(selectedDetail.misp_event_date)}</span></span>
                       )}
                       <span>Ingested: <span className="text-slate-200">{formatDateTimeYMD(selectedDetail.created_at)}</span></span>
                     </div>
@@ -718,18 +730,21 @@ export const MispPage: React.FC = () => {
                 </div>
 
                 {/* Target Criteria */}
-                <div className="p-4 rounded-xl bg-slate-900/60 border border-surfaceBorder space-y-2 text-xs">
+                <div className="day-misp-target-criteria p-4 rounded-xl bg-slate-900/60 border border-surfaceBorder space-y-2 text-xs">
                   <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
                     Target Criteria
                   </span>
                   <div className="grid grid-cols-2 gap-3 text-slate-300">
                     <div>
                       <span className="text-slate-500 block text-[10px]">Product / Package:</span>
-                      <span className="font-mono font-bold text-slate-100">{selectedDetail.affected_product}</span>
+                      <span className="font-mono font-bold text-slate-100 flex items-center gap-1.5 mt-0.5">
+                        <Package className="w-3.5 h-3.5 text-purple-400" />
+                        <span>{selectedDetail.affected_product}</span>
+                      </span>
                     </div>
                     <div>
                       <span className="text-slate-500 block text-[10px]">Vulnerable Range:</span>
-                      <span className="font-mono font-bold text-slate-100">{selectedDetail.vulnerable_versions || 'All versions'}</span>
+                      <span className="font-mono font-bold text-amber-300 mt-0.5 block">{selectedDetail.vulnerable_versions || 'All versions'}</span>
                     </div>
                   </div>
                 </div>
@@ -740,7 +755,7 @@ export const MispPage: React.FC = () => {
                     <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
                       <span>Verification Shell Command</span>
                     </span>
-                    <div className="relative flex items-center bg-slate-950 border border-surfaceBorder rounded-lg p-2.5 font-mono text-xs text-purple-300">
+                    <div className="day-misp-verify-cmd relative flex items-center bg-slate-950 border border-surfaceBorder rounded-lg p-2.5 font-mono text-xs text-purple-300">
                       <code className="flex-1 overflow-x-auto">
                         {selectedDetail.assessment_report.verification_command}
                       </code>

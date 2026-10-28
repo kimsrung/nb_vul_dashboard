@@ -1332,3 +1332,227 @@ html:not(.dark) div[class*="bg-red-950"].text-red-400 span,
 html:not(.dark) div[class*="bg-red-950"].text-red-400 svg {
   color: #b91c1c !important;
 }
+
+/* ==========================================================================
+   14. MISP THREAT INTELLIGENCE FEED (Day Mode Overhaul)
+   ========================================================================== */
+
+/* Dual-chip: Product Badge */
+html:not(.dark) .day-misp-product-chip {
+  background-color: #faf5ff !important; /* purple-50 */
+  border-color: #e9d5ff !important;     /* purple-200 */
+  color: #6b21a8 !important;            /* purple-700 */
+}
+
+html:not(.dark) .day-misp-product-chip svg {
+  color: #7c3aed !important;            /* purple-600 */
+}
+
+/* Dual-chip: Version Constraint Pill */
+html:not(.dark) .day-misp-version-chip {
+  background-color: #fffbeb !important; /* amber-50 */
+  border-color: #fde68a !important;     /* amber-200 */
+  color: #92400e !important;            /* amber-800 */
+}
+
+/* Description snippet under advisory title */
+html:not(.dark) .day-misp-desc {
+  color: #475569 !important;            /* slate-600 */
+}
+
+/* MISP KPI Summary Cards */
+html:not(.dark) div.bg-purple-950\/20 {
+  background-color: #faf5ff !important; /* purple-50 */
+  border-color: #e9d5ff !important;     /* purple-200 */
+}
+
+html:not(.dark) div.bg-purple-950\/20 .text-purple-300 {
+  color: #581c87 !important;            /* purple-900 high contrast */
+}
+
+html:not(.dark) div.bg-purple-950\/20 .text-purple-400 {
+  color: #7e22ce !important;            /* purple-700 */
+}
+
+html:not(.dark) div.bg-purple-950\/20 .text-purple-400\/90 {
+  color: #6b21a8 !important;            /* purple-800 */
+}
+
+html:not(.dark) div.bg-amber-950\/20 {
+  background-color: #fffbeb !important; /* amber-50 */
+  border-color: #fde68a !important;     /* amber-200 */
+}
+
+html:not(.dark) div.bg-amber-950\/20 .text-amber-300 {
+  color: #78350f !important;            /* amber-900 high contrast */
+}
+
+html:not(.dark) div.bg-amber-950\/20 .text-amber-400 {
+  color: #b45309 !important;            /* amber-700 */
+}
+
+html:not(.dark) div.bg-amber-950\/20 .text-amber-500\/80 {
+  color: #92400e !important;            /* amber-800 */
+}
+
+html:not(.dark) div.bg-red-950\/20 {
+  background-color: #fef2f2 !important; /* red-50 */
+  border-color: #fecaca !important;     /* red-200 */
+}
+
+html:not(.dark) div.bg-red-950\/20 .text-red-300 {
+  color: #7f1d1d !important;            /* red-900 high contrast */
+}
+
+html:not(.dark) div.bg-red-950\/20 .text-red-400 {
+  color: #b91c1c !important;            /* red-700 */
+}
+
+html:not(.dark) div.bg-red-950\/20 .text-red-500\/80 {
+  color: #991b1b !important;            /* red-800 */
+}
+
+html:not(.dark) div.bg-emerald-950\/20 {
+  background-color: #ecfdf5 !important; /* emerald-50 */
+  border-color: #a7f3d0 !important;     /* emerald-200 */
+}
+
+html:not(.dark) div.bg-emerald-950\/20 .text-emerald-300 {
+  color: #064e3b !important;            /* emerald-900 high contrast */
+}
+
+html:not(.dark) div.bg-emerald-950\/20 .text-emerald-400 {
+  color: #047857 !important;            /* emerald-700 */
+}
+
+html:not(.dark) div.bg-emerald-950\/20 .text-emerald-500\/80 {
+  color: #065f46 !important;            /* emerald-800 */
+}
+
+/* Match Classification Badges in Table & Drawer */
+html:not(.dark) span.bg-red-950\/80,
+html:not(.dark) span[class*="bg-red-950"] {
+  background-color: #fef2f2 !important; /* red-50 */
+  border-color: #fecaca !important;     /* red-200 */
+  color: #b91c1c !important;            /* red-700 */
+}
+
+html:not(.dark) span.bg-amber-950\/80,
+html:not(.dark) span[class*="bg-amber-950"] {
+  background-color: #fffbeb !important; /* amber-50 */
+  border-color: #fde68a !important;     /* amber-200 */
+  color: #92400e !important;            /* amber-800 */
+}
+
+html:not(.dark) span.bg-emerald-950\/80,
+html:not(.dark) span[class*="bg-emerald-950"] {
+  background-color: #ecfdf5 !important; /* emerald-50 */
+  border-color: #a7f3d0 !important;     /* emerald-200 */
+  color: #047857 !important;            /* emerald-700 */
+}
+
+/* Affected Infrastructure Count Pill in Table */
+html:not(.dark) span[class*="bg-amber-500/10"].text-amber-300 {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+  color: #92400e !important;
+}
+
+html:not(.dark) span[class*="bg-amber-500/10"] svg.text-amber-400 {
+  color: #b45309 !important;
+}
+
+/* Table Action Buttons in Day Mode (MISP Details, Alerts Assessment, Asset Inspect, Audit Details, User Edit) */
+html:not(.dark) td button[class*="bg-sky-500/10"],
+html:not(.dark) table button[class*="bg-sky-500/10"] {
+  background-color: #f0f9ff !important; /* sky-50 subtle brand tint */
+  border-color: #bae6fd !important;     /* sky-200 clean border */
+  color: #0284c7 !important;            /* sky-600 vivid primary blue */
+  box-shadow: 0 1px 2px 0 rgba(2, 132, 199, 0.06);
+}
+
+html:not(.dark) td button[class*="bg-sky-500/10"]:hover,
+html:not(.dark) table button[class*="bg-sky-500/10"]:hover {
+  background-color: #e0f2fe !important; /* sky-100 */
+  border-color: #7dd3fc !important;     /* sky-300 */
+  color: #0369a1 !important;            /* sky-700 deeper primary blue */
+}
+
+html:not(.dark) td button[class*="bg-sky-500/10"] svg,
+html:not(.dark) table button[class*="bg-sky-500/10"] svg {
+  color: currentColor !important;
+}
+
+/* MISP Event Date in Table */
+html:not(.dark) td span.text-sky-400 {
+  color: #0284c7 !important;
+  font-weight: 600;
+}
+
+/* Drawer: Target Criteria Card */
+html:not(.dark) .day-misp-target-criteria {
+  background-color: #f8fafc !important; /* slate-50 */
+  border-color: #e2e8f0 !important;     /* slate-200 */
+}
+
+html:not(.dark) .day-misp-target-criteria .text-slate-100 {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .day-misp-target-criteria .text-amber-300 {
+  color: #92400e !important;
+}
+
+/* Drawer: Verification Command Light Card */
+html:not(.dark) .day-misp-verify-cmd {
+  background-color: #f8fafc !important; /* slate-50 */
+  border-color: #cbd5e1 !important;     /* slate-300 */
+  color: #581c87 !important;            /* purple-900 crisp code */
+}
+
+html:not(.dark) .day-misp-verify-cmd code {
+  color: #581c87 !important;
+  font-weight: 600 !important;
+}
+
+html:not(.dark) .day-misp-verify-cmd button {
+  background-color: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #475569 !important;
+}
+
+html:not(.dark) .day-misp-verify-cmd button:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* Drawer: Match Status Box */
+html:not(.dark) div.bg-amber-950\/40 {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+  color: #92400e !important;
+}
+
+html:not(.dark) div.bg-red-950\/40 {
+  background-color: #fef2f2 !important;
+  border-color: #fecaca !important;
+  color: #b91c1c !important;
+}
+
+html:not(.dark) div.bg-emerald-950\/40 {
+  background-color: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+  color: #047857 !important;
+}
+
+/* Drawer: Affected servers card evidence block */
+html:not(.dark) div.bg-slate-900\/80 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html:not(.dark) div.bg-slate-950\/60 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #334155 !important;
+}
