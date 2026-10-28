@@ -15,7 +15,7 @@ import { LoginPage } from './pages/LoginPage';
 import { DashboardSummary, apiClient } from './api/client';
 
 const MainApp: React.FC = () => {
-  const { isAuthenticated, isAdmin } = useAuth();
+  const { isAuthenticated, isAdmin, isAnalyst } = useAuth();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState<boolean>(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
@@ -75,10 +75,10 @@ const MainApp: React.FC = () => {
             <Route path="/assets" element={<AssetsPage />} />
             <Route path="/assets/:id" element={<AssetDetailPage />} />
             <Route path="/alerts" element={<AlertsPage />} />
-            <Route path="/misp" element={isAdmin ? <MispPage /> : <Navigate to="/dashboard" replace />} />
+            <Route path="/misp" element={(isAdmin || isAnalyst) ? <MispPage /> : <Navigate to="/dashboard" replace />} />
             <Route path="/users" element={isAdmin ? <UsersPage /> : <Navigate to="/dashboard" replace />} />
             <Route path="/audit-logs" element={<AuditLogsPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/settings" element={isAdmin ? <SettingsPage /> : <Navigate to="/dashboard" replace />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </main>

@@ -25,9 +25,12 @@ class TestMispThreatAssessment:
             assert "created_at" in item
 
     @pytest.mark.asyncio
-    async def test_misp_feed_requires_admin(self, client: AsyncClient, viewer_headers: dict):
-        res = await client.get("/api/v1/misp/feed", headers=viewer_headers)
-        assert res.status_code == 403
+    async def test_misp_feed_analyst_allowed_viewer_rejected(self, client: AsyncClient, analyst_headers: dict, viewer_headers: dict):
+        res_analyst = await client.get("/api/v1/misp/feed", headers=analyst_headers)
+        assert res_analyst.status_code == 200
+
+        res_viewer = await client.get("/api/v1/misp/feed", headers=viewer_headers)
+        assert res_viewer.status_code == 403
 
     @pytest.mark.asyncio
     async def test_misp_summary_kpi_metrics(self, client: AsyncClient, admin_headers: dict):

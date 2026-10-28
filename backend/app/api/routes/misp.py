@@ -32,7 +32,7 @@ router = APIRouter(prefix="/misp", tags=["MISP Threat Intelligence"])
 @router.get("/summary", response_model=MispSummary)
 async def get_misp_summary(
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_admin),
+    user: User = Depends(require_analyst_or_admin),
 ):
     """Retrieve KPI metrics for FS-ISAC threat intelligence advisories (Admin only)."""
     # Total advisories
@@ -92,9 +92,9 @@ async def list_misp_feed(
     sort_by: Optional[str] = Query("cve_id", description="Sort by cve_id, misp_event_date, created_at, affected_assets_count, severity, cvss_score"),
     sort_order: Optional[str] = Query("desc", description="asc or desc"),
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_admin),
+    user: User = Depends(require_analyst_or_admin),
 ):
-    """List MISP threat intelligence CVE assessments with pagination, sorting, and filtering (Admin only)."""
+    """List MISP threat intelligence CVE assessments with pagination, sorting, and filtering (Analyst or Admin)."""
     base_query = select(MispCveAssessment)
 
     if match_type:
@@ -182,7 +182,7 @@ async def list_misp_feed(
 async def get_assessment_detail(
     assessment_id: int,
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_admin),
+    user: User = Depends(require_analyst_or_admin),
 ):
     """Retrieve full assessment report for an FS-ISAC CVE (Admin only)."""
     assessment = await db.get(MispCveAssessment, assessment_id)

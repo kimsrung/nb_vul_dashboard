@@ -27,7 +27,7 @@ def _mask_token(token: str) -> str:
 
 
 @router.get("", response_model=SystemSettingsResponse)
-async def get_settings(user: User = Depends(require_viewer)):
+async def get_settings(admin: User = Depends(require_admin)):
     return SystemSettingsResponse(
         qualys_api_url=settings.QUALYS_API_URL,
         qualys_username=settings.QUALYS_USERNAME,

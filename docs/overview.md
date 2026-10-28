@@ -180,10 +180,10 @@ Located directly under Alert Center in the sidebar navigation (accessible at `/m
 The User Management module enforces enterprise Role-Based Access Control (RBAC).
 
 #### RBAC Roles:
-1. **Admin (`admin`)**: Unrestricted platform control. Can create/edit users, manage system settings, assign server owners, trigger sync jobs, delete assets, and test Telegram alerts.
-2. **Analyst (`analyst`)**: Security triage and incident response. Can inspect all infrastructure, assign server owners and PoCs, update remediation statuses in drawers, and resolve threat alerts. Cannot edit system settings, delete assets, or modify user accounts.
+1. **Admin (`admin`)**: Unrestricted platform control. Can create/edit users, manage system settings & integrations, access API documentation, assign server owners, trigger Qualys and MISP sync jobs, delete assets, and test Telegram alerts.
+2. **Analyst (`analyst`)**: Security triage and incident response. Can inspect all infrastructure, access the MISP Threat Intelligence Feed (`/misp`), assign server owners and PoCs, update remediation statuses in drawers, and resolve threat alerts. Cannot access Admin Settings, user management, API documentation, or trigger manual sync jobs.
 3. **Owner (`owner`)**: Scoped Host Ownership account (e.g., `owner_appcore`). **Strictly scoped to assets assigned to their user ID** (`Asset.owner_id == user.id`). Can only view and update remediation statuses on their assigned servers.
-4. **Viewer (`viewer`)**: Read-only audit access. Can view executive dashboard KPIs, browse all assets, inspect KB remediation advice, and view threat alerts. All write/edit endpoints return HTTP 403 Forbidden.
+4. **Viewer (`viewer`)**: Read-only audit access. Can view executive dashboard KPIs, browse all assets, inspect KB remediation advice, and view threat alerts. All write/edit endpoints, Admin Settings, MISP Feed, and User Management return HTTP 403 Forbidden.
 
 #### Administrative Capabilities:
 - **User Catalog**: Displays username, full name, email, role badge, account status, and timestamps.
@@ -248,17 +248,19 @@ The Admin Settings module allows administrators to configure integrations, tune 
 |---|:---:|:---:|:---:|:---:|
 | **View Executive Dashboard KPIs** | Full | Full | Scoped to Owned Assets | Full |
 | **Trigger Qualys Scan Sync** | Yes | No | No | No |
-| **Trigger MISP Threat Feed Sync (/misp)** | **Yes** | **No** | **No** | **No** |
+| **Access MISP Threat Feed (`/misp`)** | **Yes** | **Yes** | **No** | **No** |
+| **Trigger MISP Threat Feed Sync (`POST /misp/sync`)** | **Yes** | **No** | **No** | **No** |
 | **Browse All Asset Inventory** | All Hosts | All Hosts | **Only Assigned Hosts** | All Hosts |
 | **Edit Server Name, Owner & PoC** | Yes | Yes | No | No |
 | **Delete Assets (`DELETE /assets/{id}`)** | Yes | No | No | No |
 | **Update Remediation Drawer Status** | Yes | Yes | **Yes (Owned Hosts Only)** | No |
 | **View Threat Alert Center** | All Alerts | All Alerts | **Only Alerts on Owned Hosts** | All Alerts |
-| **Access MISP Threat Feed (/misp)** | **Yes** | **No** | **No** | **No** |
 | **Resolve Threat Alerts** | Yes | Yes | No | No |
 | **Manage Users (Create/Edit/Delete)** | Yes | No | No | No |
 | **Inspect Audit & History Logs** | Yes | Yes | No | Yes |
-| **Edit System Settings & API Keys** | Yes | No | No | No |
+| **View / Access Admin Settings (`/settings`)** | **Yes** | **No** | **No** | **No** |
+| **Edit System Settings & API Keys (`POST /settings`)** | Yes | No | No | No |
+| **Access API Documentation (`/docs`)** | **Yes** | **No** | **No** | **No** |
 | **Test Telegram / Connection Testers** | Yes | No | No | No |
 
 ---
@@ -299,8 +301,8 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A["09:00 AM: Log In as Analyst"] --> B["Inspect Threat Alert Center for New CVEs"]
-    B --> C{"Proactive Pre-Scan Match?"}
+    A["09:00 AM: Log In as Analyst"] --> B["Review MISP Threat Feed & Alert Center"]
+    B --> C{"Proactive Pre-Scan Match in MISP or Alerts?"}
     C -- Yes --> D["Open Threat Dossier -> Copy Verification Command"]
     D --> E["Identify Affected Servers, Group Owner & PoC"]
     E --> F["Contact PoC via Telegram / Email with Workaround"]
@@ -310,9 +312,10 @@ flowchart TD
 ```
 
 #### Step-by-Step Scenario:
-1. **09:00 AM — Morning Threat Triage**:
+1. **09:00 AM — Morning Threat Intelligence & Alert Triage**:
    - David logs in as `analyst`.
-   - Navigates to **Threat Alerts**. Identifies a new Critical advisory: `CVE-2024-6387` (OpenSSH regreSSHion), marked as **`INVENTORY_PROACTIVE`**.
+   - Navigates to **MISP Threat Feed** (`/misp`) to review incoming FS-ISAC advisories, then checks the **Threat Alert Center** (`/alerts`).
+   - Identifies a new Critical advisory: `CVE-2024-6387` (OpenSSH regreSSHion), marked as **`INVENTORY_PROACTIVE`**.
 2. **09:15 AM — Evaluating Exposure & Contacting PoC**:
    - Clicks on the advisory to open the **Threat Dossier Drawer**.
    - Inspects the affected server list: Server `bk-appcore-sit` (`10.10.20.15`) is running OpenSSH `8.2p1`.

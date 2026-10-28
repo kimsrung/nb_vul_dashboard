@@ -28,6 +28,7 @@ The platform monitors enterprise infrastructure security posture by integrating 
 | **Security & Auth** | PyJWT, Bcrypt, OAuth2 Password Bearer |
 | **Frontend** | React 18, TypeScript, Vite, Tailwind CSS, Lucide Icons, Axios |
 | **Containerization** | Docker, Docker Compose, Nginx Alpine |
+| **Testing & Quality** | Pytest, Pytest-Asyncio, Playwright (Chromium E2E Browser Testing) |
 
 ---
 
@@ -36,6 +37,8 @@ The platform monitors enterprise infrastructure security posture by integrating 
 ```
 dashboard_alert/
 ├── README.md                       # User-facing documentation & quickstart
+├── run_e2e.sh                      # Unified Playwright E2E browser test runner (Linux / macOS / Git Bash)
+├── run_e2e.ps1                     # Native Windows PowerShell E2E browser test runner
 ├── docker-compose.yml              # Default production deployment stack
 ├── docker-compose.dev.yml          # Live hot-reloading development stack
 ├── docker-compose.prod.yml         # Hardened multi-worker production stack
@@ -49,11 +52,19 @@ dashboard_alert/
 │   ├── Qualys.md                   # Qualys Cloud Platform & raw severity guide
 │   ├── MISP.md                     # MISP & FS-ISAC threat intelligence guide
 │   └── Qualys_MISP_work_together.md # Cross-platform synergy & conflict prevention
+├── tests_e2e/                      # Playwright automated browser integration tests
+│   ├── conftest.py                 # Fixtures (authenticated pages, cleanup, browser viewport)
+│   ├── test_01_auth_and_rbac.py    # Multi-role RBAC, auth & scoping tests
+│   ├── test_02_assets_and_remediation.py # KPIs, themes, assets, and KB remediation
+│   ├── test_03_alerts_lifecycle.py # Alert center severity filters & status transitions
+│   ├── test_04_misp_threat_intel.py # MISP threat intelligence feed & CVE search
+│   └── test_05_admin_governance.py # User management, audit logs, and settings
 ├── backend/
 │   ├── Dockerfile                  # Hardened production container spec (non-root, multi-worker)
 │   ├── Dockerfile.dev              # Development container spec (uvicorn live reload)
 │   ├── requirements.txt            # Python dependencies
 │   ├── venv/                       # Local Python virtual environment
+│   ├── tests/                      # Backend unit, integration, and VAPT test suites (67 tests)
 │   └── app/
 │       ├── main.py                 # FastAPI application, startup lifespan, DB seeding
 │       ├── core/
@@ -91,7 +102,7 @@ dashboard_alert/
 │       │   ├── telegram_service.py # Telegram bot HTML dispatch (Qualys + FS-ISAC alerts)
 │       │   └── scheduler.py        # Background periodic sync runner (APScheduler)
 │       └── api/
-│           ├── deps.py             # Auth dependencies & RBAC (admin, analyst, viewer)
+│           ├── deps.py             # Auth dependencies & RBAC (require_admin, require_analyst_or_admin, require_viewer)
 │           └── routes/
 │               ├── auth.py         # POST /auth/login, user CRUD, GET /auth/owners
 │               ├── dashboard.py    # GET /dashboard/summary, POST /dashboard/sync
@@ -203,16 +214,69 @@ docker compose up -d --build
 
 ## 5. Automated Testing Guidelines
 
-To run the full automated test suite (53 tests across 9 modules):
+### A. End-to-End (E2E) Browser Integration Tests (Playwright)
+
+A comprehensive 17-test browser automation suite validates complete user journeys across all 4 RBAC roles in a real Chromium browser instance.
+
+#### On Linux, macOS, or Git Bash (`./run_e2e.sh`):
+```bash
+# Run all 17 E2E tests in visible desktop browser with human-paced slowdown (1000ms delay)
+./run_e2e.sh
+
+# Run with a custom slowdown pace (e.g. 1500ms or 500ms)
+./run_e2e.sh --slowmo 1500
+
+# Run in headless mode (ideal for CI/CD and background runners)
+./run_e2e.sh --headless
+
+# Run visible desktop browser at full speed (no delay)
+./run_e2e.sh --fast
+
+# Run specific test suites individually
+./run_e2e.sh test_01    # Auth & Multi-Role RBAC Suite (5 tests)
+./run_e2e.sh test_02    # Assets, KPIs & KB Remediation Suite (4 tests)
+./run_e2e.sh test_03    # Alert Center Lifecycle Suite (2 tests)
+./run_e2e.sh test_04    # MISP Threat Intelligence Feed Suite (2 tests)
+./run_e2e.sh test_05    # Admin Governance & Settings Suite (4 tests)
+
+# Point to custom URL
+E2E_BASE_URL="http://localhost:80" ./run_e2e.sh --headless
+```
+
+#### On Windows (PowerShell `.\run_e2e.ps1`):
+```powershell
+# Run all 17 E2E tests with human-paced slowdown (1000ms delay)
+.\run_e2e.ps1
+
+# Custom slowdown or headless
+.\run_e2e.ps1 -SlowMo 1500
+.\run_e2e.ps1 -Headless
+
+# Run specific suite
+.\run_e2e.ps1 test_01
+```
+*(If using **Git Bash** on Windows, you can also run `./run_e2e.sh` directly as it auto-detects `backend\venv\Scripts\pytest.exe`).*
+
+### B. Backend Unit, Integration & Security Test Suite (pytest)
+
+To run the full automated backend test suite (67 tests across 10 modules including VAPT security and penetration testing):
 ```bash
 cd backend
+source venv/bin/activate
+
+# Run all 67 backend unit, integration, and security tests
 PYTHONPATH=. ./venv/bin/pytest
 
 # Run the complete end-to-end happy path integration test
 PYTHONPATH=. ./venv/bin/pytest tests/test_integration_happy_path.py
+
+# Run VAPT security, fuzzing, and penetration tests
+PYTHONPATH=. ./venv/bin/pytest tests/test_vapt_security.py
 ```
 
-To verify the frontend build:
+### C. Frontend Production Build & Typecheck
+
+To verify TypeScript compilation, linting, and the Vite production asset bundle:
 ```bash
 cd frontend
 npm run build
@@ -229,7 +293,10 @@ npm run build
 3. **Safe XML Parsing**:
    Always use `defusedxml.ElementTree` instead of Python's standard `xml.etree.ElementTree` to prevent XML entity expansion (Billion Laughs / XXE) attacks from external Qualys responses.
 4. **RBAC Enforcement**:
-   Every write endpoint (`POST`, `PATCH`, `PUT`, `DELETE`) must depend on `require_admin` from `app.api.deps`. Read-only endpoints (`GET`) must depend on `require_viewer`.
+   - Write endpoints (`POST`, `PATCH`, `PUT`, `DELETE`) require `require_admin`, with the exception of alert resolution (`POST /alerts/{id}/resolve`) and remediation status updates (`PATCH /detections/{id}/remediation`) which permit `require_analyst_or_admin` (and scoped owner permissions on assigned hosts).
+   - System settings (`/settings` UI, `GET /api/v1/settings`, `POST /api/v1/settings`) and API documentation (`/docs` UI) are strictly restricted to `require_admin`.
+   - Threat intelligence feed endpoints (`GET /misp/summary`, `GET /misp/feed`, `GET /misp/assessments/{id}`) permit `require_analyst_or_admin`, while manual synchronization (`POST /misp/sync` and `POST /dashboard/sync`) strictly requires `require_admin`.
+   - General read-only endpoints (`GET`) require `require_viewer`.
 5. **Database Standard**:
    Standardize on PostgreSQL (`postgresql+asyncpg`) across all deployment environments. Ensure queries use standard async SQLAlchemy ORM practices.
 6. **API Documentation Protection**:

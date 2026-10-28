@@ -173,7 +173,7 @@ export const MispPage: React.FC = () => {
               MISP Threat Intelligence Feed
             </h1>
             <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-purple-950 text-purple-400 border border-purple-800">
-              Admin Only
+              Threat Intel
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">

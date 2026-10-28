@@ -98,8 +98,8 @@ class TestVAPTSecuritySuite:
     # =========================================================================
 
     @pytest.mark.asyncio
-    async def test_viewer_role_cannot_trigger_sync_operations(self, client: AsyncClient, viewer_headers: dict):
-        """Viewer role must not be able to trigger Qualys or MISP background syncs."""
+    async def test_viewer_role_cannot_trigger_sync_operations(self, client: AsyncClient, viewer_headers: dict, analyst_headers: dict):
+        """Viewer and Analyst roles must not be able to trigger Qualys or MISP background syncs."""
         # Qualys sync trigger
         res_qualys = await client.post("/api/v1/dashboard/sync?mode=delta", headers=viewer_headers)
         assert res_qualys.status_code == 403
@@ -107,6 +107,9 @@ class TestVAPTSecuritySuite:
         # MISP sync trigger
         res_misp = await client.post("/api/v1/misp/sync", headers=viewer_headers)
         assert res_misp.status_code == 403
+
+        res_misp_analyst = await client.post("/api/v1/misp/sync", headers=analyst_headers)
+        assert res_misp_analyst.status_code == 403
 
     @pytest.mark.asyncio
     async def test_unauthenticated_cannot_access_audit_logs(self, client: AsyncClient):
@@ -122,7 +125,14 @@ class TestVAPTSecuritySuite:
 
     @pytest.mark.asyncio
     async def test_viewer_and_owner_cannot_modify_settings(self, client: AsyncClient, viewer_headers: dict, owner_headers: dict):
-        """Viewer and Owner roles cannot alter system configuration or test integrations."""
+        """Viewer and Owner roles cannot read or alter system configuration or test integrations."""
+        # Read attempt (Admin only)
+        res_read_v = await client.get("/api/v1/settings", headers=viewer_headers)
+        assert res_read_v.status_code == 403
+
+        res_read_o = await client.get("/api/v1/settings", headers=owner_headers)
+        assert res_read_o.status_code == 403
+
         payload = {"qualys_mock_mode": True}
 
         # Viewer attempt

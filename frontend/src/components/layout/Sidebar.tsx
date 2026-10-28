@@ -21,16 +21,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const location = useLocation();
   const navigate = useNavigate();
 
-  const canViewDocs = isAdmin || isAnalyst;
+  const canViewMisp = isAdmin || isAnalyst;
+  const canViewDocs = isAdmin;
 
   const navItems = [
     { id: 'dashboard', path: '/dashboard', label: 'Executive Overview', icon: LayoutDashboard },
     { id: 'assets', path: '/assets', label: 'Asset Inventory', icon: Server, matchPrefix: true },
     { id: 'alerts', path: '/alerts', label: 'Alert Center', icon: Bell, badge: activeAlertCount > 0 ? activeAlertCount : undefined },
-    ...(isAdmin ? [{ id: 'misp', path: '/misp', label: 'MISP Feed', icon: Radio }] : []),
+    ...(canViewMisp ? [{ id: 'misp', path: '/misp', label: 'MISP Feed', icon: Radio }] : []),
     ...(isAdmin ? [{ id: 'users', path: '/users', label: 'User Management', icon: Users }] : []),
     { id: 'audit-logs', path: '/audit-logs', label: 'Audit & History Logs', icon: History },
-    { id: 'settings', path: '/settings', label: 'Admin Settings', icon: Settings },
+    ...(isAdmin ? [{ id: 'settings', path: '/settings', label: 'Admin Settings', icon: Settings }] : []),
     ...(canViewDocs ? [{ id: 'api-docs', path: '/docs', label: 'API Documentation', icon: FileCode2, external: true }] : []),
   ];
 
