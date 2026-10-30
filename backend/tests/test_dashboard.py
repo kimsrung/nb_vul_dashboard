@@ -65,14 +65,14 @@ class TestDashboardSummaryAndSync:
         assert res.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_dashboard_sync_trigger_and_rbac(
+    async def test_qualys_sync_trigger_and_rbac(
         self, client: AsyncClient, admin_headers: dict, viewer_headers: dict
     ):
         # Viewer cannot trigger Qualys scan sync
-        viewer_sync = await client.post("/api/v1/dashboard/sync?mode=delta", headers=viewer_headers)
+        viewer_sync = await client.post("/api/v1/sync/qualys?mode=delta", headers=viewer_headers)
         assert viewer_sync.status_code == 403
 
         # Admin can trigger Qualys scan sync
-        admin_sync = await client.post("/api/v1/dashboard/sync?mode=delta", headers=admin_headers)
-        assert admin_sync.status_code == 200
+        admin_sync = await client.post("/api/v1/sync/qualys?mode=delta", headers=admin_headers)
+        assert admin_sync.status_code in (200, 202)
         assert admin_sync.json()["success"] is True

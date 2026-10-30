@@ -20,10 +20,12 @@ import json
 import logging
 import argparse
 import asyncio
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
+from app.models.setting import SystemSetting
 from app.services.misp_client import MispClient
 from app.services.proactive_assessment_engine import ProactiveAssessmentEngine
 from app.services.telegram_service import TelegramService
@@ -34,17 +36,70 @@ logger = logging.getLogger("misp-zmq-subscriber")
 
 _subscriber_task: Optional[asyncio.Task] = None
 _stop_event = asyncio.Event()
+_last_connected_at: Optional[datetime] = None
+_last_message_at: Optional[datetime] = None
+_messages_received_count: int = 0
 
 
-async def process_misp_zmq_payload(topic: str, payload_str: str):
-    """Parse MISP ZeroMQ JSON payload and trigger proactive asset assessment."""
+def check_tcp_established(host: str, port: int) -> bool:
+    """Check if an established TCP socket to host:port exists in Linux socket table (/proc/net/tcp)."""
     try:
-        raw_data = json.loads(payload_str)
-    except Exception as e:
-        logger.warning(f"Failed to decode MISP ZMQ JSON on topic '{topic}': {e}")
-        return
+        import os
+        import socket
+        if not os.path.exists("/proc/net/tcp"):
+            return False
+        # Resolve hostname to IPv4 address
+        try:
+            ip = socket.gethostbyname(host)
+        except Exception:
+            ip = host
+        ip_hex = "".join([f"{int(x):02X}" for x in reversed(ip.split("."))])
+        port_hex = f"{port:04X}"
+        match_str = f"{ip_hex}:{port_hex}".upper()
+        with open("/proc/net/tcp") as f:
+            for line in f:
+                parts = line.strip().split()
+                if len(parts) >= 4 and parts[2].upper() == match_str:
+                    if parts[3] == "01":  # TCP_ESTABLISHED
+                        return True
+        return False
+    except Exception:
+        return False
 
-    # Extract event dictionary
+
+def get_subscriber_status() -> Dict[str, Any]:
+    """Retrieve runtime diagnostics of the ZeroMQ subscriber."""
+    global _subscriber_task, _last_connected_at, _last_message_at, _messages_received_count
+    host = (settings.MISP_ZMQ_HOST or "10.20.40.19").strip()
+    port = settings.MISP_ZMQ_PORT or 50000
+    is_established = check_tcp_established(host, port)
+    is_running = (_subscriber_task is not None and not _subscriber_task.done()) or is_established
+
+    return {
+        "subscriber_active": is_running,
+        "socket_established": is_established,
+        "host": host,
+        "port": port,
+        "last_connected_at": _last_connected_at.isoformat() if _last_connected_at else None,
+        "last_message_at": _last_message_at.isoformat() if _last_message_at else None,
+        "messages_received_count": _messages_received_count,
+    }
+
+
+async def process_misp_push_payload(
+    raw_data: Any,
+    source_channel: str = "ZeroMQ Stream",
+    topic: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Parse MISP threat event payload from ZeroMQ stream and trigger proactive asset assessment.
+
+    1. Extracts MISP Event structures from payload.
+    2. Identifies FS-ISAC CVE candidate advisories.
+    3. Evaluates candidates against active inventory (Qualys QIDs, software packages, OS platforms).
+    4. Persists assessment records (instantly reflected on /alerts and Dashboard KPIs).
+    5. Dispatches formatted Telegram alert for Critical/High severity matches affecting inventory.
+    6. Records comprehensive audit trail in audit_logs.
+    """
     events_to_evaluate = []
     if isinstance(raw_data, list):
         events_to_evaluate = raw_data
@@ -71,11 +126,19 @@ async def process_misp_zmq_payload(topic: str, payload_str: str):
     client = MispClient()
     parsed_advisories = client._parse_misp_events(events_to_evaluate)
     if not parsed_advisories:
-        logger.debug(f"ZMQ message received on '{topic}' but not matching FS-ISAC CVE criteria.")
-        return
+        logger.debug(f"{source_channel} message received but contained no events matching FS-ISAC CVE criteria.")
+        return {
+            "success": True,
+            "message": f"Payload received via {source_channel} but contained no events matching FS-ISAC CVE criteria.",
+            "advisories_evaluated": 0,
+            "matching_alerts_created": 0,
+            "evaluated_cves": [],
+            "details": [],
+        }
 
-    logger.info(f"⚡ [MISP ZMQ Stream] Received {len(parsed_advisories)} FS-ISAC advisory candidate(s)")
+    logger.info(f"⚡ [MISP {source_channel}] Received {len(parsed_advisories)} FS-ISAC advisory candidate(s)")
 
+    evaluated_details: List[Dict[str, Any]] = []
     async with AsyncSessionLocal() as session:
         alerts_created = 0
         for adv in parsed_advisories:
@@ -83,10 +146,12 @@ async def process_misp_zmq_payload(topic: str, payload_str: str):
             logger.info(f"🔍 Evaluating FS-ISAC advisory {cve_id} against server inventory...")
             record = await ProactiveAssessmentEngine.assess_cve(session, adv)
             affected_count = record.affected_assets_count
-            if affected_count > 0:
+            matched_flag = affected_count > 0
+
+            if matched_flag:
                 alerts_created += 1
                 logger.warning(
-                    f"🚨 [MISP ZMQ Alert Generated] {cve_id} matched {affected_count} server(s) in inventory! "
+                    f"🚨 [MISP {source_channel} Alert Generated] {cve_id} matched {affected_count} server(s) in inventory! "
                     f"Type: {record.match_type}"
                 )
                 if (
@@ -96,13 +161,25 @@ async def process_misp_zmq_payload(topic: str, payload_str: str):
                 ):
                     try:
                         tg_text = TelegramService.format_misp_assessment_alert(record)
-                        await TelegramService.send_message(tg_text)
-                        record.dispatched_telegram = True
+                        tg_res = await TelegramService.send_message(tg_text)
+                        if tg_res.get("success"):
+                            record.dispatched_telegram = True
+                            record.telegram_sent_at = datetime.now(timezone.utc)
                     except Exception as te:
                         logger.error(f"Telegram dispatch failed: {te}")
 
+            evaluated_details.append({
+                "cve_id": cve_id,
+                "title": record.title,
+                "severity": record.severity,
+                "cvss_score": record.cvss_score,
+                "match_type": record.match_type,
+                "affected_assets_count": affected_count,
+                "dispatched_telegram": record.dispatched_telegram,
+            })
+
             # Record audit log for EVERY event triggered from MISP (whether matched or clean)
-            status_desc = f"{affected_count} server(s) affected" if affected_count > 0 else "0 servers affected (Clean)"
+            status_desc = f"{affected_count} server(s) affected" if matched_flag else "0 servers affected (Clean)"
             await AuditService.log_event(
                 db=session,
                 action="MISP_EVENT_TRIGGERED",
@@ -118,26 +195,57 @@ async def process_misp_zmq_payload(topic: str, payload_str: str):
                     "cvss_score": record.cvss_score,
                     "affected_assets_count": affected_count,
                     "match_type": record.match_type,
-                    "matched_in_inventory": affected_count > 0,
-                    "source": "ZeroMQ Stream",
+                    "matched_in_inventory": matched_flag,
+                    "source": source_channel,
                     "misp_event_id": adv.get("misp_event_id"),
                 },
             )
 
+        # Update last sync time watermark in system_settings
+        now_str = datetime.now(timezone.utc).isoformat()
+        sync_setting = await session.get(SystemSetting, "misp_last_sync_time")
+        if sync_setting:
+            sync_setting.value = now_str
+        else:
+            session.add(SystemSetting(key="misp_last_sync_time", value=now_str, description="Timestamp of last MISP sync/push"))
+
         # Bulk stream log summary
+        audit_action = "MISP_ZMQ_FEED_RECEIVED"
         await AuditService.log_event(
             db=session,
-            action="MISP_ZMQ_FEED_RECEIVED",
+            action=audit_action,
             target_type="MISP_Feed",
-            target_id=str(parsed_advisories[0].get("cve_id", "ZMQ")),
-            target_name=f"FS-ISAC ZMQ Stream ({len(parsed_advisories)} advisories, {alerts_created} matching alerts)",
+            target_id=str(parsed_advisories[0].get("cve_id", "LIVE_PUSH")),
+            target_name=f"FS-ISAC {source_channel} ({len(parsed_advisories)} advisories, {alerts_created} matching alerts)",
             details={
+                "source_channel": source_channel,
+                "topic": topic,
                 "advisories_count": len(parsed_advisories),
                 "alerts_created": alerts_created,
                 "cves": [a.get("cve_id") for a in parsed_advisories[:10]],
             },
         )
         await session.commit()
+
+    return {
+        "success": True,
+        "message": f"Successfully evaluated {len(parsed_advisories)} FS-ISAC advisory candidate(s) via {source_channel}: {alerts_created} matching alert(s) generated.",
+        "advisories_evaluated": len(parsed_advisories),
+        "matching_alerts_created": alerts_created,
+        "evaluated_cves": [a.get("cve_id") for a in parsed_advisories if a.get("cve_id")],
+        "details": evaluated_details,
+    }
+
+
+async def process_misp_zmq_payload(topic: str, payload_str: str):
+    """Parse MISP ZeroMQ JSON payload and trigger proactive asset assessment."""
+    try:
+        raw_data = json.loads(payload_str)
+    except Exception as e:
+        logger.warning(f"Failed to decode MISP ZMQ JSON on topic '{topic}': {e}")
+        return
+
+    await process_misp_push_payload(raw_data, source_channel="ZeroMQ Stream", topic=topic)
 
 
 async def zmq_subscriber_loop(
@@ -171,6 +279,12 @@ async def zmq_subscriber_loop(
         # Set receive timeout and linger
         sock.setsockopt(zmq.LINGER, 0)
         sock.setsockopt(zmq.RCVTIMEO, 2000)
+        sock.setsockopt(zmq.TCP_KEEPALIVE, 1)        # Enable TCP keepalive probes
+        sock.setsockopt(zmq.TCP_KEEPALIVE_IDLE, 30)   # Send probe after 30s of silence
+        sock.setsockopt(zmq.TCP_KEEPALIVE_INTVL, 10)  # Retry probe every 10s
+        sock.setsockopt(zmq.TCP_KEEPALIVE_CNT, 3)     # Drop after 3 dropped probes
+        sock.setsockopt(zmq.RECONNECT_IVL, 1000)      # Reconnect after 1s on drop
+        sock.setsockopt(zmq.RECONNECT_IVL_MAX, 5000)  # Max reconnect backoff 5s
 
         # Configure ZeroMQ PLAIN authentication if credentials are provided
         if user and pwd:
@@ -178,9 +292,11 @@ async def zmq_subscriber_loop(
             sock.setsockopt_string(zmq.PLAIN_PASSWORD, pwd)
 
         try:
+            global _last_connected_at, _last_message_at, _messages_received_count
             sock.connect(target_addr)
             for t in topics:
                 sock.setsockopt_string(zmq.SUBSCRIBE, t)
+            _last_connected_at = datetime.now(timezone.utc)
             logger.info(f"Connected to MISP ZeroMQ at {target_addr}. Real-time feed subscription ACTIVE.")
             retry_delay = 5  # Reset delay on successful connection
 
@@ -190,6 +306,8 @@ async def zmq_subscriber_loop(
                         frames = await sock.recv_multipart()
                         if not frames:
                             continue
+                        _last_message_at = datetime.now(timezone.utc)
+                        _messages_received_count += 1
                         if len(frames) == 1:
                             raw_str = frames[0].decode("utf-8", errors="replace")
                             parts = raw_str.split(" ", 1)

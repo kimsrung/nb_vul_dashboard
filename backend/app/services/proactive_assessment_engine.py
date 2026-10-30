@@ -1,6 +1,6 @@
 import re
 import logging
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from datetime import datetime, timezone
 from sqlalchemy import select, or_
 from sqlalchemy.orm import selectinload
@@ -342,15 +342,11 @@ class ProactiveAssessmentEngine:
                 record.updated_at = now
 
         # =========================================================================
-        # STEP 3: Dispatch Telegram Alert for affected servers
+        # STEP 3: Complete Assessment Record
         # =========================================================================
-        if len(affected_assets_data) > 0 and (not record.dispatched_telegram or settings.TELEGRAM_ENABLED):
-            tg_text = TelegramService.format_misp_assessment_alert(record)
-            tg_result = await TelegramService.send_message(tg_text)
-            if tg_result.get("success"):
-                record.dispatched_telegram = True
-                record.telegram_sent_at = now
-                dispatched_now = True
+        # Note: Assessment engine strictly computes inventory mapping and persists results.
+        # Telegram notifications are decoupled and dispatched asynchronously by callers
+        # (API background tasks, scheduler, or ZeroMQ streamer) to prevent blocking requests.
 
         await db.commit()
         await db.refresh(record)
@@ -393,22 +389,25 @@ class ProactiveAssessmentEngine:
 
     @classmethod
     async def _check_inventory_software(
-        cls, db: AsyncSession, product: str, vuln_versions: str
+        cls, db: AsyncSession, product: str, vuln_versions: str, asset_ids: Optional[List[int]] = None
     ) -> List[Tuple[Asset, AssetSoftware]]:
-        """Match product name and version against the AssetSoftware table."""
+        """Match product name and version against the AssetSoftware table, optionally scoped to asset_ids."""
         if not product:
             return []
 
         # Expand product search aliases
         search_terms = PRODUCT_ALIASES.get(product.lower(), [product.lower()])
 
-        # Query all software items matching aliases
+        # Query software items matching aliases
         conditions = []
         for term in search_terms:
             conditions.append(AssetSoftware.product_name.ilike(f"%{term}%"))
             conditions.append(AssetSoftware.package_name.ilike(f"%{term}%"))
 
         query = select(AssetSoftware).options(selectinload(AssetSoftware.asset)).where(or_(*conditions))
+        if asset_ids:
+            query = query.where(AssetSoftware.asset_id.in_(asset_ids))
+
         res = await db.execute(query)
         software_items = res.scalars().all()
 
@@ -419,3 +418,52 @@ class ProactiveAssessmentEngine:
                 if is_version_vulnerable(sw.version, vuln_versions):
                     matches.append((sw.asset, sw))
         return matches
+
+    @classmethod
+    async def evaluate_assets_against_threats(
+        cls, db: AsyncSession, asset_ids: List[int]
+    ) -> int:
+        """Targeted evaluation of specific modified/new assets against active threat advisories."""
+        if not asset_ids:
+            return 0
+
+        # Query existing active advisories looking for vulnerable software
+        stmt = select(MispCveAssessment).where(
+            MispCveAssessment.affected_product.isnot(None),
+            MispCveAssessment.vulnerable_versions.isnot(None),
+        )
+        res = await db.execute(stmt)
+        assessments = res.scalars().all()
+        re_evaluated = 0
+
+        for assessment in assessments:
+            matches = await cls._check_inventory_software(
+                db, assessment.affected_product, assessment.vulnerable_versions, asset_ids=asset_ids
+            )
+            if matches:
+                report = dict(assessment.assessment_report or {})
+                servers = list(report.get("affected_servers", []))
+                existing_asset_ids = {s.get("asset_id") for s in servers}
+                new_matches = [m for m in matches if m[0].id not in existing_asset_ids]
+
+                if new_matches:
+                    for a, sw in new_matches:
+                        servers.append({
+                            "asset_id": a.id,
+                            "server_name": a.server_name,
+                            "ip_address": a.ip_address,
+                            "installed_version": sw.version,
+                            "match_source": "Software Inventory",
+                        })
+                    report["affected_servers"] = servers
+                    assessment.assessment_report = report
+                    assessment.affected_assets_count = len(servers)
+                    if assessment.match_type == "NO_ASSETS_AFFECTED":
+                        assessment.match_type = "INVENTORY_PROACTIVE"
+                    assessment.updated_at = datetime.now(timezone.utc)
+                    re_evaluated += 1
+
+        if re_evaluated > 0:
+            await db.commit()
+            logger.info(f"Targeted MISP evaluation updated {re_evaluated} advisories for {len(asset_ids)} changed assets.")
+        return re_evaluated

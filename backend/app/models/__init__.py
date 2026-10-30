@@ -7,6 +7,7 @@ from app.models.setting import SystemSetting
 from app.models.software import AssetSoftware
 from app.models.misp_feed import MispCveAssessment
 from app.models.audit_log import AuditLog
+from app.models.sync_job import SyncJob
 
 __all__ = [
     "User",
@@ -18,4 +19,5 @@ __all__ = [
     "AssetSoftware",
     "MispCveAssessment",
     "AuditLog",
+    "SyncJob",
 ]

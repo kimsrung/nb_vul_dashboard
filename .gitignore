@@ -18,6 +18,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Backend
+backend/certs/
+
 # Environment & IDE
 .env
 .env.development
@@ -25,3 +28,6 @@ yarn-error.log*
 .DS_Store
 .idea/
 .vscode/
+
+# Backups
+backups/

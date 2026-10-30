@@ -348,11 +348,33 @@ export interface MispSummary {
   last_sync_time: string | null;
 }
 
-export interface MispSyncResponse {
+export interface SyncJobItem {
+  id: number;
+  source: 'qualys' | 'misp';
+  sync_mode: 'delta' | 'full';
+  trigger_type: 'manual' | 'scheduled';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  progress_pct: number;
+  total_items: number;
+  processed_items: number;
+  message: string;
+  details?: Record<string, any>;
+  error_message?: string | null;
+  triggered_by?: string | null;
+  started_at: string;
+  completed_at?: string | null;
+  updated_at: string;
+}
+
+export interface SyncStatusResponse {
+  is_running: boolean;
+  active_job: SyncJobItem | null;
+  latest_completed_job: SyncJobItem | null;
+}
+
+export interface SyncTriggerResponse {
   success: boolean;
   message: string;
-  assessments_run: number;
-  pre_scan_matches: number;
-  qualys_confirmed: number;
-  clean_cves: number;
+  job_id?: number;
+  status: string;
 }

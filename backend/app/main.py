@@ -1,3 +1,4 @@
+import os
 import logging
 import secrets
 from contextlib import asynccontextmanager
@@ -21,7 +22,7 @@ from app.services.proactive_assessment_engine import ProactiveAssessmentEngine
 from app.services.scheduler import start_scheduler, stop_scheduler
 from app.services.sync_service import SyncService
 
-from app.api.routes import auth, dashboard, assets, detections, knowledge_base, alerts, settings as settings_routes, misp, software, audit_logs
+from app.api.routes import auth, dashboard, assets, detections, knowledge_base, alerts, settings as settings_routes, misp, software, audit_logs, sync
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("qualys-dashboard-alert")
@@ -192,38 +193,42 @@ async def init_db_and_seed():
 
         await session.commit()
 
-        # Check if assets exist; if empty, run initial sync
+        # Check if assets exist; if empty, run initial sync in mock mode only
         asset_res = await session.execute(select(Asset))
         if not asset_res.scalars().first():
-            logger.info("Database empty on startup. Triggering initial Qualys data sync...")
-            try:
-                await SyncService.run_sync(session, manual_trigger=False)
-            except Exception as e:
-                logger.error(f"Initial sync failed: {e}")
+            if settings.QUALYS_MOCK_MODE:
+                logger.info("Database empty on startup in mock mode. Triggering initial Qualys mock sync...")
+                try:
+                    await SyncService.run_sync(session, manual_trigger=False)
+                except Exception as e:
+                    logger.error(f"Initial mock sync failed: {e}")
+            else:
+                logger.info("Database empty on startup in live mode. Awaiting scheduled sync or manual trigger.")
 
-        # Ensure existing assets have clean server_name, demo owner, and PoC assigned
+        # Ensure existing assets have clean server_name and mock PoCs (mock mode only)
         assets_all = (await session.execute(select(Asset))).scalars().all()
         for a in assets_all:
             if not a.server_name:
                 a.server_name = a.fqdn.split(".")[0] if a.fqdn else a.netbios_name or a.ip_address
-            if owner_user and not a.owner_id and ("appcore" in (a.server_name or "").lower() or a.ip_address in ("10.20.6.190", "10.0.1.5")):
-                a.owner_id = owner_user.id
-                a.owner_username = owner_user.username
-            # Seed sample PoCs if not yet assigned
-            if not a.poc_name:
-                s_name = (a.server_name or "").lower()
-                if "appcore" in s_name or a.ip_address in ("10.20.6.190", "10.0.1.5"):
-                    a.poc_name = "Chan Vanna"
-                    a.poc_email = "chan.vanna@nbc.gov.kh"
-                elif "db" in s_name or "sql" in s_name:
-                    a.poc_name = "Sok Dara"
-                    a.poc_email = "sok.dara@nbc.gov.kh"
-                elif "sit" in s_name or "web" in s_name:
-                    a.poc_name = "Keo Pich"
-                    a.poc_email = "keo.pich@nbc.gov.kh"
-                elif a.owner_id:
-                    a.poc_name = "Samnang Tep"
-                    a.poc_email = "samnang.tep@nbc.gov.kh"
+            if settings.QUALYS_MOCK_MODE:
+                if owner_user and not a.owner_id and ("appcore" in (a.server_name or "").lower() or a.ip_address in ("10.20.6.190", "10.0.1.5")):
+                    a.owner_id = owner_user.id
+                    a.owner_username = owner_user.username
+                # Seed sample PoCs if not yet assigned (mock mode only)
+                if not a.poc_name:
+                    s_name = (a.server_name or "").lower()
+                    if "appcore" in s_name or a.ip_address in ("10.20.6.190", "10.0.1.5"):
+                        a.poc_name = "Chan Vanna"
+                        a.poc_email = "chan.vanna@nbc.gov.kh"
+                    elif "db" in s_name or "sql" in s_name:
+                        a.poc_name = "Sok Dara"
+                        a.poc_email = "sok.dara@nbc.gov.kh"
+                    elif "sit" in s_name or "web" in s_name:
+                        a.poc_name = "Keo Pich"
+                        a.poc_email = "keo.pich@nbc.gov.kh"
+                    elif a.owner_id:
+                        a.poc_name = "Samnang Tep"
+                        a.poc_email = "samnang.tep@nbc.gov.kh"
         # Seed baseline Asset Software inventory if empty (Mock mode only)
         if settings.QUALYS_MOCK_MODE:
             sw_res = await session.execute(select(func.count(AssetSoftware.id)))
@@ -256,43 +261,96 @@ async def init_db_and_seed():
                 await session.commit()
                 logger.info("Server software inventory populated.")
 
-        # Seed initial MISP FS-ISAC assessments if empty
-        misp_res = await session.execute(select(func.count(MispCveAssessment.id)))
-        if (misp_res.scalar() or 0) == 0:
-            logger.info("Evaluating MISP FS-ISAC advisories against inventory...")
-            try:
-                misp_client = MispClient()
-                advisories = await misp_client.fetch_fs_isac_events()
-                for adv in advisories:
-                    await ProactiveAssessmentEngine.assess_cve(session, adv)
-                logger.info(f"Assessed {len(advisories)} FS-ISAC advisories.")
-            except Exception as e:
-                logger.error(f"Initial MISP assessment failed: {e}")
+        # Seed initial MISP FS-ISAC assessments if empty (Mock mode only)
+        if settings.MISP_MOCK_MODE:
+            misp_res = await session.execute(select(func.count(MispCveAssessment.id)))
+            if (misp_res.scalar() or 0) == 0:
+                logger.info("Evaluating MISP FS-ISAC advisories against inventory (mock mode)...")
+                try:
+                    misp_client = MispClient(mock_mode=True)
+                    advisories = await misp_client.fetch_fs_isac_events()
+                    for adv in advisories:
+                        await ProactiveAssessmentEngine.assess_cve(session, adv)
+                    logger.info(f"Assessed {len(advisories)} mock FS-ISAC advisories.")
+                except Exception as e:
+                    logger.error(f"Initial mock MISP assessment failed: {e}")
 
         await session.commit()
+
+
+_coordinator_lock_file = None
+_is_coordinator_worker = False
+
+
+def acquire_coordinator_lock() -> bool:
+    """Acquire process-level lock to designate a single coordinator worker for schedulers and migrations."""
+    global _coordinator_lock_file, _is_coordinator_worker
+    try:
+        import fcntl
+        lock_path = "/tmp/risk_alert_worker_coordinator.lock"
+        _coordinator_lock_file = open(lock_path, "a+")
+        fcntl.flock(_coordinator_lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        _is_coordinator_worker = True
+        return True
+    except (BlockingIOError, OSError):
+        _is_coordinator_worker = False
+        return False
+
+
+def release_coordinator_lock():
+    """Release coordinator lock file."""
+    global _coordinator_lock_file, _is_coordinator_worker
+    if _coordinator_lock_file and _is_coordinator_worker:
+        try:
+            import fcntl
+            fcntl.flock(_coordinator_lock_file.fileno(), fcntl.LOCK_UN)
+            _coordinator_lock_file.close()
+        except Exception:
+            pass
+        _is_coordinator_worker = False
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     logger.info("Initializing Risk Alert Dashboard Backend...")
-    await init_db_and_seed()
-    start_scheduler()
-    if settings.MISP_ZMQ_ENABLED and settings.MISP_ZMQ_HOST:
-        from app.services.misp_zmq_subscriber import start_misp_zmq_task
-        start_misp_zmq_task(
-            settings.MISP_ZMQ_HOST,
-            settings.MISP_ZMQ_PORT,
-            username=settings.MISP_ZMQ_USERNAME,
-            password=settings.MISP_ZMQ_PASSWORD,
-        )
+    is_coordinator = acquire_coordinator_lock()
+
+    if is_coordinator:
+        logger.info(f"Worker PID {os.getpid()} designated as Primary Coordinator. Initializing database schema, scheduler, and background services...")
+        await init_db_and_seed()
+        start_scheduler()
+        if settings.MISP_ZMQ_ENABLED and settings.MISP_ZMQ_HOST:
+            from app.services.misp_zmq_subscriber import start_misp_zmq_task
+            start_misp_zmq_task(
+                settings.MISP_ZMQ_HOST,
+                settings.MISP_ZMQ_PORT,
+                username=settings.MISP_ZMQ_USERNAME,
+                password=settings.MISP_ZMQ_PASSWORD,
+            )
+    else:
+        logger.info(f"Worker PID {os.getpid()} is an HTTP-serving replica (coordinator services active on primary worker).")
+        # Ensure schema migrations completed by coordinator before replica handles requests
+        import asyncio
+        for _ in range(30):
+            try:
+                async with engine.connect() as conn:
+                    from sqlalchemy import text
+                    await conn.execute(text("SELECT 1 FROM system_settings LIMIT 1"))
+                    break
+            except Exception:
+                await asyncio.sleep(0.5)
+
     yield
+
     # Shutdown
     logger.info("Shutting down backend...")
-    if settings.MISP_ZMQ_ENABLED and settings.MISP_ZMQ_HOST:
-        from app.services.misp_zmq_subscriber import stop_misp_zmq_task
-        stop_misp_zmq_task()
-    stop_scheduler()
+    if _is_coordinator_worker:
+        if settings.MISP_ZMQ_ENABLED and settings.MISP_ZMQ_HOST:
+            from app.services.misp_zmq_subscriber import stop_misp_zmq_task
+            stop_misp_zmq_task()
+        stop_scheduler()
+        release_coordinator_lock()
     await engine.dispose()
 
 
@@ -369,6 +427,7 @@ app.include_router(settings_routes.router, prefix=settings.API_V1_STR)
 app.include_router(misp.router, prefix=settings.API_V1_STR)
 app.include_router(software.router, prefix=settings.API_V1_STR)
 app.include_router(audit_logs.router, prefix=settings.API_V1_STR)
+app.include_router(sync.router, prefix=settings.API_V1_STR)
 
 
 @app.get("/health")

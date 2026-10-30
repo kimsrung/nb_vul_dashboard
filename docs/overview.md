@@ -18,7 +18,9 @@ flowchart TD
 
     subgraph Backend_Core["FastAPI Backend Services"]
         AUTH_SVC["Security & RBAC (PyJWT, Bcrypt)"]
-        SYNC_SVC["SyncService<br/>(Delta & Full Reconciliation)"]
+        SYNC_RUNNER["SyncRunner<br/>(Background Worker & Lock Manager)"]
+        SYNC_SVC["SyncService<br/>(Qualys Delta & Full Ingestion)"]
+        MISP_SYNC["MispSyncService<br/>(MISP Feed Synchronization)"]
         RISK_ENG["RiskEngine<br/>(Raw Severity 1–5 Counting & Recalculation)"]
         MISP_ENG["Proactive Assessment Engine<br/>(Pre-Scan Inventory Matcher)"]
         AUDIT_SVC["AuditService<br/>(Structured Event Logger)"]
@@ -26,6 +28,7 @@ flowchart TD
 
     subgraph Database["Database (PostgreSQL / SQLite)"]
         DB_USER[("Users & Roles")]
+        DB_SYNC[("SyncJobs (Job Lifecycle, Telemetry & Locks)")]
         DB_ASSET[("Assets (IP, OS, Owner, PoC, Severity Counts)")]
         DB_DET[("Detections & Remediation Status")]
         DB_KB[("KnowledgeBase & RTI Flags")]
@@ -46,6 +49,9 @@ flowchart TD
 
     QUALYS <--> SYNC_SVC
     MISP <--> MISP_ENG
+    SYNC_RUNNER --> SYNC_SVC
+    SYNC_RUNNER --> MISP_SYNC
+    SYNC_RUNNER --> DB_SYNC
     SYNC_SVC --> DB_ASSET
     SYNC_SVC --> DB_DET
     SYNC_SVC --> DB_KB
@@ -94,7 +100,8 @@ The Executive Overview provides leadership and SecOps managers with real-time vi
   3. **MISP Threat Advisories**: Total threat intelligence advisories tracked and the number of exposed servers in the fleet.
 - **Sync Status Pill & Action Dropdown**:
   - Displays the last sync timestamp, last full reconciliation time, active mode (`delta` vs `full`), and execution status (`Idle`, `Syncing`, `Error`).
-  - Dropdown allows administrators to trigger an **Incremental Delta Sync** (fast update querying modified findings) or a **Full Reconciliation Sync** (full catalog sweep detecting decommissioned hosts).
+  - Dropdown allows administrators to trigger an **Incremental Delta Sync** (`POST /api/v1/sync/qualys?mode=delta`) or a **Full Reconciliation Sync** (`POST /api/v1/sync/qualys?mode=full`).
+  - All synchronization jobs execute asynchronously in the background (`202 Accepted`), with real-time progress polled via `GET /api/v1/sync/status` without blocking browser connections. Overlapping sync requests are atomically rejected with `409 Conflict`.
 - **Visual Analytics**:
   - **Qualys Severity Distribution**: Direct percentage bars for raw Qualys Severity 1 to 5 (eliminating artificial synthetic risk scores).
   - **Top Operating Systems**: Distribution of hosts across Linux, Windows, and appliance platforms.
@@ -247,9 +254,11 @@ The Admin Settings module allows administrators to configure integrations, tune 
 | Platform Capability / Endpoint | Admin (`admin`) | Analyst (`analyst`) | Owner (`owner`) | Viewer (`viewer`) |
 |---|:---:|:---:|:---:|:---:|
 | **View Executive Dashboard KPIs** | Full | Full | Scoped to Owned Assets | Full |
-| **Trigger Qualys Scan Sync** | Yes | No | No | No |
+| **Trigger Qualys Scan Sync (`POST /api/v1/sync/qualys`)** | **Yes** | **No** | **No** | **No** |
 | **Access MISP Threat Feed (`/misp`)** | **Yes** | **Yes** | **No** | **No** |
-| **Trigger MISP Threat Feed Sync (`POST /misp/sync`)** | **Yes** | **No** | **No** | **No** |
+| **Trigger MISP Threat Feed Sync (`POST /api/v1/sync/misp`)** | **Yes** | **No** | **No** | **No** |
+| **Cancel Active Sync Job (`POST /api/v1/sync/jobs/{id}/cancel`)** | **Yes** | **No** | **No** | **No** |
+| **Inspect Sync Status & History (`GET /api/v1/sync/*`)** | **Yes** | **Yes** | **Yes** | **Yes** |
 | **Browse All Asset Inventory** | All Hosts | All Hosts | **Only Assigned Hosts** | All Hosts |
 | **Edit Server Name, Owner & PoC** | Yes | Yes | No | No |
 | **Delete Assets (`DELETE /assets/{id}`)** | Yes | No | No | No |

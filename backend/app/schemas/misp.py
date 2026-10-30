@@ -63,15 +63,6 @@ class PaginatedMispFeedResponse(BaseModel):
     clean_count: int = 0
 
 
-class MispSyncResponse(BaseModel):
-    success: bool
-    message: str
-    assessments_run: int
-    pre_scan_matches: int
-    qualys_confirmed: int
-    clean_cves: int
-
-
 class MispStatusUpdate(BaseModel):
     status: str
 

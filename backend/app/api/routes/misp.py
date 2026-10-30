@@ -1,7 +1,7 @@
 import logging
 import math
-from datetime import datetime
-from typing import List, Optional
+from datetime import datetime, timezone
+from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,13 +15,10 @@ from app.models.setting import SystemSetting
 from app.schemas.misp import (
     MispAssessmentListItem,
     MispAssessmentDetail,
-    MispSyncResponse,
     MispStatusUpdate,
     MispSummary,
     PaginatedMispFeedResponse,
 )
-from app.services.misp_client import MispClient
-from app.services.proactive_assessment_engine import ProactiveAssessmentEngine
 from app.services.telegram_service import TelegramService
 
 logger = logging.getLogger(__name__)
@@ -189,78 +186,6 @@ async def get_assessment_detail(
     if not assessment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assessment not found")
     return assessment
-
-
-@router.post("/sync", response_model=MispSyncResponse)
-async def sync_misp_fs_isac_feed(
-    db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_admin),
-):
-    """Trigger ingestion from MISP (FS-ISAC feed) and execute proactive assessment against inventory."""
-    client = MispClient()
-    advisories = await client.fetch_fs_isac_events()
-
-    if not advisories:
-        return MispSyncResponse(
-            success=True,
-            message="No new FS-ISAC advisories fetched from MISP.",
-            assessments_run=0,
-            pre_scan_matches=0,
-            qualys_confirmed=0,
-            clean_cves=0,
-        )
-
-    assessments_run = 0
-    pre_scan_matches = 0
-    qualys_confirmed = 0
-    clean_cves = 0
-
-    for adv in advisories:
-        record = await ProactiveAssessmentEngine.assess_cve(db, adv)
-        assessments_run += 1
-        if record.match_type == "INVENTORY_PROACTIVE":
-            pre_scan_matches += 1
-        elif record.match_type == "QUALYS_CONFIRMED":
-            qualys_confirmed += 1
-        else:
-            clean_cves += 1
-
-        # Dispatch Telegram alert for affected servers on Critical or High advisories
-        if (
-            settings.TELEGRAM_ENABLED
-            and record.affected_assets_count > 0
-            and (record.severity or "").upper() in ("CRITICAL", "HIGH")
-        ):
-            try:
-                tg_text = TelegramService.format_misp_assessment_alert(record)
-                await TelegramService.send_message(tg_text)
-            except Exception as e:
-                logger.error(f"Failed to dispatch Telegram alert for MISP assessment {record.cve_id}: {e}")
-
-    # Record sync timestamp and total raw events count
-    now_str = datetime.now().isoformat()
-    sync_setting = await db.get(SystemSetting, "misp_last_sync_time")
-    if sync_setting:
-        sync_setting.value = now_str
-    else:
-        db.add(SystemSetting(key="misp_last_sync_time", value=now_str, description="Timestamp of last MISP FS-ISAC sync"))
-
-    if getattr(client, "last_events_count", 0):
-        events_setting = await db.get(SystemSetting, "misp_total_events_count")
-        if events_setting:
-            events_setting.value = str(client.last_events_count)
-        else:
-            db.add(SystemSetting(key="misp_total_events_count", value=str(client.last_events_count), description="Total raw MISP events fetched"))
-    await db.commit()
-
-    return MispSyncResponse(
-        success=True,
-        message=f"Synced {assessments_run} FS-ISAC advisories: {pre_scan_matches} proactive pre-scan matches, {qualys_confirmed} Qualys confirmed, {clean_cves} clean.",
-        assessments_run=assessments_run,
-        pre_scan_matches=pre_scan_matches,
-        qualys_confirmed=qualys_confirmed,
-        clean_cves=clean_cves,
-    )
 
 
 @router.post("/assessments/{assessment_id}/test-telegram")

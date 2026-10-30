@@ -295,8 +295,8 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId: propA
             </div>
             <div className="w-px h-7 bg-slate-800" />
             <div className="text-center px-2">
-              <div className="text-[10px] uppercase font-bold text-amber-400">Sev 3 (Med)</div>
-              <div className="text-lg font-bold font-mono text-amber-400">{asset.medium_vulns ?? 0}</div>
+              <div className="text-[10px] uppercase font-bold text-yellow-400">Sev 3 (Med)</div>
+              <div className="text-lg font-bold font-mono text-yellow-400">{asset.medium_vulns ?? 0}</div>
             </div>
             <div className="w-px h-7 bg-slate-800" />
             <div className="text-center px-2">

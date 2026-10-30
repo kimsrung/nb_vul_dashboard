@@ -14,6 +14,7 @@ Tracks active findings by **raw Qualys Severity 1–5** (Sev 5 Critical to Sev 1
 - **Raw Qualys Severity Tracking Engine**: Categorizes vulnerability counts directly by raw Qualys Severity 1–5 (Sev 5 Critical, Sev 4 High, Sev 3 Medium, Sev 2 Low, Sev 1 Info), eliminating artificial synthetic score calculations. Inventory defaults to sorting by Sev 5 descending.
 - **Actionable Remediation Tracking**: Slide-over drawer allowing security teams to update vulnerability status (`Open`, `In Progress`, `Acknowledged`, `False Positive`, `Resolved`). Status updates immediately recalculate the parent asset's active severity counters in real-time.
 - **Executive 3-KPI Overview**: Minimalist executive dashboard featuring Monitored Assets, Total Active Vulnerabilities (highlighting Critical & High numbers with direct navigation), and MISP Threat Intelligence advisories, alongside a dedicated Qualys Severity Distribution widget.
+- **Unified Background Synchronization Engine**: Asynchronous, non-blocking ingestion for Qualys and MISP feeds (`/api/v1/sync/*`) powered by `SyncRunner` and FastAPI `BackgroundTasks`. Features PostgreSQL-persisted job tracking (`SyncJob`), atomic database concurrency locking (HTTP 409 Conflict), automated stale job recovery (>15 min heartbeat timeout), and administrative job cancellation.
 - **Telegram Bot Alert Integration**: Dispatches formatted HTML alert cards whenever MISP threat intelligence CVE advisories match monitored server infrastructure. Routine Qualys scan sync is excluded from Telegram alerts to prevent notification fatigue.
 - **Centralized Ingestion Architecture**: Manual "Sync Feed" is hosted strictly in the admin-only **MISP Threat Feed** page (`/misp`), while the Alert Center (`/alerts`) provides a dedicated database Refresh button.
 - **Role-Based Access Control (RBAC)**: Multi-role JWT authentication (`Admin`, `Analyst`, `Owner`, `Viewer`) with host ownership scoping.
@@ -256,17 +257,20 @@ $env:E2E_BASE_URL="http://localhost:80"; .\run_e2e.ps1 -Headless
 
 ### 2. Backend & API Test Suite (pytest)
 
-Run the comprehensive 67-test automated suite across all API endpoints, models, sync workflows, and VAPT security layers (including SQL injection fuzzing, Basic Auth protection for Swagger docs, and RBAC matrix enforcement):
+Run the comprehensive 78-test automated suite across all API endpoints, models, sync workflows, and VAPT security layers (including SQL injection fuzzing, Basic Auth protection for Swagger docs, and RBAC matrix enforcement):
 
 ```bash
 cd backend
 source venv/bin/activate
 
-# Run all 67 backend unit, integration, and security tests
+# Run all 78 backend unit, integration, and security tests
 PYTHONPATH=. ./venv/bin/pytest
 
 # Run the complete end-to-end happy path integration test
 PYTHONPATH=. ./venv/bin/pytest tests/test_integration_happy_path.py
+
+# Run background synchronization & concurrency locking tests
+PYTHONPATH=. ./venv/bin/pytest tests/test_background_sync.py
 
 # Run VAPT security & penetration tests
 PYTHONPATH=. ./venv/bin/pytest tests/test_vapt_security.py
@@ -311,11 +315,11 @@ dashboard_alert/
 │   ├── app/
 │   │   ├── main.py            # FastAPI entrypoint & lifespan
 │   │   ├── core/              # Config, Database, Security
-│   │   ├── models/            # SQLAlchemy ORM models (Asset, Detection, KB, Software, MispFeed, Alert, User)
-│   │   ├── schemas/           # Pydantic v2 schemas
-│   │   ├── services/          # QualysClient, MispClient, RiskEngine, SyncService, TelegramService
-│   │   └── api/routes/        # REST API endpoints (Auth, Dashboard, Assets, Software, MISP, Detections, KB, Settings)
-│   ├── tests/                 # Backend unit, integration, and VAPT test suites (67 tests)
+│   │   ├── models/            # SQLAlchemy ORM models (Asset, Detection, KB, Software, MispFeed, Alert, User, SyncJob)
+│   │   ├── schemas/           # Pydantic v2 schemas (Asset, Detection, KB, Software, MISP, Sync, Settings, User)
+│   │   ├── services/          # QualysClient, MispClient, RiskEngine, SyncService, MispSyncService, SyncRunner, TelegramService
+│   │   └── api/routes/        # REST API endpoints (Auth, Dashboard, Assets, Software, MISP, Sync, Detections, KB, Settings)
+│   ├── tests/                 # Backend unit, integration, and VAPT test suites (78 tests)
 │   └── requirements.txt
 └── frontend/
     ├── src/

@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +15,8 @@ from app.services.qualys_client import QualysApiClient
 from app.services.risk_engine import RiskEngine
 from app.services.telegram_service import TelegramService
 from app.services.audit_service import AuditService
+from app.services.sync_runner import SyncRunner
+from app.services.proactive_assessment_engine import ProactiveAssessmentEngine
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +31,23 @@ current_sync_status = {
 
 class SyncService:
     @classmethod
-    async def get_sync_status(cls) -> Dict[str, Any]:
+    async def get_sync_status(cls, session: Optional[AsyncSession] = None) -> Dict[str, Any]:
+        if session:
+            try:
+                runner_status = await SyncRunner.get_sync_status(session, "qualys")
+                if runner_status.get("active_job"):
+                    j = runner_status["active_job"]
+                    current_sync_status["status"] = "Syncing"
+                    current_sync_status["sync_mode"] = j.sync_mode
+                    current_sync_status["message"] = f"Qualys {j.sync_mode} sync: {j.progress_pct}% - {j.message}"
+                elif runner_status.get("latest_completed_job"):
+                    j = runner_status["latest_completed_job"]
+                    current_sync_status["status"] = "Idle" if j.status == "completed" else "Error"
+                    current_sync_status["last_run"] = j.completed_at.isoformat() if j.completed_at else None
+                    current_sync_status["sync_mode"] = j.sync_mode
+                    current_sync_status["message"] = j.message
+            except Exception:
+                pass
         return current_sync_status
 
     @classmethod
@@ -38,6 +56,8 @@ class SyncService:
         db: AsyncSession,
         sync_mode: str = "delta",
         manual_trigger: bool = False,
+        triggered_by: Optional[str] = None,
+        job_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Orchestrate KnowledgeBase and Host Detection synchronization.
@@ -52,6 +72,19 @@ class SyncService:
             if sync_mode not in ("delta", "full"):
                 sync_mode = "delta"
 
+            # Acquire persistent database-backed job lock if not already allocated
+            if job_id is None:
+                job, err = await SyncRunner.acquire_job(
+                    session=db,
+                    source="qualys",
+                    sync_mode=sync_mode,
+                    trigger_type="manual" if manual_trigger else "scheduled",
+                    triggered_by=triggered_by,
+                )
+                if err:
+                    return {"success": False, "message": err}
+                job_id = job.id
+
             current_sync_status["status"] = "Syncing"
             current_sync_status["sync_mode"] = sync_mode
             current_sync_status["message"] = (
@@ -60,6 +93,12 @@ class SyncService:
             now = datetime.now(timezone.utc)
 
             try:
+                await SyncRunner.update_progress(
+                    job_id=job_id,
+                    processed_items=0,
+                    total_items=100,
+                    message=f"Starting Qualys {sync_mode} sync...",
+                )
                 # 1. Initialize Qualys client with current DB / config settings
                 settings_res = await db.execute(select(SystemSetting))
                 for row in settings_res.scalars().all():
@@ -102,6 +141,14 @@ class SyncService:
                     status="Active,New,Re-Opened,Fixed",
                 )
 
+                total_hosts = len(parsed_hosts)
+                await SyncRunner.update_progress(
+                    job_id=job_id,
+                    processed_items=0,
+                    total_items=total_hosts or 100,
+                    message=f"Fetched {total_hosts} hosts from Qualys API. Checking KnowledgeBase...",
+                )
+
                 # 4. Collect all unique QIDs present in the detections
                 all_qids = set()
                 for host_data in parsed_hosts:
@@ -124,6 +171,12 @@ class SyncService:
                 kb_items_added = 0
                 if missing_qids:
                     current_sync_status["message"] = f"Fetching fix guidance for {len(missing_qids)} QIDs from KnowledgeBase API..."
+                    await SyncRunner.update_progress(
+                        job_id=job_id,
+                        processed_items=0,
+                        total_items=total_hosts or 100,
+                        message=f"Enriching {len(missing_qids)} QIDs from Qualys KnowledgeBase API...",
+                    )
                     enriched_kb_list = await client.fetch_and_parse_kb_for_qids(missing_qids)
                     for kb_data in enriched_kb_list:
                         qid = kb_data["qid"]
@@ -145,12 +198,13 @@ class SyncService:
                         kb_map[row.qid] = row
 
                 seen_qualys_ids = set()
+                updated_asset_ids = set()
                 assets_updated = 0
                 alerts_triggered = 0
                 fixed_detections_count = 0
                 now = datetime.now(timezone.utc)
 
-                for host_data in parsed_hosts:
+                for idx, host_data in enumerate(parsed_hosts, 1):
                     qualys_id = host_data["qualys_id"]
                     seen_qualys_ids.add(qualys_id)
                     detections_data = host_data.pop("detections", [])
@@ -324,6 +378,20 @@ class SyncService:
                             db.add(alert_record)
                             alerts_triggered += 1
 
+                    updated_asset_ids.add(asset.id)
+
+                    if idx % 25 == 0 or idx == total_hosts:
+                        await SyncRunner.update_progress(
+                            job_id=job_id,
+                            processed_items=idx,
+                            total_items=total_hosts,
+                            message=f"Processing host {idx}/{total_hosts} ({server_display})...",
+                            details={
+                                "assets_updated": assets_updated,
+                                "fixed_detections": fixed_detections_count,
+                            },
+                        )
+
                 # 8. Reconcile Decommissioned Assets (Only during full reconciliation)
                 decommissioned_count = 0
                 if sync_mode == "full" and len(seen_qualys_ids) > 0:
@@ -337,7 +405,22 @@ class SyncService:
                                 f"Decommissioned/Inactive host detected: '{a.server_name}' (ID: {a.id}, Qualys ID: {a.qualys_id})"
                             )
 
-                # 9. Update system settings with sync timestamps and watermark
+                # 9. Targeted MISP Evaluation on modified assets
+                if updated_asset_ids:
+                    await SyncRunner.update_progress(
+                        job_id=job_id,
+                        processed_items=total_hosts,
+                        total_items=total_hosts,
+                        message="Evaluating modified server inventory against active MISP threat advisories...",
+                    )
+                    try:
+                        await ProactiveAssessmentEngine.evaluate_assets_against_threats(
+                            db, list(updated_asset_ids)
+                        )
+                    except Exception as te:
+                        logger.warning(f"Targeted MISP evaluation on modified assets encountered error: {te}")
+
+                # 10. Update system settings with sync timestamps and watermark
                 last_sync_str = now.isoformat()
                 watermark_str = now.strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -354,7 +437,7 @@ class SyncService:
                 if sync_mode == "full":
                     await set_setting("qualys_last_full_sync_time", last_sync_str, "Timestamp of last full Qualys reconciliation sync")
 
-                # 10. Audit log entry
+                # 11. Audit log entry
                 await AuditService.log_event(
                     db=db,
                     action=f"QUALYS_{sync_mode.upper()}_SYNC",
@@ -385,6 +468,20 @@ class SyncService:
                 current_sync_status["sync_mode"] = sync_mode
                 current_sync_status["message"] = result_msg
 
+                await SyncRunner.complete_job(
+                    job_id=job_id,
+                    message=result_msg,
+                    details={
+                        "sync_mode": sync_mode,
+                        "assets_updated": assets_updated,
+                        "fixed_detections": fixed_detections_count,
+                        "decommissioned_assets": decommissioned_count,
+                        "kb_items": kb_items_added,
+                        "alerts_triggered": alerts_triggered,
+                        "timestamp": last_sync_str,
+                    },
+                )
+
                 return {
                     "success": True,
                     "message": result_msg,
@@ -408,6 +505,8 @@ class SyncService:
                         err_detail = "Unknown connection or authentication error"
                 err_msg = f"{err_type}: {err_detail}"
                 logger.error(f"Sync failed: {err_msg}", exc_info=True)
+                if job_id:
+                    await SyncRunner.fail_job(job_id=job_id, error_message=err_msg)
                 current_sync_status["status"] = "Error"
                 current_sync_status["message"] = f"Sync failed: {err_msg}"
                 return {"success": False, "message": f"Sync failed: {err_msg}"}

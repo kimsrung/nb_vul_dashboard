@@ -149,21 +149,30 @@ class TelegramService:
     @classmethod
     def format_misp_assessment_alert(cls, assessment: Any) -> str:
         """Format an FS-ISAC proactive threat intelligence assessment alert for Telegram."""
-        cve_id = html.escape(getattr(assessment, "cve_id", "CVE-UNKNOWN"))
-        title = html.escape(getattr(assessment, "title", "FS-ISAC Threat Advisory"))
-        severity = getattr(assessment, "severity", "High").upper()
-        cvss = getattr(assessment, "cvss_score", None)
+        def _get(field: str, default: Any = None) -> Any:
+            if isinstance(assessment, dict):
+                return assessment.get(field, default)
+            return getattr(assessment, field, default)
+
+        cve_id = html.escape(str(_get("cve_id", "CVE-UNKNOWN")))
+        title = html.escape(str(_get("title", "FS-ISAC Threat Advisory")))
+        severity = str(_get("severity", "High")).upper()
+        cvss = _get("cvss_score", None)
         cvss_str = f" (CVSS: {cvss})" if cvss else ""
-        match_type = getattr(assessment, "match_type", "INVENTORY_PROACTIVE")
-        report = getattr(assessment, "assessment_report", {}) or {}
+        match_type = str(_get("match_type", "INVENTORY_PROACTIVE"))
+        report = _get("assessment_report", {}) or {}
+        if not isinstance(report, dict):
+            report = {}
         affected_assets = report.get("affected_assets", [])
-        product = html.escape(getattr(assessment, "affected_product", "software"))
-        vuln_ver = html.escape(getattr(assessment, "vulnerable_versions", ""))
-        rec_action = html.escape(report.get("recommended_actions", "Apply security update."))
-        verification_cmd = html.escape(report.get("verification_command", ""))
+        if not affected_assets and isinstance(assessment, dict) and "affected_assets" in assessment:
+            affected_assets = assessment.get("affected_assets", [])
+        product = html.escape(str(_get("affected_product", "software") or "software"))
+        vuln_ver = html.escape(str(_get("vulnerable_versions", "") or ""))
+        rec_action = html.escape(str(report.get("recommended_actions") or _get("suggested_solution", "Apply security update.")))
+        verification_cmd = html.escape(str(report.get("verification_command") or _get("verification_command", "")))
 
         if match_type == "QUALYS_CONFIRMED":
-            badge = "🛡️ <b>[QUALYS SCANNER CONFIRMED]</b>"
+            badge = "✅ <b>[QUALYS SCANNER CONFIRMED]</b>"
             status_desc = "Qualys scanner has already detected this vulnerability on active hosts."
         elif match_type == "INVENTORY_PROACTIVE":
             badge = "⚡ <b>[PROACTIVE PRE-SCAN MATCH]</b>"
@@ -174,10 +183,10 @@ class TelegramService:
 
         sev_icon = "🔴" if severity == "CRITICAL" else ("🟠" if severity == "HIGH" else "🟡")
 
-        source_name = html.escape(str(getattr(assessment, "source", "THREAT INTELLIGENCE") or "THREAT INTELLIGENCE")).upper()
+        source_name = html.escape(str(_get("source", "THREAT INTELLIGENCE") or "THREAT INTELLIGENCE")).upper()
 
         lines = [
-            f"🛡️ <b>[{source_name} THREAT INTELLIGENCE ADVISORY]</b>",
+            f"🔔 <b>[{source_name} THREAT INTELLIGENCE ADVISORY]</b>",
             "━━━━━━━━━━━━━━━━━━━━━━━━━━",
             f"<b>Advisory:</b> <code>{cve_id}</code>",
             f"<b>Threat:</b> {title}",
@@ -185,7 +194,7 @@ class TelegramService:
             f"<b>Assessment Status:</b> {badge}",
             f"<i>{status_desc}</i>",
             "",
-            f"📦 <b>Target Product:</b> <code>{product}</code> (Criteria: <code>{vuln_ver}</code>)",
+            f"🔈 <b>Target Product:</b> <code>{product}</code> (Criteria: <code>{vuln_ver}</code>)",
             f"💻 <b>Affected Infrastructure ({len(affected_assets)} Server{'s' if len(affected_assets) != 1 else ''}):</b>",
         ]
 

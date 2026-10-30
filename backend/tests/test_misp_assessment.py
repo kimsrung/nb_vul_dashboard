@@ -89,24 +89,27 @@ class TestMispThreatAssessment:
 
     @pytest.mark.asyncio
     async def test_misp_sync_feed_endpoint(self, client: AsyncClient, admin_headers: dict):
-        res = await client.post("/api/v1/misp/sync", headers=admin_headers)
-        assert res.status_code == 200
+        res = await client.post("/api/v1/sync/misp", headers=admin_headers)
+        assert res.status_code in (200, 202)
         data = res.json()
         assert data.get("success") is True
-        assert "assessments_run" in data
-        assert "pre_scan_matches" in data
-        assert "qualys_confirmed" in data
-        assert "clean_cves" in data
-        assert isinstance(data["assessments_run"], int)
+        assert "job_id" in data
+        assert data.get("status") == "running"
+
+        # Verify job status
+        status_res = await client.get("/api/v1/sync/status?source=misp", headers=admin_headers)
+        assert status_res.status_code == 200
+        status_data = status_res.json()
+        assert "is_running" in status_data
 
     @pytest.mark.asyncio
     async def test_misp_sync_feed_rbac(self, client: AsyncClient, viewer_headers: dict, analyst_headers: dict):
         # Viewer rejected
-        viewer_res = await client.post("/api/v1/misp/sync", headers=viewer_headers)
+        viewer_res = await client.post("/api/v1/sync/misp", headers=viewer_headers)
         assert viewer_res.status_code == 403
 
         # Analyst rejected (Sync Feed is admin-only)
-        analyst_res = await client.post("/api/v1/misp/sync", headers=analyst_headers)
+        analyst_res = await client.post("/api/v1/sync/misp", headers=analyst_headers)
         assert analyst_res.status_code == 403
 
     @pytest.mark.asyncio
@@ -153,3 +156,79 @@ class TestMispThreatAssessment:
         assert empty_res.status_code == 200
         assert empty_res.json()["total"] == 0
         assert len(empty_res.json()["items"]) == 0
+
+    @pytest.mark.asyncio
+    async def test_misp_zmq_test_connection_endpoint(self, client: AsyncClient, admin_headers: dict, analyst_headers: dict):
+        # 1. Non-admin must be rejected with 403
+        res_analyst = await client.post("/api/v1/settings/test-misp-zmq", headers=analyst_headers, json={"host": "127.0.0.1", "port": 50000})
+        assert res_analyst.status_code == 403
+
+        # 2. Admin test with mock/local host
+        res = await client.post("/api/v1/settings/test-misp-zmq", headers=admin_headers, json={"host": "127.0.0.1", "port": 50000})
+        assert res.status_code == 200
+        data = res.json()
+        assert "success" in data
+        assert "message" in data
+        assert data["host"] == "127.0.0.1"
+        assert data["port"] == 50000
+        assert "subscriber_active" in data
+
+    @pytest.mark.asyncio
+    async def test_misp_zmq_realtime_stream_event_processing(self, client: AsyncClient, admin_headers: dict):
+        import json
+        from app.services.misp_zmq_subscriber import process_misp_zmq_payload
+        from app.services.telegram_service import TelegramService
+
+        sample_zmq_event = {
+            "Event": {
+                "id": "77777",
+                "info": "FS-ISAC Live Stream Advisory: OpenSSH Remote Code Execution regreSSHion",
+                "Orgc": {"name": "FS-ISAC"},
+                "affected_product": "openssh",
+                "vulnerable_versions": "< 9.8p1",
+                "fixed_versions": ">= 9.8p1",
+                "severity": "Critical",
+                "cvss_score": 8.1,
+                "Tag": [
+                    {"name": "FS-ISAC"},
+                    {"name": "vulnerability:CVE-2024-6387"}
+                ],
+                "Attribute": [
+                    {"type": "vulnerability", "value": "CVE-2024-6387"}
+                ]
+            }
+        }
+
+        # 1. Simulate ZeroMQ payload arrival on topic 'misp_json_event'
+        await process_misp_zmq_payload("misp_json_event", json.dumps(sample_zmq_event))
+
+        # 2. Verify alert system reflection (Alerts Center /api/v1/alerts)
+        alerts_res = await client.get("/api/v1/alerts?search=CVE-2024-6387", headers=admin_headers)
+        assert alerts_res.status_code == 200
+        alerts_data = alerts_res.json()["items"]
+        assert len(alerts_data) > 0
+        matching = [a for a in alerts_data if a["cve_id"] == "CVE-2024-6387"]
+        assert len(matching) > 0
+        assert matching[0]["severity"] == "Critical"
+
+        # 3. Verify Telegram message formatting for the alert
+        tg_text = TelegramService.format_misp_assessment_alert(matching[0])
+        assert "CVE-2024-6387" in tg_text
+        assert "CRITICAL" in tg_text.upper()
+
+        # 4. Verify audit log reflection
+        audit_res = await client.get("/api/v1/audit-logs?search=CVE-2024-6387", headers=admin_headers)
+        assert audit_res.status_code == 200
+        actions = [l["action"] for l in audit_res.json()["items"]]
+        assert "MISP_ZMQ_FEED_RECEIVED" in actions or "MISP_EVENT_TRIGGERED" in actions
+
+        # 5. Non-FS-ISAC ZeroMQ message is safely ignored
+        non_fs_isac_event = {
+            "Event": {
+                "id": "99999",
+                "info": "Generic submission not related to FS-ISAC",
+                "Orgc": {"name": "Generic-Third-Party"},
+                "Tag": [{"name": "random-tag"}]
+            }
+        }
+        await process_misp_zmq_payload("misp_json_event", json.dumps(non_fs_isac_event))

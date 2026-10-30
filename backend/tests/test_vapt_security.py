@@ -101,14 +101,14 @@ class TestVAPTSecuritySuite:
     async def test_viewer_role_cannot_trigger_sync_operations(self, client: AsyncClient, viewer_headers: dict, analyst_headers: dict):
         """Viewer and Analyst roles must not be able to trigger Qualys or MISP background syncs."""
         # Qualys sync trigger
-        res_qualys = await client.post("/api/v1/dashboard/sync?mode=delta", headers=viewer_headers)
+        res_qualys = await client.post("/api/v1/sync/qualys?mode=delta", headers=viewer_headers)
         assert res_qualys.status_code == 403
 
         # MISP sync trigger
-        res_misp = await client.post("/api/v1/misp/sync", headers=viewer_headers)
+        res_misp = await client.post("/api/v1/sync/misp", headers=viewer_headers)
         assert res_misp.status_code == 403
 
-        res_misp_analyst = await client.post("/api/v1/misp/sync", headers=analyst_headers)
+        res_misp_analyst = await client.post("/api/v1/sync/misp", headers=analyst_headers)
         assert res_misp_analyst.status_code == 403
 
     @pytest.mark.asyncio

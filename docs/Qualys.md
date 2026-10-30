@@ -163,7 +163,9 @@ The platform implements two distinct synchronization workflows in [`SyncService.
 
 | Attribute | Incremental Delta Sync (`delta`) | Full Inventory Reconciliation (`full`) |
 |---|---|---|
-| **Trigger** | Periodic background job (every 6 hours) or manual UI click | Admin manual trigger or initial system startup |
+| **Trigger** | Periodic background job (every 6 hours) or manual UI click (`POST /api/v1/sync/qualys?mode=delta`) | Admin manual trigger (`POST /api/v1/sync/qualys?mode=full`) or initial system startup |
+| **Response** | `202 Accepted` (Background worker execution via `SyncRunner`) | `202 Accepted` (Background worker execution via `SyncRunner`) |
+| **Status Polling** | `GET /api/v1/sync/status?source=qualys` | `GET /api/v1/sync/status?source=qualys` |
 | **Qualys Query** | `detection_updated_since=<watermark>` | Paginates through all hosts (`id_min`) |
 | **Average Duration** | 2 to 10 seconds | 30 to 180 seconds (depending on host volume) |
 | **New & Active Findings** | Upserted & recalculated | Upserted & recalculated |
@@ -176,9 +178,11 @@ The platform implements two distinct synchronization workflows in [`SyncService.
 ### Step-by-Step Sync Lifecycle
 
 ```
-[Sync Trigger: Manual UI or Scheduler]
+[Sync Trigger: Manual UI or Scheduler -> POST /api/v1/sync/qualys]
    │
-   ├─► 1. Acquire Concurrency Lock (sync_lock prevents overlapping jobs)
+   ├─► 1. Acquire Concurrency Lock in PostgreSQL via SyncRunner
+   │      ├─ If active job exists ──────────────► reject with HTTP 409 Conflict
+   │      └─ If lock acquired ──────────────────► create SyncJob(status='RUNNING'), return HTTP 202 Accepted
    │
    ├─► 2. Resolve Watermark
    │      ├─ If delta mode & watermark exists ──► use qualys_last_sync_watermark
@@ -210,8 +214,9 @@ The platform implements two distinct synchronization workflows in [`SyncService.
    ├─► 10. Decommission Inactive Assets (Full Sync Only)
    │       └─ Compare active DB assets against Qualys seen IDs ──► set is_active = False
    │
-   └─► 11. Record System Watermark & Audit History
-           └─ Commit transaction, log QUALYS_DELTA_SYNC / QUALYS_FULL_SYNC in AuditLog
+   └─► 11. Finalize SyncJob & Audit History
+           ├─ Commit transaction, log QUALYS_DELTA_SYNC / QUALYS_FULL_SYNC in AuditLog
+           └─ Update SyncJob(status='SUCCESS', progress=100, completed_at=NOW())
 ```
 
 ---
@@ -363,9 +368,10 @@ TELEGRAM_COOLDOWN_HOURS=6
 
 ### Rate Limiting & Concurrency Best Practices
 
-1. **Concurrency Enforcement**: Qualys allows a maximum of **2 concurrent VM API requests** per subscription account. The backend uses `asyncio.Lock()` (`sync_lock`) in `SyncService` to guarantee that only one synchronization job runs at any given moment.
+1. **Concurrency Enforcement**: Qualys allows a maximum of **2 concurrent VM API requests** per subscription account. The platform enforces database-backed concurrency locking (`SyncRunner.acquire_sync_lock()`) to guarantee that only one synchronization job runs per source at any given moment. Any concurrent triggers return `HTTP 409 Conflict`.
 2. **Quota Preservation**: Always use `delta` mode for routine synchronization. Delta requests consume minimal API units because Qualys only returns modified XML records since `qualys_last_sync_watermark`.
 3. **Session Re-use**: For periodic polling, avoid repeatedly opening and closing session tokens; the API client leverages HTTP Basic Authentication over TLS with connection pooling.
+4. **Stale Recovery & Cancellation**: If a worker node crashes or hangs, `SyncRunner.cleanup_stale_jobs()` automatically fails abandoned jobs after 15 minutes of inactivity. Admins can also manually cancel stuck executions via `POST /api/v1/sync/jobs/{job_id}/cancel`.
 
 ---
 
@@ -380,7 +386,7 @@ TELEGRAM_COOLDOWN_HOURS=6
 - **Explanation**: This is expected behavior. The platform tracks active findings; marking a detection `Resolved` (e.g. after patching) or `False_Positive` excludes it from the host's active severity counts (`critical_vulns`, `high_vulns`, `medium_vulns`, `low_vulns`, `info_vulns`, and `total_vulns`). The counters recalculate immediately in real-time.
 
 ### Q3: How do I minimize API quota usage during frequent synchronizations?
-- Always rely on **Incremental Delta Sync** (`POST /api/v1/dashboard/sync?mode=delta` or the default background scheduler). Delta sync queries only detections modified since the last recorded watermark, consuming minimal API units. Reserve **Full Reconciliation Sync** for scheduled off-peak maintenance sweeps.
+- Always rely on **Incremental Delta Sync** (`POST /api/v1/sync/qualys?mode=delta` or the default background scheduler). Delta sync queries only detections modified since the last recorded watermark, consuming minimal API units. Reserve **Full Reconciliation Sync** for scheduled off-peak maintenance sweeps.
 
 ### Q4: Why are some inactive servers not being marked as decommissioned?
-- **Explanation**: Incremental delta sync only queries *updated* detections, meaning unchanged or decommissioned servers are not present in delta XML payloads. Run a **Full Reconciliation Sync** (`POST /api/v1/dashboard/sync?mode=full` or via the UI sync dropdown) to perform a complete infrastructure sweep and retire inactive servers (`is_active = False`).
+- **Explanation**: Incremental delta sync only queries *updated* detections, meaning unchanged or decommissioned servers are not present in delta XML payloads. Run a **Full Reconciliation Sync** (`POST /api/v1/sync/qualys?mode=full` or via the UI sync dropdown) to perform a complete infrastructure sweep and retire inactive servers (`is_active = False`).

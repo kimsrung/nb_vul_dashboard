@@ -56,11 +56,11 @@ class Settings(BaseSettings):
     MISP_API_KEY: str = ""
     MISP_VERIFY_SSL: bool = True
     MISP_CREATOR_ORG: str = "FS-ISAC"  # "FS-ISAC" for production, "CIRCL" for local testing, or "*" for all orgs
-    MISP_TAG_FILTER: str = ""  # Empty for CIRCL/flexible extraction, or "vulnerability:CVE%" for strict taxonomy
+    MISP_TAG_FILTER: str = "vulnerability:CVE%, cve"  # Comma-separated tag filters for focused CVE taxonomy, or empty for all events
     MISP_FEED_TAG: str = "FS-ISAC"
     MISP_ENABLED: bool = True
     MISP_MOCK_MODE: bool = False  # Disabled by default; connects to live MISP server
-    MISP_SYNC_INTERVAL_HOURS: int = 2
+    MISP_SYNC_INTERVAL_HOURS: int = 0  # 0 = Scheduled sync disabled; relies on real-time ZeroMQ stream + manual UI trigger
     MISP_ZMQ_ENABLED: bool = False
     MISP_ZMQ_HOST: str = ""
     MISP_ZMQ_PORT: int = 50000

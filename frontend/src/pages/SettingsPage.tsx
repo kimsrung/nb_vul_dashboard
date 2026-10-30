@@ -28,13 +28,21 @@ export const SettingsPage: React.FC = () => {
   const [mispEnabled, setMispEnabled] = useState<boolean>(true);
   const [mispMockMode, setMispMockMode] = useState<boolean>(true);
   const [mispVerifySsl, setMispVerifySsl] = useState<boolean>(true);
-  const [mispSyncInterval, setMispSyncInterval] = useState<number>(2);
+  const [mispSyncInterval, setMispSyncInterval] = useState<number>(0);
   const [mispZmqEnabled, setMispZmqEnabled] = useState<boolean>(true);
   const [mispZmqHost, setMispZmqHost] = useState<string>('10.20.40.19');
   const [mispZmqPort, setMispZmqPort] = useState<number>(50000);
   const [mispZmqUsername, setMispZmqUsername] = useState<string>('');
   const [mispZmqPassword, setMispZmqPassword] = useState<string>('');
   const [showZmqPassword, setShowZmqPassword] = useState<boolean>(false);
+  const [testingZmq, setTestingZmq] = useState<boolean>(false);
+  const [zmqTestResult, setZmqTestResult] = useState<{
+    success: boolean;
+    message: string;
+    subscriber_active?: boolean;
+    socket_established?: boolean;
+    latency_ms?: number;
+  } | null>(null);
   const [isSimulatingPush, setIsSimulatingPush] = useState<boolean>(false);
   const [simulateResult, setSimulateResult] = useState<{ success: boolean; message: string } | null>(null);
 
@@ -234,6 +242,25 @@ export const SettingsPage: React.FC = () => {
       });
     } finally {
       setTestingTelegram(false);
+    }
+  };
+
+  const handleTestZmq = async () => {
+    setTestingZmq(true);
+    setZmqTestResult(null);
+    try {
+      const res = await apiClient.post('/settings/test-misp-zmq', {
+        host: mispZmqHost || undefined,
+        port: Number(mispZmqPort) || undefined,
+      });
+      setZmqTestResult(res.data);
+    } catch (err: any) {
+      setZmqTestResult({
+        success: false,
+        message: err.response?.data?.detail || 'Failed to reach MISP ZeroMQ socket',
+      });
+    } finally {
+      setTestingZmq(false);
     }
   };
 
@@ -505,14 +532,14 @@ export const SettingsPage: React.FC = () => {
               <label className="block text-xs font-medium text-slate-300 mb-1">Assessment Sync Interval (Hours)</label>
               <input
                 type="number"
-                min={1}
+                min={0}
                 max={48}
                 value={mispSyncInterval}
                 onChange={(e) => setMispSyncInterval(Number(e.target.value))}
                 disabled={!isAdmin || !mispEnabled}
                 className="w-full bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-primary-500 disabled:opacity-50"
               />
-              <span className="text-[10px] text-slate-500 mt-1 block">Frequency of proactive inventory matching background job</span>
+              <span className="text-[10px] text-slate-500 mt-1 block">Scheduled background sync interval (0 = Disabled, relies 100% on ZeroMQ stream + manual triggers)</span>
             </div>
 
             <div className="flex flex-col gap-2.5 md:col-span-2 pt-2">
@@ -665,32 +692,73 @@ export const SettingsPage: React.FC = () => {
                   python -m app.services.misp_zmq_subscriber --host {mispZmqHost || '10.20.40.19'} --port {mispZmqPort || 50000} {mispZmqUsername ? `--username "${mispZmqUsername}"` : ''}
                 </div>
               </div>
-            </div>
 
-            {/* Simulate ZeroMQ Threat Event Button */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-slate-800">
-              <button
-                type="button"
-                onClick={handleSimulatePush}
-                disabled={isSimulatingPush || !isAdmin || !mispEnabled}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-purple-950/80 hover:bg-purple-900 text-purple-300 text-xs font-semibold border border-purple-800 transition-colors disabled:opacity-50 cursor-pointer"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isSimulatingPush ? 'animate-spin' : ''}`} />
-                <span>{isSimulatingPush ? 'Simulating Event...' : 'Simulate ZeroMQ Threat Event'}</span>
-              </button>
+              {/* ZeroMQ Actions: Test Socket Connection & Simulate Event */}
+              <div className="pt-3 border-t border-slate-800 space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleTestZmq}
+                    disabled={testingZmq || !isAdmin || !mispEnabled || !mispZmqEnabled}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-purple-300 text-xs font-semibold border border-purple-800/60 transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    <Radio className={`w-3.5 h-3.5 ${testingZmq ? 'animate-pulse text-purple-400' : 'text-purple-400'}`} />
+                    <span>{testingZmq ? 'Testing Socket...' : 'Test ZeroMQ Connection'}</span>
+                  </button>
 
-              {simulateResult && (
-                <div
-                  className={`text-xs px-3 py-1.5 rounded-lg border flex items-center gap-1.5 max-w-md ${
-                    simulateResult.success
-                      ? 'bg-emerald-950/40 text-emerald-400 border-emerald-800'
-                      : 'bg-red-950/40 text-red-400 border-red-800'
-                  }`}
-                >
-                  {simulateResult.success ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <AlertCircle className="w-3.5 h-3.5 shrink-0" />}
-                  <span className="truncate">{simulateResult.message}</span>
+                  <button
+                    type="button"
+                    onClick={handleSimulatePush}
+                    disabled={isSimulatingPush || !isAdmin || !mispEnabled}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-950/80 hover:bg-purple-900 text-purple-300 text-xs font-semibold border border-purple-800 transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isSimulatingPush ? 'animate-spin' : ''}`} />
+                    <span>{isSimulatingPush ? 'Simulating Event...' : 'Simulate Threat Event'}</span>
+                  </button>
                 </div>
-              )}
+
+                {zmqTestResult && (
+                  <div
+                    className={`text-xs px-3 py-2 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
+                      zmqTestResult.success
+                        ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800'
+                        : 'bg-red-950/40 text-red-300 border-red-800'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {zmqTestResult.success ? <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> : <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />}
+                      <span>{zmqTestResult.message}</span>
+                    </div>
+                    {zmqTestResult.success && (
+                      <div className="flex items-center gap-1.5 self-start sm:self-auto shrink-0 font-mono text-[10px]">
+                        {zmqTestResult.socket_established && (
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-900/60 border border-emerald-700/60 text-emerald-300">
+                            TCP Keepalive Active
+                          </span>
+                        )}
+                        {zmqTestResult.latency_ms !== undefined && (
+                          <span className="px-1.5 py-0.5 rounded bg-slate-900 border border-surfaceBorder text-slate-300">
+                            {zmqTestResult.latency_ms} ms
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {simulateResult && (
+                  <div
+                    className={`text-xs px-3 py-1.5 rounded-lg border flex items-center gap-1.5 ${
+                      simulateResult.success
+                        ? 'bg-emerald-950/40 text-emerald-400 border-emerald-800'
+                        : 'bg-red-950/40 text-red-400 border-red-800'
+                    }`}
+                  >
+                    {simulateResult.success ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <AlertCircle className="w-3.5 h-3.5 shrink-0" />}
+                    <span>{simulateResult.message}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

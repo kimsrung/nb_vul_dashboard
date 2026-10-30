@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Search, RefreshCw, Server, RotateCw, RotateCcw,
   Trash2, AlertTriangle, X, CheckCircle2, AlertCircle, ArrowUp, ArrowDown,
-  Calendar, ShieldAlert, Activity, ArrowUpRight, ChevronDown,
+  Calendar, ShieldAlert, Activity, ChevronDown,
   UserCheck, Pencil, Mail, Users, Zap, Database
 } from 'lucide-react';
 import { AssetListItem, PaginatedAssetsResponse, OwnerOption, apiClient } from '../api/client';
@@ -38,6 +38,7 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
 
   // Qualys Sync state (Admin Only)
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [syncProgress, setSyncProgress] = useState<number | null>(null);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
   const [isSyncError, setIsSyncError] = useState<boolean>(false);
   const [isSyncMenuOpen, setIsSyncMenuOpen] = useState<boolean>(false);
@@ -153,6 +154,7 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
   const handleSyncNow = async (mode: 'delta' | 'full' = 'delta') => {
     setIsSyncMenuOpen(false);
     setIsSyncing(true);
+    setSyncProgress(0);
     setIsSyncError(false);
     setSyncFeedback(
       mode === 'full'
@@ -161,40 +163,42 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
     );
 
     try {
-      await apiClient.post(`/dashboard/sync?mode=${mode}`);
+      await apiClient.post(`/sync/qualys?mode=${mode}`);
 
       // Poll sync status until finished or error
       const pollInterval = setInterval(async () => {
         try {
-          const statusRes = await apiClient.get('/dashboard/sync-status');
+          const statusRes = await apiClient.get<any>('/sync/status?source=qualys');
           const data = statusRes.data;
-          if (data.status === 'Idle') {
+          if (data.is_running && data.active_job) {
+            setSyncProgress(data.active_job.progress_pct);
+            setSyncFeedback(data.active_job.message || `Qualys sync in progress (${data.active_job.progress_pct}%)...`);
+          } else if (!data.is_running && data.latest_completed_job) {
             clearInterval(pollInterval);
             setIsSyncing(false);
-            setIsSyncError(false);
-            setSyncFeedback(data.message || 'Sync completed successfully');
-            fetchAssets();
+            setSyncProgress(null);
+            const isSuccess = data.latest_completed_job.status === 'completed';
+            setIsSyncError(!isSuccess);
+            setSyncFeedback(data.latest_completed_job.message || (isSuccess ? 'Qualys sync completed successfully.' : 'Qualys sync failed.'));
+            if (isSuccess) {
+              fetchAssets();
+            }
             setTimeout(() => setSyncFeedback(null), 6000);
-          } else if (data.status === 'Error') {
-            clearInterval(pollInterval);
-            setIsSyncing(false);
-            setIsSyncError(true);
-            setSyncFeedback(data.message || 'Qualys sync failed');
-          } else {
-            setSyncFeedback(data.message || 'Sync in progress...');
           }
         } catch {
           // ignore poll error
         }
       }, 1500);
 
-      // Safety timeout after 2 minutes
+      // Safety timeout after 5 minutes
       setTimeout(() => {
         clearInterval(pollInterval);
         setIsSyncing(false);
-      }, 120000);
+        setSyncProgress(null);
+      }, 300000);
     } catch (err: any) {
       setIsSyncing(false);
+      setSyncProgress(null);
       setIsSyncError(true);
       setSyncFeedback(err.response?.data?.detail || 'Failed to start sync');
       setTimeout(() => setSyncFeedback(null), 6000);
@@ -243,7 +247,9 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
                 title="Trigger fast incremental Qualys delta sync (updated detections only)"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''} shrink-0`} />
-                <span className="whitespace-nowrap">{isSyncing ? 'Syncing...' : 'Sync Delta'}</span>
+                <span className="whitespace-nowrap">
+                  {isSyncing ? (syncProgress !== null ? `Syncing (${syncProgress}%)...` : 'Syncing...') : 'Sync Delta'}
+                </span>
               </button>
               <button
                 onClick={() => setIsSyncMenuOpen((prev) => !prev)}
@@ -306,26 +312,36 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
 
       {syncFeedback && (
         <div
-          className={`p-3 rounded-lg border text-xs flex items-center justify-between animate-in fade-in duration-200 ${
+          className={`p-3 rounded-lg border text-xs flex flex-col gap-2 animate-in fade-in duration-200 ${
             isSyncError
               ? 'bg-red-950/60 text-red-300 border-red-800/80'
               : 'bg-sky-950/60 text-sky-300 border-sky-800/80'
           }`}
         >
-          <div className="flex items-center gap-2">
-            {isSyncError ? (
-              <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-            ) : (
-              <CheckCircle2 className="w-4 h-4 text-sky-400 shrink-0" />
-            )}
-            <span>{syncFeedback}</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {isSyncError ? (
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4 text-sky-400 shrink-0" />
+              )}
+              <span className="font-medium">{syncFeedback}</span>
+            </div>
+            <button
+              onClick={() => setSyncFeedback(null)}
+              className="text-slate-400 hover:text-slate-200 p-0.5 rounded"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <button
-            onClick={() => setSyncFeedback(null)}
-            className="text-slate-400 hover:text-slate-200 p-0.5 rounded"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
+          {isSyncing && syncProgress !== null && (
+            <div className="w-full bg-sky-950/80 rounded-full h-1.5 overflow-hidden border border-sky-800/50">
+              <div
+                className="bg-sky-400 h-1.5 rounded-full transition-all duration-300"
+                style={{ width: `${Math.max(syncProgress, 3)}%` }}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -508,21 +524,24 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
           </div>
         ) : (
           assets.map((asset) => {
-            const isCrit = asset.risk_level === 'Critical';
-            const isHigh = asset.risk_level === 'High';
-            const isMed = asset.risk_level === 'Medium';
+            const isCrit = (asset.critical_vulns ?? 0) > 0 || asset.risk_level === 'Critical';
+            const isHigh = !isCrit && ((asset.high_vulns ?? 0) > 0 || asset.risk_level === 'High');
+            const isMed = !isCrit && !isHigh && ((asset.medium_vulns ?? 0) > 0 || asset.risk_level === 'Medium');
+            const isLow = !isCrit && !isHigh && !isMed && ((asset.low_vulns ?? 0) > 0);
 
             return (
               <div
                 key={asset.id}
                 className={`p-5 sm:p-6 rounded-2xl bg-surface border transition-all space-y-4 shadow-lg ${
                   isCrit
-                    ? 'border-red-900/40 hover:border-red-800/60 ring-1 ring-red-950'
+                    ? 'border-red-500/50 hover:border-red-400 ring-1 ring-red-500/20 shadow-red-950/30 asset-card-crit'
                     : isHigh
-                    ? 'border-amber-900/40 hover:border-amber-800/60 ring-1 ring-amber-950'
+                    ? 'border-orange-500/50 hover:border-orange-400 ring-1 ring-orange-500/20 shadow-orange-950/30 asset-card-high'
                     : isMed
-                    ? 'border-yellow-900/30 hover:border-yellow-800/50'
-                    : 'border-surfaceBorder hover:border-slate-700'
+                    ? 'border-yellow-400/50 hover:border-yellow-300 ring-1 ring-yellow-400/20 shadow-yellow-950/20 asset-card-med'
+                    : isLow
+                    ? 'border-sky-500/40 hover:border-sky-400 ring-1 ring-sky-500/20 shadow-sky-950/20 asset-card-low'
+                    : 'border-surfaceBorder hover:border-slate-700 asset-card-neutral'
                 }`}
               >
                 {/* Top Row: Server Name, IP/FQDN, Risk Badge, Last Scanned */}
@@ -700,11 +719,10 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
                     <button
                       type="button"
                       onClick={() => handleSelectAsset(asset.id)}
-                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary-600/10 hover:bg-primary-600/20 text-primary-400 hover:text-primary-300 border border-primary-500/30 text-xs font-semibold transition-colors"
+                      className="px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 hover:text-sky-300 border border-sky-500/30 text-xs font-semibold transition-colors cursor-pointer"
                       title="Inspect asset risk dossier"
                     >
-                      <span>Detail</span>
-                      <ArrowUpRight className="w-3.5 h-3.5" />
+                      Details &rarr;
                     </button>
                   </div>
                 </div>

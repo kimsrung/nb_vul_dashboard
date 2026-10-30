@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, BackgroundTasks, Query
+from fastapi import APIRouter, Depends
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db, AsyncSessionLocal
-from app.api.deps import require_viewer, require_admin
+from app.core.database import get_db
+from app.api.deps import require_viewer
 from app.models.user import User
 from app.models.asset import Asset
 from app.models.detection import Detection
@@ -21,11 +21,6 @@ from app.schemas.asset import AssetListItem
 from app.services.sync_service import SyncService
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
-
-
-async def bg_sync_task(mode: str = "delta"):
-    async with AsyncSessionLocal() as session:
-        await SyncService.run_sync(session, sync_mode=mode, manual_trigger=True)
 
 
 @router.get("/summary", response_model=DashboardSummaryResponse)
@@ -178,7 +173,7 @@ async def get_dashboard_summary(
     mode_setting = await db.get(SystemSetting, "qualys_last_sync_mode")
     last_mode = mode_setting.value if mode_setting else "delta"
 
-    sync_status = await SyncService.get_sync_status()
+    sync_status = await SyncService.get_sync_status(db)
 
     return DashboardSummaryResponse(
         total_assets=total_assets,
@@ -217,27 +212,3 @@ async def get_dashboard_summary(
         last_sync_mode=last_mode,
         sync_status=sync_status.get("status", "Idle"),
     )
-
-
-@router.post("/sync")
-async def trigger_manual_sync(
-    background_tasks: BackgroundTasks,
-    mode: str = Query("delta", pattern="^(delta|full)$", description="Sync mode: 'delta' (quick incremental) or 'full' (complete reconciliation)"),
-    admin: User = Depends(require_admin),
-):
-    status = await SyncService.get_sync_status()
-    if status.get("status") == "Syncing":
-        return {"success": False, "message": "Sync is already in progress"}
-    
-    background_tasks.add_task(bg_sync_task, mode)
-    mode_label = "full reconciliation" if mode == "full" else "incremental delta"
-    return {
-        "success": True,
-        "message": f"Qualys {mode_label} sync started in background",
-        "sync_mode": mode,
-    }
-
-
-@router.get("/sync-status")
-async def get_sync_status(user: User = Depends(require_viewer)):
-    return await SyncService.get_sync_status()

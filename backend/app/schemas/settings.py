@@ -90,3 +90,8 @@ class MispTestRequest(BaseModel):
 class TelegramTestRequest(BaseModel):
     bot_token: Optional[str] = None
     chat_id: Optional[str] = None
+
+
+class MispZmqTestRequest(BaseModel):
+    host: Optional[str] = None
+    port: Optional[int] = None

@@ -42,8 +42,8 @@ export const SeverityPills: React.FC<SeverityPillsProps> = ({
       level: 3,
       label: 'Sev 3',
       count: sev3,
-      bg: sev3 > 0 ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-medium' : 'bg-slate-800/40 text-slate-600 border-slate-800',
-      dot: 'bg-amber-400',
+      bg: sev3 > 0 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40 font-medium' : 'bg-slate-800/40 text-slate-600 border-slate-800',
+      dot: 'bg-yellow-400',
     },
     {
       level: 2,

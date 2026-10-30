@@ -13,7 +13,6 @@ import { useAuth } from '../context/AuthContext';
 interface DashboardPageProps {
   summary: DashboardSummary | null;
   isLoading: boolean;
-  onRefreshSummary?: () => void;
   onSelectAsset?: (assetId: number) => void;
   onNavigateTab?: (tab: string) => void;
 }
@@ -485,12 +484,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                         compact
                       />
                     </td>
-                    <td className="py-3 px-4 text-right">
+                    <td className="py-3 px-4 text-right whitespace-nowrap">
                       <button
+                        type="button"
                         onClick={() => handleSelectAsset(asset.id)}
-                        className="px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 font-semibold transition-colors text-[11px] cursor-pointer"
+                        className="px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 text-xs font-semibold transition-colors cursor-pointer"
+                        title="View host dossier"
                       >
-                        Inspect Findings
+                        Details &rarr;
                       </button>
                     </td>
                   </tr>

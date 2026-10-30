@@ -33,7 +33,7 @@ export const MispPage: React.FC = () => {
   // Data states
   const [items, setItems] = useState<MispAssessmentListItem[]>([]);
   const [total, setTotal] = useState<number>(0);
-  const [totalEvents, setTotalEvents] = useState<number>(240);
+  const [totalEvents, setTotalEvents] = useState<number>(0);
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(25);
   const [totalPages, setTotalPages] = useState<number>(1);
@@ -75,6 +75,7 @@ export const MispPage: React.FC = () => {
 
   // Sync states
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [syncProgress, setSyncProgress] = useState<number | null>(null);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
   const [isSyncError, setIsSyncError] = useState<boolean>(false);
 
@@ -124,19 +125,51 @@ export const MispPage: React.FC = () => {
   const handleSyncMisp = async () => {
     if (isSyncing) return;
     setIsSyncing(true);
-    setSyncFeedback('Querying MISP for new CVE advisories & evaluating against server software inventory...');
+    setSyncProgress(0);
+    setSyncFeedback('Initiating asynchronous MISP threat intelligence sync...');
     setIsSyncError(false);
 
     try {
-      const res = await apiClient.post('/misp/sync');
-      setSyncFeedback(res.data.message || 'MISP threat intelligence synchronized successfully.');
-      setIsSyncError(false);
-      await fetchFeed();
+      await apiClient.post('/sync/misp');
+
+      // Poll sync status until finished or error
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusRes = await apiClient.get<any>('/sync/status?source=misp');
+          const data = statusRes.data;
+          if (data.is_running && data.active_job) {
+            setSyncProgress(data.active_job.progress_pct);
+            setSyncFeedback(data.active_job.message || `MISP sync in progress (${data.active_job.progress_pct}%)...`);
+          } else if (!data.is_running && data.latest_completed_job) {
+            clearInterval(pollInterval);
+            setIsSyncing(false);
+            setSyncProgress(null);
+            const isSuccess = data.latest_completed_job.status === 'completed';
+            setIsSyncError(!isSuccess);
+            setSyncFeedback(data.latest_completed_job.message || (isSuccess ? 'MISP threat feed synchronized successfully.' : 'MISP sync failed.'));
+            if (isSuccess) {
+              fetchFeed();
+            }
+            setTimeout(() => {
+              setSyncFeedback(null);
+            }, 9000);
+          }
+        } catch {
+          // ignore poll error
+        }
+      }, 1500);
+
+      // Safety timeout after 5 minutes
+      setTimeout(() => {
+        clearInterval(pollInterval);
+        setIsSyncing(false);
+        setSyncProgress(null);
+      }, 300000);
     } catch (err: any) {
-      setIsSyncError(true);
-      setSyncFeedback(err.response?.data?.detail || 'Failed to synchronize with MISP server.');
-    } finally {
       setIsSyncing(false);
+      setSyncProgress(null);
+      setIsSyncError(true);
+      setSyncFeedback(err.response?.data?.detail || 'Failed to start MISP synchronization.');
       setTimeout(() => {
         setSyncFeedback(null);
       }, 9000);
@@ -173,9 +206,6 @@ export const MispPage: React.FC = () => {
               <Radio className="w-5 h-5 text-purple-400" />
               MISP Threat Intelligence Feed
             </h1>
-            <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-purple-950 text-purple-400 border border-purple-800">
-              Threat Intel
-            </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
             Raw CVE threat advisories ingested from MISP (FS-ISAC / CIRCL) and proactively correlated against your server software inventory.
@@ -200,7 +230,7 @@ export const MispPage: React.FC = () => {
               title="Query MISP for new CVE advisories & evaluate against host software"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-              <span>{isSyncing ? 'Syncing...' : 'Sync MISP Feed'}</span>
+              <span>{isSyncing ? (syncProgress !== null ? `Syncing (${syncProgress}%)...` : 'Syncing...') : 'Sync MISP Feed'}</span>
             </button>
           )}
         </div>
@@ -209,23 +239,33 @@ export const MispPage: React.FC = () => {
       {/* Sync Feedback Banner */}
       {syncFeedback && (
         <div
-          className={`p-3 rounded-lg border text-xs flex items-center justify-between animate-in fade-in duration-200 ${
+          className={`p-3 rounded-lg border text-xs flex flex-col gap-2 animate-in fade-in duration-200 ${
             isSyncError
               ? 'bg-red-950/60 text-red-300 border-red-800/80'
               : 'bg-purple-950/60 text-purple-300 border-purple-800/80'
           }`}
         >
-          <div className="flex items-center gap-2">
-            {isSyncError ? (
-              <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-            ) : (
-              <Radio className="w-4 h-4 text-purple-400 shrink-0 animate-pulse" />
-            )}
-            <span>{syncFeedback}</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {isSyncError ? (
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+              ) : (
+                <Radio className="w-4 h-4 text-purple-400 shrink-0 animate-pulse" />
+              )}
+              <span className="font-medium">{syncFeedback}</span>
+            </div>
+            <button onClick={() => setSyncFeedback(null)} className="text-slate-400 hover:text-slate-200 p-0.5 rounded">
+              <X className="w-4 h-4" />
+            </button>
           </div>
-          <button onClick={() => setSyncFeedback(null)} className="text-slate-400 hover:text-slate-200">
-            <X className="w-4 h-4" />
-          </button>
+          {isSyncing && syncProgress !== null && (
+            <div className="w-full bg-purple-950/80 rounded-full h-1.5 overflow-hidden border border-purple-800/50">
+              <div
+                className="bg-purple-400 h-1.5 rounded-full transition-all duration-300"
+                style={{ width: `${Math.max(syncProgress, 3)}%` }}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -243,7 +283,7 @@ export const MispPage: React.FC = () => {
             <span className="text-xs text-purple-400 font-medium">unique CVEs</span>
           </div>
           <span className="text-[10px] text-purple-400/90 mt-1 block">
-            Consolidated from {totalEvents} FS-ISAC Events
+            {totalEvents > 0 ? `Consolidated from ${totalEvents} FS-ISAC Events` : 'Consolidated from FS-ISAC Events'}
           </span>
         </div>
 

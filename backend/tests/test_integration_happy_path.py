@@ -43,12 +43,12 @@ class TestEndToEndHappyPathIntegration:
         # Stage 2: Qualys Scan Sync & Asset Ingestion
         # =========================================================================
         # 2.1 Trigger Qualys Delta Sync
-        sync_res = await client.post("/api/v1/dashboard/sync?mode=delta", headers=admin_headers)
-        assert sync_res.status_code == 200
+        sync_res = await client.post("/api/v1/sync/qualys?mode=delta", headers=admin_headers)
+        assert sync_res.status_code in (200, 202)
         assert sync_res.json()["success"] is True
 
         # 2.2 Verify sync status is healthy
-        status_res = await client.get("/api/v1/dashboard/sync-status", headers=admin_headers)
+        status_res = await client.get("/api/v1/sync/status?source=qualys", headers=admin_headers)
         assert status_res.status_code == 200
 
         # 2.3 Query Host Inventory
@@ -71,11 +71,14 @@ class TestEndToEndHappyPathIntegration:
         # Stage 3: MISP FS-ISAC Ingestion & Pre-Scan Inventory Matching
         # =========================================================================
         # 3.1 Trigger MISP FS-ISAC feed synchronization
-        misp_sync_res = await client.post("/api/v1/misp/sync", headers=admin_headers)
-        assert misp_sync_res.status_code == 200
+        misp_sync_res = await client.post("/api/v1/sync/misp", headers=admin_headers)
+        assert misp_sync_res.status_code in (200, 202)
         sync_payload = misp_sync_res.json()
         assert sync_payload["success"] is True
-        assert sync_payload["assessments_run"] > 0
+
+        # Verify background sync status
+        misp_status_res = await client.get("/api/v1/sync/status?source=misp", headers=admin_headers)
+        assert misp_status_res.status_code == 200
 
         # 3.2 Verify MISP Feed listing contains consolidated unique CVEs with MISP metadata
         feed_res = await client.get("/api/v1/misp/feed?page=1&page_size=10", headers=admin_headers)

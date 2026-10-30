@@ -97,7 +97,9 @@ flowchart TD
 The platform supports two complementary synchronization mechanisms:
 
 ### A. REST API Polling (`/events/restSearch`)
-- **Trigger**: Runs periodically on a background schedule (APScheduler, default: every 2 hours) or on-demand when an administrator clicks the **Sync Feed** button in the **MISP Threat Feed** sub-module (`/misp`). The Alert Center provides a dedicated database **Refresh** button.
+- **Trigger**: Runs periodically on a background schedule (APScheduler, default: every 2 hours) or on-demand when an administrator clicks the **Sync Feed** button in the **MISP Threat Feed** sub-module (`/misp`) via `POST /api/v1/sync/misp`. The Alert Center provides a dedicated database **Refresh** button.
+- **Asynchronous Execution**: Invocations return `HTTP 202 Accepted` immediately with a `job_id`. Background ingestion and evaluation are executed by [`SyncRunner`](file:///Users/kimsrung/workspace/nbc/dashboard_alert/backend/app/services/sync_runner.py) using [`MispSyncService`](file:///Users/kimsrung/workspace/nbc/dashboard_alert/backend/app/services/misp_sync_service.py). Real-time progress and telemetry can be polled via `GET /api/v1/sync/status?source=misp`.
+- **Concurrency & Locking**: Overlapping sync requests are atomically rejected with `HTTP 409 Conflict`. Stuck jobs (>15 min heartbeat timeout) are automatically marked failed by stale recovery.
 - **Endpoint**: `POST {MISP_URL}/events/restSearch`
 - **Request Payload**:
   ```json
@@ -113,13 +115,20 @@ The platform supports two complementary synchronization mechanisms:
 - **SSL Verification**: Enterprise internal SSL certificates are accepted seamlessly via async HTTP client settings (`verify=False` if custom internal CA).
 
 ### B. ZeroMQ Real-Time Event Streaming (`tcp://<host>:50000`)
-- **Trigger**: Event-driven streaming directly from MISP's native ZeroMQ publisher.
+- **Trigger**: Event-driven push directly from MISP's native ZeroMQ publisher socket. Does not require or rely on any periodic schedule.
 - **Topics**: Subscribes to `misp_json_event`, `misp_json`, and `misp_json_attribute`.
 - **Workflow**:
-  1. Whenever a threat analyst or synchronization feed creates or modifies an event in MISP, MISP publishes the event payload over TCP.
-  2. The background worker (`misp_zmq_subscriber.py`) receives the multi-frame payload, decodes the JSON event, and parses CVE metadata.
-  3. The engine immediately triggers the proactive assessment workflow without waiting for the next periodic REST poll.
-  4. If servers in inventory are affected, a Telegram alert card is dispatched immediately.
+  1. Whenever a threat analyst or FS-ISAC synchronization feed creates or modifies an event in MISP, MISP publishes the event payload over TCP.
+  2. The background worker ([`misp_zmq_subscriber.py`](file:///Users/kimsrung/workspace/nbc/dashboard_alert/backend/app/services/misp_zmq_subscriber.py)) receives the multi-frame payload, decodes the JSON event, and extracts CVE metadata.
+  3. The engine immediately triggers proactive assessment against server inventory without waiting for scheduled REST polls.
+  4. If servers in inventory are affected, an in-app alert is generated in the Threat Alert Center (`/alerts`), Dashboard KPI counters increment, and a Telegram alert card is dispatched immediately for Critical/High severity matches.
+- **Socket Reachability Testing**:
+  - Administrators can verify socket connectivity to `tcp://<host>:50000` directly from the Settings interface (`/settings`) using the **Test ZeroMQ Connection** button, which tests the TCP socket and reports whether the background subscriber task is active.
+  - API Endpoint: `POST /api/v1/settings/test-misp-zmq`.
+- **Standalone CLI Subscriber**:
+  ```bash
+  python -m app.services.misp_zmq_subscriber --host 10.20.40.19 --port 50000
+  ```
 
 ---
 

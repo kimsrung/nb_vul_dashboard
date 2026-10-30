@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   History, Search, RefreshCw, Trash2, CheckCircle2, Wrench, User,
-  Eye, X, FileText, ArrowUpDown, ArrowUp, ArrowDown, Radio, Zap,
+  X, FileText, ArrowUpDown, ArrowUp, ArrowDown, Radio, Zap,
   RotateCw
 } from 'lucide-react';
 import { AuditLogItem, PaginatedAuditLogsResponse, apiClient } from '../api/client';
@@ -305,7 +305,7 @@ export const AuditLogsPage: React.FC = () => {
                 logs.map((log) => (
                   <tr key={log.id} className="hover:bg-slate-800/40 transition-colors">
                     {/* Timestamp (Full datetime yyyy-mm-dd hh:mm:ss) */}
-                    <td className="py-3 px-4 text-slate-300 text-[11px] whitespace-nowrap font-mono">
+                    <td className="py-3 px-4 text-slate-300 whitespace-nowrap font-mono">
                       {formatDateTimeYMD(log.created_at, true)}
                     </td>
 
@@ -335,17 +335,19 @@ export const AuditLogsPage: React.FC = () => {
                     </td>
 
                     {/* IP Address */}
-                    <td className="py-3 px-4 text-slate-400 text-[11px]">
+                    <td className="py-3 px-4 text-slate-400">
                       {log.ip_address || '—'}
                     </td>
 
                     {/* Snapshot inspect button */}
-                    <td className="py-3 px-4 text-right font-sans">
+                    <td className="py-3 px-4 text-right font-sans whitespace-nowrap">
                       <button
+                        type="button"
                         onClick={() => setInspectedLog(log)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 text-xs font-semibold border border-sky-500/30 transition-colors cursor-pointer"
+                        className="px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 text-xs font-semibold transition-colors cursor-pointer"
+                        title="View audit event details"
                       >
-                        <Eye className="w-3.5 h-3.5" /> Details
+                        Details &rarr;
                       </button>
                     </td>
                   </tr>

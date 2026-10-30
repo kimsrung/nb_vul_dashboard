@@ -1,7 +1,10 @@
+import asyncio
 import logging
+import os
 import re
+import ssl
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 import httpx
 from app.core.config import settings
 from app.services.misp_mock import MOCK_FS_ISAC_EVENTS
@@ -31,6 +34,30 @@ class MispClient:
         self.verify_ssl = verify_ssl if verify_ssl is not None else settings.MISP_VERIFY_SSL
         self.last_events_count = 0
 
+    def _get_ssl_context(self) -> Union[ssl.SSLContext, bool]:
+        """Return SSLContext with intermediate CAs loaded if verify_ssl is True, or False if disabled."""
+        if not self.verify_ssl:
+            return False
+
+        try:
+            ctx = ssl.create_default_context()
+            # If certs directory exists (e.g. backend/certs/), load extra/intermediate CA certificates
+            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            cert_dir = os.path.join(base_dir, "certs")
+            if os.path.isdir(cert_dir):
+                for fname in os.listdir(cert_dir):
+                    if fname.endswith((".crt", ".pem")):
+                        cert_file = os.path.join(cert_dir, fname)
+                        try:
+                            ctx.load_verify_locations(cert_file)
+                            logger.debug(f"Loaded custom CA certificate into SSL context: {fname}")
+                        except Exception as e:
+                            logger.warning(f"Could not load custom CA cert {fname}: {e}")
+            return ctx
+        except Exception as e:
+            logger.warning(f"Failed to initialize SSLContext with custom certs ({e}); falling back to verify_ssl flag.")
+            return self.verify_ssl
+
     async def test_connection(self) -> Dict[str, Any]:
         """Test connection to the MISP API endpoint and verify creator org / tag filtering."""
         if self.mock_mode:
@@ -54,18 +81,22 @@ class MispClient:
             "Accept": "application/json",
         }
 
+        ssl_ctx = self._get_ssl_context()
+        timeout = httpx.Timeout(15.0, connect=5.0)
+
         try:
-            async with httpx.AsyncClient(timeout=15.0, verify=self.verify_ssl) as client:
+            async with httpx.AsyncClient(timeout=timeout, verify=ssl_ctx) as client:
                 resp = await client.get(endpoint, headers=headers)
                 if resp.status_code == 200:
                     data = resp.json()
                     ver = data.get("version", "Unknown")
                     zmq_info = "Disabled"
                     if settings.MISP_ZMQ_ENABLED and settings.MISP_ZMQ_HOST:
-                        import socket
                         try:
-                            s = socket.create_connection((settings.MISP_ZMQ_HOST, settings.MISP_ZMQ_PORT), timeout=2.0)
-                            s.close()
+                            conn_fut = asyncio.open_connection(settings.MISP_ZMQ_HOST, settings.MISP_ZMQ_PORT)
+                            _, writer = await asyncio.wait_for(conn_fut, timeout=1.5)
+                            writer.close()
+                            await writer.wait_closed()
                             zmq_info = f"Active (tcp://{settings.MISP_ZMQ_HOST}:{settings.MISP_ZMQ_PORT})"
                         except Exception:
                             zmq_info = f"Port {settings.MISP_ZMQ_PORT} Refused/Closed"
@@ -125,30 +156,76 @@ class MispClient:
             "Accept": "application/json",
             "Content-Type": "application/json",
         }
-        
-        # Server-side query with optional Creator Org (org) and vulnerability tags
-        payload: Dict[str, Any] = {
-            "enforceWarninglist": True,
-            "limit": limit,
-            "quickFilter": "CVE",
-        }
-        if self.creator_org and self.creator_org != "*":
-            payload["org"] = self.creator_org
-        if self.tag_filter:
-            payload["tags"] = [self.tag_filter]
+
+        # Parse tag patterns: support comma-separated patterns (e.g. "vulnerability:CVE%, cve")
+        tag_patterns = [t.strip() for t in self.tag_filter.split(",") if t.strip()] if self.tag_filter else [""]
+
+        ssl_ctx = self._get_ssl_context()
+        timeout = httpx.Timeout(60.0, connect=10.0, read=45.0, write=10.0)
 
         try:
-            async with httpx.AsyncClient(timeout=30.0, verify=self.verify_ssl) as client:
-                resp = await client.post(endpoint, headers=headers, json=payload)
-                resp.raise_for_status()
-                data = resp.json()
-                raw_events = data.get("response", []) if isinstance(data, dict) else data
-                self.last_events_count = len(raw_events)
-                return self._parse_misp_events(raw_events)
+            merged_events_by_id: Dict[str, Dict[str, Any]] = {}
+            async with httpx.AsyncClient(timeout=timeout, verify=ssl_ctx) as client:
+                # 1. Query by configured tag patterns
+                for tag in tag_patterns:
+                    payload: Dict[str, Any] = {
+                        "enforceWarninglist": False,
+                        "limit": limit,
+                    }
+                    # Filter by Creator Org (MISP restSearch parameter is "org")
+                    if self.creator_org and self.creator_org != "*":
+                        payload["org"] = self.creator_org
+                    if tag:
+                        payload["tags"] = [tag]
+
+                    resp = await client.post(endpoint, headers=headers, json=payload)
+                    resp.raise_for_status()
+                    data = resp.json()
+                    events_list = data.get("response", []) if isinstance(data, dict) else data
+                    for item in events_list:
+                        ev = item.get("Event", item)
+                        eid = str(ev.get("id") or "")
+                        if eid and eid not in merged_events_by_id:
+                            merged_events_by_id[eid] = item
+                        elif not eid:
+                            merged_events_by_id[f"anon_{len(merged_events_by_id)}"] = item
+
+                # 2. Also query by eventinfo: "%CVE%" to capture submissions containing CVEs in title that lack taxonomy tags (e.g. Events 9495, 14883, 43775)
+                title_payload: Dict[str, Any] = {
+                    "enforceWarninglist": False,
+                    "limit": limit,
+                    "eventinfo": "%CVE%",
+                }
+                if self.creator_org and self.creator_org != "*":
+                    title_payload["org"] = self.creator_org
+
+                resp_title = await client.post(endpoint, headers=headers, json=title_payload)
+                if resp_title.status_code == 200:
+                    data_title = resp_title.json()
+                    title_events = data_title.get("response", []) if isinstance(data_title, dict) else data_title
+                    for item in title_events:
+                        ev = item.get("Event", item)
+                        eid = str(ev.get("id") or "")
+                        if eid and eid not in merged_events_by_id:
+                            merged_events_by_id[eid] = item
+                        elif not eid:
+                            merged_events_by_id[f"anon_{len(merged_events_by_id)}"] = item
+
+            raw_events = list(merged_events_by_id.values())
+            self.last_events_count = len(raw_events)
+            logger.info(
+                f"Fetched {len(raw_events)} distinct MISP events matching Creator Org '{self.creator_org}' across tags {tag_patterns} and title CVE search."
+            )
+            return self._parse_misp_events(raw_events)
         except Exception as e:
-            logger.error(f"Failed to fetch live MISP events ({e}). Falling back to mock feed.")
-            self.last_events_count = len(MOCK_FS_ISAC_EVENTS)
-            return self._parse_misp_events(MOCK_FS_ISAC_EVENTS)
+            if self.mock_mode:
+                logger.warning(f"Failed to fetch live MISP events in mock mode ({e}). Falling back to mock feed.")
+                self.last_events_count = len(MOCK_FS_ISAC_EVENTS)
+                return self._parse_misp_events(MOCK_FS_ISAC_EVENTS)
+            logger.error(
+                f"Failed to fetch live MISP events ({e}). Aborting sync without mock fallback to preserve live database integrity."
+            )
+            raise
 
     # Method alias for multi-org threat intelligence ingestion
     fetch_misp_events = fetch_fs_isac_events
@@ -165,13 +242,13 @@ class MispClient:
             ev = item.get("Event", item)
             
             # Condition 1: Enforce Creator Org (Orgc) / Source flexibility
-            orgc = ev.get("Orgc", {})
+            orgc = ev.get("Orgc") or ev.get("orgc") or {}
             orgc_name = orgc.get("name", "") if isinstance(orgc, dict) else str(orgc)
-            org = ev.get("Org", {})
+            org = ev.get("Org") or ev.get("org") or {}
             org_name = org.get("name", "") if isinstance(org, dict) else str(org)
             event_source = orgc_name or org_name or (self.creator_org if self.creator_org != "*" else "MISP") or "MISP"
             
-            raw_tags = ev.get("Tag", [])
+            raw_tags = ev.get("Tag") or ev.get("tag") or ev.get("tags") or []
             tag_names = [t.get("name", "") if isinstance(t, dict) else str(t) for t in raw_tags]
             title = ev.get("title") or ev.get("info", "")
             desc = ev.get("description", "")
@@ -208,7 +285,8 @@ class MispClient:
                         cve_ids.append(cid)
 
             # C. Check attributes (values and comments)
-            for attr in ev.get("Attribute", []):
+            raw_attrs = ev.get("Attribute") or ev.get("attribute") or ev.get("attributes") or []
+            for attr in raw_attrs:
                 val = str(attr.get("value", "")).strip()
                 comment = str(attr.get("comment", "")).strip()
                 for text_to_check in (val, comment):
