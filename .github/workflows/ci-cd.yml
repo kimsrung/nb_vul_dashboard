@@ -27,7 +27,7 @@ jobs:
   # ============================================================================
   test:
     name: Run Test Suite & Build Verification
-    runs-on: [self-hosted, linux]
+    runs-on: self-hosted
     if: ${{ !inputs.skip_tests }}
     steps:
       - name: Checkout Code Repository
@@ -75,7 +75,7 @@ jobs:
     name: Build & Push Docker Images to Harbor
     needs: [test]
     if: always() && (needs.test.result == 'success' || inputs.skip_tests == true)
-    runs-on: [self-hosted, linux]
+    runs-on: self-hosted
     steps:
       - name: Checkout Code Repository
         uses: actions/checkout@v4
