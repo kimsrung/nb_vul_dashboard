@@ -169,6 +169,10 @@ else
   echo -e "${GREEN}✅ Existing .env.production found. Preserving current secrets.${NC}"
 fi
 
+# Ensure .env symlinks to .env.production so standard docker compose commands load production vars automatically
+ln -sf "${ENV_PROD}" "${ROOT_DIR}/.env"
+echo -e "${GREEN}✅ Linked .env -> .env.production for seamless docker compose compatibility.${NC}"
+
 # 7. Server IP Address Detection
 SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
 
