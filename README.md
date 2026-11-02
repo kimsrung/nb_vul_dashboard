@@ -134,7 +134,12 @@ For a new, unprovisioned server, run the automated bootstrap script to install D
 See the full [Blank Server Provisioning & Deployment Guide](docs/SERVER_SETUP_GUIDE.md) for step-by-step instructions.
 
 #### Production CI/CD & Automated Harbor Deployment:
-For automated deployments via GitHub Actions and Harbor container registry, use the lightweight server deployment script:
+Every push to `main` triggers an automated 3-stage GitHub Actions pipeline on your self-hosted runner:
+1. **Build & Push**: Compiles backend & frontend Docker images and pushes `:latest` and `:sha-<commit>` to Harbor.
+2. **Containerized Tests**: Runs `pytest` inside the built backend container against an isolated PostgreSQL container.
+3. **Auto-Deploy**: If tests pass, automatically deploys the image to production on port 80 (skipped if tests fail).
+
+You can also run manual on-server deployments at any time using:
 ```bash
 # Pull and deploy the newest :latest images from Harbor
 ./scripts/deploy.sh
@@ -142,7 +147,7 @@ For automated deployments via GitHub Actions and Harbor container registry, use 
 # Or deploy / rollback to a specific commit SHA or version tag
 ./scripts/deploy.sh sha-a1b2c3d
 ```
-See the full [CI/CD & Harbor Deployment Guide](docs/CI_CD_DEPLOYMENT.md) for self-hosted runner setup and GitHub Secrets configuration.
+See the full [CI/CD & Harbor Deployment Guide](docs/CI_CD_DEPLOYMENT.md) for self-hosted runner setup and GitHub Secrets/Variables configuration.
 
 #### Production Access Points:
 - **Frontend & Unified API (Nginx)**: `http://localhost:80` (or `http://localhost:${FRONTEND_PORT:-80}`)

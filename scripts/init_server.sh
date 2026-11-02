@@ -54,7 +54,7 @@ export DEBIAN_FRONTEND=noninteractive
 
 # 3. System Packages Update & Essential Tools
 echo ""
-echo -e "${BOLD}[1/6] Updating APT repositories & installing base utilities...${NC}"
+echo -e "${BOLD}[1/5] Updating APT repositories & installing base utilities...${NC}"
 $SUDO apt-get update -y
 $SUDO apt-get install -y --no-install-recommends \
   apt-transport-https \
@@ -73,7 +73,7 @@ echo -e "${GREEN}✅ System packages and base tools installed.${NC}"
 
 # 4. Official Docker Engine & Docker Compose v2 Installation
 echo ""
-echo -e "${BOLD}[2/6] Installing official Docker Engine & Docker Compose Plugin...${NC}"
+echo -e "${BOLD}[2/5] Installing official Docker Engine & Docker Compose Plugin...${NC}"
 
 # Remove conflicting legacy packages if present
 $SUDO apt-get remove -y docker docker-engine docker.io containerd runc 2>/dev/null || true
@@ -110,7 +110,7 @@ echo -e "${GREEN}✅ Docker Engine $(docker --version) installed successfully.${
 
 # 5. UFW Firewall Configuration
 echo ""
-echo -e "${BOLD}[3/6] Configuring UFW Firewall...${NC}"
+echo -e "${BOLD}[3/5] Configuring UFW Firewall...${NC}"
 # CRITICAL: Allow SSH port 22 first to prevent lockout
 $SUDO ufw allow 22/tcp comment 'SSH Remote Access' >/dev/null 2>&1 || true
 $SUDO ufw allow 80/tcp comment 'HTTP Web Dashboard' >/dev/null 2>&1 || true
@@ -122,7 +122,7 @@ echo -e "${GREEN}✅ UFW enabled with rules for ports 22 (SSH), 80 (HTTP), and 4
 
 # 6. Repository Working Directory & Secrets Generation
 echo ""
-echo -e "${BOLD}[4/6] Initializing production configuration & secure keys...${NC}"
+echo -e "${BOLD}[4/5] Initializing production configuration & secure keys...${NC}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${ROOT_DIR}"
@@ -198,7 +198,7 @@ SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
 
 # 8. GitHub Actions Self-Hosted Runner Setup (Interactive / Optional)
 echo ""
-echo -e "${BOLD}[5/6] GitHub Actions Self-Hosted Runner Setup${NC}"
+echo -e "${BOLD}[5/5] GitHub Actions Self-Hosted Runner Setup${NC}"
 read -r -p "Do you want to configure and install the GitHub Actions Runner now? [y/N]: " RUNNER_CHOICE
 RUNNER_CHOICE=${RUNNER_CHOICE:-N}
 

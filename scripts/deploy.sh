@@ -71,13 +71,13 @@ set -a
 source <(grep -v '^[[:space:]]*#' "${ENV_FILE}" | grep -v '^[[:space:]]*$')
 set +a
 
-# 3. Clean Harbor URL (strip protocol schemes)
+# 4. Clean Harbor URL (strip protocol schemes)
 if [ -n "${HARBOR_URL}" ]; then
   CLEAN_HARBOR_URL=$(echo "${HARBOR_URL}" | sed -e 's|^https://||' -e 's|^http://||' -e 's|/$||')
   export HARBOR_URL="${CLEAN_HARBOR_URL}"
 fi
 
-# 4. Ensure Insecure HTTP Registry Support in Docker Daemon
+# 5. Ensure Insecure HTTP Registry Support in Docker Daemon
 ensure_insecure_registry() {
   local host="$1"
   if [ -z "${host}" ]; then return 0; fi
@@ -130,7 +130,7 @@ if [ -n "${CLEAN_HARBOR_URL}" ]; then
   ensure_insecure_registry "${CLEAN_HARBOR_URL}"
 fi
 
-# 5. Harbor Registry Authentication
+# 6. Harbor Registry Authentication
 echo "🔐 Checking Harbor authentication..."
 IS_LOGGED_IN=false
 
@@ -154,22 +154,22 @@ if [ "${IS_LOGGED_IN}" = false ]; then
   fi
 fi
 
-# 5. Pull latest / target Docker images from Harbor
+# 7. Pull latest / target Docker images from Harbor
 echo ""
 echo "📥 Pulling backend and frontend images (${IMAGE_TAG})..."
 docker compose -f docker-compose.prod.yml pull backend frontend
 
-# 6. Recreate and restart production containers
+# 8. Recreate and restart production containers
 echo ""
 echo "🔄 Updating running services (backend & frontend)..."
 docker compose -f docker-compose.prod.yml up -d backend frontend
 
-# 7. Clean up dangling images to prevent disk exhaustion
+# 9. Clean up dangling images to prevent disk exhaustion
 echo ""
 echo "🧹 Pruning obsolete/dangling docker images..."
 docker image prune -f
 
-# 8. Display current container status
+# 10. Display current container status
 echo ""
 echo "================================================================="
 echo " ✅ Deployment Completed Successfully!"

@@ -60,9 +60,10 @@ Key variables to verify:
 FRONTEND_PORT=80
 
 # Harbor Container Registry (for automated deployments)
-HARBOR_URL=harbor.internal.nbc.gov.kh
-HARBOR_PROJECT=security
-HARBOR_USERNAME=robot$ci-deployer
+# If Harbor uses plain HTTP (port 80), use http://<ip>/
+HARBOR_URL=http://10.20.40.55/
+HARBOR_PROJECT=alert-dashboard
+HARBOR_USERNAME=itsec
 HARBOR_PASSWORD=<your_harbor_token>
 
 # Qualys Cloud Platform Credentials
