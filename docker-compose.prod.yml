@@ -26,6 +26,7 @@ services:
       - "5432"
 
   backend:
+    image: ${HARBOR_URL:-harbor.internal}/${HARBOR_PROJECT:-security}/backend:${IMAGE_TAG:-latest}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -43,6 +44,7 @@ services:
       - "8000"
 
   frontend:
+    image: ${HARBOR_URL:-harbor.internal}/${HARBOR_PROJECT:-security}/frontend:${IMAGE_TAG:-latest}
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -51,7 +53,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "${FRONTEND_PORT:-3000}:80"
+      - "${FRONTEND_PORT:-80}:80"
 
 volumes:
   risk_alert_pgdata_prod:

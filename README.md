@@ -126,6 +126,24 @@ docker compose -f docker-compose.prod.yml logs -f
 docker compose -f docker-compose.prod.yml down
 ```
 
+#### Blank Server Setup:
+For a new, unprovisioned server, run the automated bootstrap script to install Docker, configure UFW firewall, generate secure credentials, and optionally register the GitHub Actions Self-Hosted Runner:
+```bash
+./scripts/init_server.sh
+```
+See the full [Blank Server Provisioning & Deployment Guide](docs/SERVER_SETUP_GUIDE.md) for step-by-step instructions.
+
+#### Production CI/CD & Automated Harbor Deployment:
+For automated deployments via GitHub Actions and Harbor container registry, use the lightweight server deployment script:
+```bash
+# Pull and deploy the newest :latest images from Harbor
+./scripts/deploy.sh
+
+# Or deploy / rollback to a specific commit SHA or version tag
+./scripts/deploy.sh sha-a1b2c3d
+```
+See the full [CI/CD & Harbor Deployment Guide](docs/CI_CD_DEPLOYMENT.md) for self-hosted runner setup and GitHub Secrets configuration.
+
 #### Production Access Points:
 - **Frontend & Unified API (Nginx)**: `http://localhost:80` (or `http://localhost:${FRONTEND_PORT:-80}`)
 - **Interactive API Documentation**: `http://localhost:80/docs`
