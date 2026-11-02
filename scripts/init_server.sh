@@ -173,6 +173,26 @@ fi
 ln -sf "${ENV_PROD}" "${ROOT_DIR}/.env"
 echo -e "${GREEN}✅ Linked .env -> .env.production for seamless docker compose compatibility.${NC}"
 
+# Check if Harbor is configured as an HTTP registry and configure Docker daemon insecure-registries
+RAW_HARBOR=$(grep -E '^HARBOR_URL=' "${ENV_PROD}" | cut -d '=' -f2- | tr -d ' "' || true)
+if [ -n "${RAW_HARBOR}" ]; then
+  CLEAN_HARBOR=$(echo "${RAW_HARBOR}" | sed -e 's|^https://||' -e 's|^http://||' -e 's|/$||')
+  if [ -n "${CLEAN_HARBOR}" ]; then
+    echo -e "${BLUE}🔧 Ensuring Docker allows HTTP registry: ${CLEAN_HARBOR}...${NC}"
+    $SUDO mkdir -p /etc/docker
+    if [ -f /etc/docker/daemon.json ]; then
+      if command -v jq >/dev/null 2>&1; then
+        jq '.["insecure-registries"] = ((.["insecure-registries"] // []) + ["'"${CLEAN_HARBOR}"'"] | unique)' /etc/docker/daemon.json > /tmp/daemon.json && \
+        $SUDO mv /tmp/daemon.json /etc/docker/daemon.json
+      fi
+    else
+      echo "{\"insecure-registries\": [\"${CLEAN_HARBOR}\"]}" | $SUDO tee /etc/docker/daemon.json > /dev/null
+    fi
+    $SUDO systemctl restart docker || true
+    echo -e "${GREEN}✅ Docker configured with insecure registry: ${CLEAN_HARBOR}${NC}"
+  fi
+fi
+
 # 7. Server IP Address Detection
 SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
 

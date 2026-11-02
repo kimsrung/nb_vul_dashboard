@@ -58,7 +58,60 @@ if [ -n "${HARBOR_URL}" ]; then
   export HARBOR_URL="${CLEAN_HARBOR_URL}"
 fi
 
-# 4. Harbor Registry Authentication
+# 4. Ensure Insecure HTTP Registry Support in Docker Daemon
+ensure_insecure_registry() {
+  local host="$1"
+  if [ -z "${host}" ]; then return 0; fi
+
+  # Check if host is already in /etc/docker/daemon.json
+  if [ -f /etc/docker/daemon.json ] && grep -q "\"${host}\"" /etc/docker/daemon.json 2>/dev/null; then
+    return 0
+  fi
+
+  echo "🔧 Registering ${host} as an insecure HTTP registry in /etc/docker/daemon.json..."
+  SUDO_CMD=""
+  if [ "$EUID" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+    SUDO_CMD="sudo"
+  fi
+
+  if command -v systemctl >/dev/null 2>&1; then
+    $SUDO_CMD mkdir -p /etc/docker
+    if [ -f /etc/docker/daemon.json ]; then
+      if command -v jq >/dev/null 2>&1; then
+        jq '.["insecure-registries"] = ((.["insecure-registries"] // []) + ["'"${host}"'"] | unique)' /etc/docker/daemon.json > /tmp/daemon.json && \
+        $SUDO_CMD mv /tmp/daemon.json /etc/docker/daemon.json
+      else
+        python3 -c "
+import json
+try:
+    with open('/etc/docker/daemon.json') as f:
+        d = json.load(f)
+except Exception:
+    d = {}
+regs = d.get('insecure-registries', [])
+if '${host}' not in regs:
+    regs.append('${host}')
+d['insecure-registries'] = regs
+with open('/tmp/daemon.json', 'w') as f:
+    json.dump(d, f, indent=2)
+" && $SUDO_CMD mv /tmp/daemon.json /etc/docker/daemon.json
+      fi
+    else
+      echo "{\"insecure-registries\": [\"${host}\"]}" | $SUDO_CMD tee /etc/docker/daemon.json > /dev/null
+    fi
+    echo "   Restarting Docker daemon..."
+    $SUDO_CMD systemctl restart docker || true
+    echo "   ✅ Docker daemon updated with insecure-registries: ${host}"
+  else
+    echo "   ⚠️ Notice: Please ensure ${host} is added to insecure-registries in /etc/docker/daemon.json."
+  fi
+}
+
+if [ -n "${CLEAN_HARBOR_URL}" ]; then
+  ensure_insecure_registry "${CLEAN_HARBOR_URL}"
+fi
+
+# 5. Harbor Registry Authentication
 echo "🔐 Checking Harbor authentication..."
 IS_LOGGED_IN=false
 
