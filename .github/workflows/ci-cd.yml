@@ -38,8 +38,9 @@ jobs:
           SHA_SHORT=$(git rev-parse --short HEAD)
           echo "sha_short=${SHA_SHORT}" >> "$GITHUB_OUTPUT"
 
-          REGISTRY="${{ secrets.HARBOR_URL }}"
-          PROJECT="${{ secrets.HARBOR_PROJECT }}"
+          # Support both GitHub Secrets and GitHub Variables
+          REGISTRY="${{ secrets.HARBOR_URL || vars.HARBOR_URL }}"
+          PROJECT="${{ secrets.HARBOR_PROJECT || vars.HARBOR_PROJECT }}"
           
           CLEAN_REGISTRY=$(echo "$REGISTRY" | sed -e 's|^https://||' -e 's|^http://||' -e 's|/$||')
           CLEAN_PROJECT=$(echo "$PROJECT" | sed -e 's|^/||' -e 's|/$||')
@@ -57,11 +58,43 @@ jobs:
             echo "deploy_tag=sha-${SHA_SHORT}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Authenticate to Harbor Container Registry
+      - name: Configure Insecure HTTP Registry if needed
         run: |
-          echo "${{ secrets.HARBOR_PASSWORD }}" | docker login "${{ steps.meta.outputs.registry }}" \
-            -u "${{ secrets.HARBOR_USERNAME }}" \
-            --password-stdin
+          REGISTRY="${{ steps.meta.outputs.registry }}"
+          if [ -n "$REGISTRY" ]; then
+            if [ -f /etc/docker/daemon.json ] && grep -q "\"$REGISTRY\"" /etc/docker/daemon.json 2>/dev/null; then
+              echo "✅ Registry $REGISTRY is already in /etc/docker/daemon.json"
+            else
+              echo "🔧 Configuring Docker daemon insecure-registries for $REGISTRY..."
+              SUDO_CMD=""
+              if [ "$EUID" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+                SUDO_CMD="sudo"
+              fi
+              $SUDO_CMD mkdir -p /etc/docker
+              if [ -f /etc/docker/daemon.json ]; then
+                if command -v jq >/dev/null 2>&1; then
+                  jq '.["insecure-registries"] = ((.["insecure-registries"] // []) + ["'"$REGISTRY"'"] | unique)' /etc/docker/daemon.json > /tmp/daemon.json && \
+                  $SUDO_CMD mv /tmp/daemon.json /etc/docker/daemon.json
+                fi
+              else
+                echo "{\"insecure-registries\": [\"$REGISTRY\"]}" | $SUDO_CMD tee /etc/docker/daemon.json > /dev/null
+              fi
+              $SUDO_CMD systemctl restart docker || true
+            fi
+          fi
+
+      - name: Authenticate to Harbor Container Registry
+        env:
+          HARBOR_USER: ${{ secrets.HARBOR_USERNAME || vars.HARBOR_USERNAME }}
+          HARBOR_PASS: ${{ secrets.HARBOR_PASSWORD || vars.HARBOR_PASSWORD }}
+          REGISTRY: ${{ steps.meta.outputs.registry }}
+        run: |
+          if [ -z "$HARBOR_USER" ]; then
+            echo "❌ Error: HARBOR_USERNAME is empty!"
+            echo "   Please add HARBOR_USERNAME in GitHub Repository Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          echo "$HARBOR_PASS" | docker login "$REGISTRY" -u "$HARBOR_USER" --password-stdin
 
       - name: Build & Tag Backend Docker Image
         run: |
