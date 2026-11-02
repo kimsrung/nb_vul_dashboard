@@ -38,11 +38,30 @@ TARGET_TAG="${1:-latest}"
 export IMAGE_TAG="${TARGET_TAG}"
 echo "📦 Target Image Tag: ${IMAGE_TAG}"
 
-# 3. Check for .env.production file
-ENV_FILE="${ROOT_DIR}/.env.production"
+# 3. Locate and load .env.production file
+ENV_FILE="${ENV_FILE:-${ROOT_DIR}/.env.production}"
+if [ ! -f "${ENV_FILE}" ]; then
+  # Search standard server directories (e.g. when run from GitHub Actions runner workspace)
+  for candidate in \
+    "${ROOT_DIR}/.env" \
+    "${HOME}/alert-dashboard/.env.production" \
+    "${HOME}/dashboard_alert/.env.production" \
+    "${HOME}/.env.production" \
+    "/opt/alert-dashboard/.env.production" \
+    "/opt/dashboard_alert/.env.production"; do
+    if [ -f "${candidate}" ]; then
+      echo "ℹ️ Found production configuration at: ${candidate}"
+      cp "${candidate}" "${ROOT_DIR}/.env.production"
+      ln -sf "${ROOT_DIR}/.env.production" "${ROOT_DIR}/.env"
+      ENV_FILE="${ROOT_DIR}/.env.production"
+      break
+    fi
+  done
+fi
+
 if [ ! -f "${ENV_FILE}" ]; then
   echo "❌ Error: Production configuration file not found at ${ENV_FILE}"
-  echo "   Please create it from .env.production.example before deploying."
+  echo "   Please create it from .env.production.example or copy your server's .env.production before deploying."
   exit 1
 fi
 

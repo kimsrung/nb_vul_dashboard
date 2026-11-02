@@ -216,6 +216,24 @@ jobs:
       - name: Checkout Code Repository
         uses: actions/checkout@v4
 
+      - name: Locate Server Production Configuration
+        run: |
+          if [ ! -f .env.production ]; then
+            for candidate in \
+              "${HOME}/alert-dashboard/.env.production" \
+              "${HOME}/dashboard_alert/.env.production" \
+              "${HOME}/.env.production" \
+              "/opt/alert-dashboard/.env.production" \
+              "/opt/dashboard_alert/.env.production"; do
+              if [ -f "$candidate" ]; then
+                echo "📋 Found server configuration at $candidate -> copying to runner workspace"
+                cp "$candidate" .env.production
+                ln -sf .env.production .env
+                break
+              fi
+            done
+          fi
+
       - name: Execute Server Deployment Script
         env:
           DEPLOY_TAG: "${{ needs.build-and-push.outputs.deploy_tag }}"
