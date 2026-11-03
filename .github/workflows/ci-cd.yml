@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - develop
   workflow_dispatch:
     inputs:
       custom_tag:
@@ -41,7 +42,7 @@ jobs:
           # Support both GitHub Secrets and GitHub Variables
           REGISTRY="${{ secrets.HARBOR_URL || vars.HARBOR_URL }}"
           PROJECT="${{ secrets.HARBOR_PROJECT || vars.HARBOR_PROJECT }}"
-          
+
           CLEAN_REGISTRY=$(echo "$REGISTRY" | sed -e 's|^https://||' -e 's|^http://||' -e 's|/$||')
           CLEAN_PROJECT=$(echo "$PROJECT" | sed -e 's|^/||' -e 's|/$||')
 
