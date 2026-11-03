@@ -154,6 +154,13 @@ if [ "${IS_LOGGED_IN}" = false ]; then
   fi
 fi
 
+# 6.5. Ensure SSL Certificates Exist
+if [ ! -f "${ROOT_DIR}/ssl/server.crt" ] || [ ! -f "${ROOT_DIR}/ssl/server.key" ]; then
+  echo "🔒 SSL certificates not found in ${ROOT_DIR}/ssl. Generating self-signed fallback certificate..."
+  chmod +x "${ROOT_DIR}/scripts/generate_ssl.sh"
+  "${ROOT_DIR}/scripts/generate_ssl.sh" "${DOMAIN_NAME:-alert-dashboard.nbc.gov.kh}" "${ROOT_DIR}/ssl"
+fi
+
 # 7. Pull latest / target Docker images from Harbor
 echo ""
 echo "📥 Pulling backend and frontend images (${IMAGE_TAG})..."

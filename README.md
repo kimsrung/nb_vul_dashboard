@@ -149,11 +149,13 @@ You can also run manual on-server deployments at any time using:
 ```
 See the full [CI/CD & Harbor Deployment Guide](docs/CI_CD_DEPLOYMENT.md) for self-hosted runner setup and GitHub Secrets/Variables configuration.
 
-#### Production Access Points:
-- **Frontend & Unified API (Nginx)**: `http://localhost:80` (or `http://localhost:${FRONTEND_PORT:-80}`)
-- **Interactive API Documentation**: `http://localhost:80/docs`
-- **Health Check Endpoint**: `http://localhost:80/health`
-- **Database & Backend**: Kept internal to the Docker network for maximum security (not exposed to external host ports).
+#### Production Access Points (Dual HTTP & HTTPS):
+- **Frontend & Unified API (HTTPS)**: `https://alert-dashboard.nbc.gov.kh/` (Port 443, SSL terminated)
+- **Frontend & Unified API (HTTP)**: `http://alert-dashboard.nbc.gov.kh/` (Port 80)
+- **Interactive API Documentation**: `https://alert-dashboard.nbc.gov.kh/docs`
+- **Health Check Endpoint**: `https://alert-dashboard.nbc.gov.kh/health`
+- **SSL / TLS Certificate Helper**: Run `./scripts/generate_ssl.sh` to generate self-signed fallback certificates, or place commercial CA certs in `./ssl/server.crt` & `./ssl/server.key`.
+- **Database & Backend**: Kept internal to the Docker network for maximum security (not exposed directly to external host ports).
 
 *Note: You can also use the default `docker compose up -d --build` command, which runs the production configuration.*
 

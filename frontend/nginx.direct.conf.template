@@ -1,0 +1,103 @@
+# ==============================================================================
+# Production Nginx Configuration: Direct Access Mode
+# Serves application directly via IP address, localhost, or domain name
+# ==============================================================================
+
+server {
+    listen 80 default_server;
+    listen 443 ssl default_server;
+    server_name ${DOMAIN_NAME} _ localhost;
+
+    # SSL / TLS Settings
+    ssl_certificate /etc/nginx/ssl/server.crt;
+    ssl_certificate_key /etc/nginx/ssl/server.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets off;
+
+    # Gzip Compression
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_proxied any;
+    gzip_types
+        text/plain
+        text/css
+        text/javascript
+        application/javascript
+        application/json
+        application/x-javascript
+        image/svg+xml;
+
+    # Security Headers (HSTS omitted for dual HTTP/HTTPS support)
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+
+    # Root Directory for Built React Application
+    root /usr/share/nginx/html;
+    index index.html index.htm;
+
+    # Caching for immutable built JS/CSS assets
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # SPA routing - always fall back to index.html with no-cache to ensure immediate updates
+    location / {
+        try_files $uri $uri/ /index.html;
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    # Proxy API endpoints to backend
+    location /api/ {
+        proxy_pass http://backend:8000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # Proxy interactive API documentation
+    location /docs {
+        proxy_pass http://backend:8000/docs;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Proxy OpenAPI JSON schema
+    location /openapi.json {
+        proxy_pass http://backend:8000/openapi.json;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Proxy backend health check endpoint
+    location /health {
+        proxy_pass http://backend:8000/health;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+
+    # Internal Nginx health check endpoint
+    location /nginx-health {
+        access_log off;
+        return 200 "healthy\n";
+    }
+}

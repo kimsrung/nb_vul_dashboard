@@ -29,5 +29,9 @@ backend/certs/
 .idea/
 .vscode/
 
+# Security & SSL
+ssl/
+*.key
+
 # Backups
 backups/

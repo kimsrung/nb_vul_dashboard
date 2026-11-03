@@ -173,6 +173,13 @@ fi
 ln -sf "${ENV_PROD}" "${ROOT_DIR}/.env"
 echo -e "${GREEN}✅ Linked .env -> .env.production for seamless docker compose compatibility.${NC}"
 
+# Ensure SSL certificates exist (generates self-signed fallback if missing)
+if [ ! -f "${ROOT_DIR}/ssl/server.crt" ] || [ ! -f "${ROOT_DIR}/ssl/server.key" ]; then
+  echo -e "${BLUE}🔒 Setting up SSL fallback certificates in ./ssl...${NC}"
+  chmod +x "${ROOT_DIR}/scripts/generate_ssl.sh"
+  "${ROOT_DIR}/scripts/generate_ssl.sh" "alert-dashboard.nbc.gov.kh" "${ROOT_DIR}/ssl"
+fi
+
 # Check if Harbor is configured as an HTTP registry and configure Docker daemon insecure-registries
 RAW_HARBOR=$(grep -E '^HARBOR_URL=' "${ENV_PROD}" | cut -d '=' -f2- | tr -d ' "' || true)
 if [ -n "${RAW_HARBOR}" ]; then
@@ -243,8 +250,10 @@ echo ""
 echo -e "${BOLD}${GREEN}=================================================================${NC}"
 echo -e "${BOLD}${GREEN} 🎉 SERVER BOOTSTRAP COMPLETE!${NC}"
 echo -e "${BOLD}${GREEN}=================================================================${NC}"
-echo -e " Server Access: ${BOLD}http://${SERVER_IP}/${NC}"
-echo -e " Configuration: ${BOLD}${ENV_PROD}${NC}"
+echo -e " Web Access (HTTPS): ${BOLD}https://${SERVER_IP}/ (or https://alert-dashboard.nbc.gov.kh)${NC}"
+echo -e " Web Access (HTTP):  ${BOLD}http://${SERVER_IP}/  (or http://alert-dashboard.nbc.gov.kh)${NC}"
+echo -e " Configuration:      ${BOLD}${ENV_PROD}${NC}"
+echo -e " SSL Certificates:   ${BOLD}${ROOT_DIR}/ssl/${NC}"
 echo ""
 echo -e " Next Steps:"
 echo -e " 1. Configure Harbor credentials, Qualys, and MISP keys in: ${BOLD}nano .env.production${NC}"

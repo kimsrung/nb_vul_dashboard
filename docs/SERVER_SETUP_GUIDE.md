@@ -56,8 +56,10 @@ nano .env.production
 
 Key variables to verify:
 ```bash
-# Web Port (Default: 80 for direct browser access)
+# Domain & Web Ports (Dual HTTP 80 & HTTPS 443 listening)
+DOMAIN_NAME=alert-dashboard.nbc.gov.kh
 FRONTEND_PORT=80
+FRONTEND_SSL_PORT=443
 
 # Harbor Container Registry (for automated deployments)
 # If Harbor uses plain HTTP (port 80), use http://<ip>/
@@ -143,10 +145,12 @@ sudo ./svc.sh uninstall
 
 ## 6. Accessing the Dashboard & First Login
 
-Open your web browser and navigate to:
-```
-http://<SERVER_IP>/
-```
+Open your web browser and navigate to either:
+- **HTTPS (Encrypted)**: `https://alert-dashboard.nbc.gov.kh/` (or `https://<SERVER_IP>/`)
+- **HTTP (Plaintext)**: `http://alert-dashboard.nbc.gov.kh/` (or `http://<SERVER_IP>/`)
+
+> [!NOTE]
+> Accessing via raw IP address will automatically 301-redirect you to `https://alert-dashboard.nbc.gov.kh/`.
 
 1. **Sign In**:
    - **Username**: `admin`
@@ -157,25 +161,38 @@ http://<SERVER_IP>/
 
 ---
 
-## 7. Future Upgrades: Enabling HTTPS / TLS (Port 443)
+## 7. SSL / TLS Certificate Management
 
-When you are ready to enable HTTPS:
-1. Place your corporate SSL certificate (`cert.pem`) and private key (`key.pem`) into a directory, e.g., `/etc/ssl/dashboard/`.
-2. Update `frontend/nginx.conf` with the TLS listening block:
-   ```nginx
-   listen 443 ssl http2;
-   ssl_certificate /etc/ssl/dashboard/cert.pem;
-   ssl_certificate_key /etc/ssl/dashboard/key.pem;
-   ```
-3. In `docker-compose.prod.yml`, add the volume and port mapping:
-   ```yaml
-   ports:
-     - "80:80"
-     - "443:443"
-   volumes:
-     - /etc/ssl/dashboard:/etc/ssl/dashboard:ro
-   ```
-4. Restart the frontend container:
+The production stack terminates SSL directly inside the frontend Nginx reverse proxy with modern TLS 1.2 / TLS 1.3 encryption and dual HTTP/HTTPS listening.
+
+### A. Fallback Certificate Generation
+During `./scripts/init_server.sh` or `./scripts/deploy.sh`, if `./ssl/server.crt` does not exist, the bootstrap script automatically generates a 4096-bit RSA self-signed SAN certificate covering:
+- `DNS:alert-dashboard.nbc.gov.kh`
+- `DNS:*.nbc.gov.kh`
+- `DNS:localhost`
+- All detected host IP addresses (e.g., `10.20.40.55`)
+
+To manually regenerate or force a new self-signed certificate:
+```bash
+./scripts/generate_ssl.sh alert-dashboard.nbc.gov.kh ./ssl --force
+```
+
+### B. Installing Commercial / Corporate CA Certificates
+When your official corporate SSL certificate is issued:
+1. Copy the certificate file (including intermediate bundle) to:
    ```bash
-   docker compose -f docker-compose.prod.yml up -d frontend
+   ./ssl/server.crt
+   ```
+2. Copy the decrypted private key to:
+   ```bash
+   ./ssl/server.key
+   ```
+3. Set secure permissions:
+   ```bash
+   chmod 600 ./ssl/server.key
+   chmod 644 ./ssl/server.crt
+   ```
+4. Reload Nginx without downtime:
+   ```bash
+   docker compose -f docker-compose.prod.yml exec frontend nginx -s reload
    ```

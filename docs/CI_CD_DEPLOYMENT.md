@@ -37,7 +37,7 @@ flowchart TD
             K -->|Failure| O[❌ Skip Deploy / Keep Prod Untouched]
             N --> P[Auto-locate .env.production]
             P --> Q[docker compose pull from Harbor]
-            Q --> R[docker compose up -d on Port 80]
+            Q --> R[docker compose up -d on Ports 80 & 443]
             R --> S[docker image prune -f]
         end
     end
