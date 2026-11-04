@@ -9,6 +9,7 @@ from app.models.user import User
 from app.models.asset import Asset
 from app.schemas.auth import LoginRequest, Token, UserResponse, UserCreate, UserUpdate
 from app.api.deps import get_current_user, require_admin, require_analyst_or_admin
+from app.services.audit_service import AuditService
 
 router = APIRouter(prefix="/auth", tags=["Authentication & User Management"])
 
@@ -99,6 +100,7 @@ async def list_users(
 @router.post("/users", response_model=UserResponse)
 async def create_user(
     user_in: UserCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
@@ -127,6 +129,25 @@ async def create_user(
         is_active=True,
     )
     db.add(new_user)
+    await db.flush()
+
+    await AuditService.log_event(
+        db=db,
+        action="CREATE_USER",
+        target_type="User",
+        target_id=str(new_user.id),
+        target_name=f"{new_user.username} ({new_user.email})",
+        actor=admin,
+        request=request,
+        details={
+            "created_user_id": new_user.id,
+            "username": new_user.username,
+            "email": new_user.email,
+            "role": new_user.role,
+            "full_name": new_user.full_name,
+        },
+    )
+
     await db.commit()
     await db.refresh(new_user)
     return new_user
@@ -136,6 +157,7 @@ async def create_user(
 async def update_user(
     user_id: int,
     user_update: UserUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
@@ -147,28 +169,54 @@ async def update_user(
         )
 
     valid_roles = ["admin", "analyst", "owner", "viewer"]
+    changes = {}
     if user_update.role is not None:
         if user_update.role not in valid_roles:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid role. Must be one of: {', '.join(valid_roles)}",
             )
-        target_user.role = user_update.role
+        if target_user.role != user_update.role:
+            changes["role"] = {"old": target_user.role, "new": user_update.role}
+            target_user.role = user_update.role
 
-    if user_update.email is not None:
+    if user_update.email is not None and target_user.email != user_update.email:
+        changes["email"] = {"old": target_user.email, "new": user_update.email}
         target_user.email = user_update.email
-    if user_update.full_name is not None:
+
+    if user_update.full_name is not None and target_user.full_name != user_update.full_name:
+        changes["full_name"] = {"old": target_user.full_name, "new": user_update.full_name}
         target_user.full_name = user_update.full_name
-    if user_update.is_active is not None:
+
+    if user_update.is_active is not None and target_user.is_active != user_update.is_active:
         # Prevent disabling own admin account
         if target_user.id == admin.id and not user_update.is_active:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot deactivate your own admin account",
             )
+        changes["is_active"] = {"old": target_user.is_active, "new": user_update.is_active}
         target_user.is_active = user_update.is_active
+
     if user_update.password is not None and user_update.password.strip():
         target_user.hashed_password = hash_password(user_update.password.strip())
+        changes["password"] = "Password reset/updated"
+
+    if changes:
+        await AuditService.log_event(
+            db=db,
+            action="UPDATE_USER",
+            target_type="User",
+            target_id=str(target_user.id),
+            target_name=f"{target_user.username} ({target_user.email})",
+            actor=admin,
+            request=request,
+            details={
+                "updated_user_id": target_user.id,
+                "username": target_user.username,
+                "changes": changes,
+            },
+        )
 
     await db.commit()
     await db.refresh(target_user)
@@ -178,6 +226,7 @@ async def update_user(
 @router.delete("/users/{user_id}")
 async def delete_user(
     user_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
@@ -193,6 +242,22 @@ async def delete_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User with ID {user_id} not found",
         )
+
+    await AuditService.log_event(
+        db=db,
+        action="DELETE_USER",
+        target_type="User",
+        target_id=str(target_user.id),
+        target_name=f"{target_user.username} ({target_user.email})",
+        actor=admin,
+        request=request,
+        details={
+            "deleted_user_id": target_user.id,
+            "username": target_user.username,
+            "email": target_user.email,
+            "role": target_user.role,
+        },
+    )
 
     await db.delete(target_user)
     await db.commit()

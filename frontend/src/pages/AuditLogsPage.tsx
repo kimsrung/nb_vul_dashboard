@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   History, Search, RefreshCw, Trash2, CheckCircle2, Wrench, User,
   X, FileText, ArrowUpDown, ArrowUp, ArrowDown, Radio, Zap,
-  RotateCw
+  RotateCw, UserPlus, AlertTriangle
 } from 'lucide-react';
 import { AuditLogItem, PaginatedAuditLogsResponse, apiClient } from '../api/client';
 import { TablePagination } from '../components/common/TablePagination';
@@ -74,6 +74,50 @@ export const AuditLogsPage: React.FC = () => {
 
   const getActionBadge = (action: string) => {
     switch (action) {
+      case 'UPDATE_USER':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-950/60 text-sky-400 border border-sky-800/60">
+            <User className="w-3 h-3" /> UPDATE USER
+          </span>
+        );
+      case 'CREATE_USER':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-950/60 text-emerald-400 border border-emerald-800/60">
+            <UserPlus className="w-3 h-3" /> CREATE USER
+          </span>
+        );
+      case 'DELETE_USER':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-950/60 text-rose-400 border border-rose-800/60">
+            <Trash2 className="w-3 h-3" /> DELETE USER
+          </span>
+        );
+      case 'MISP_DELTA_SYNC':
+      case 'MISP_FULL_SYNC':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-950/60 text-purple-400 border border-purple-800/60">
+            <Radio className="w-3 h-3" /> {action === 'MISP_FULL_SYNC' ? 'MISP FULL SYNC' : 'MISP DELTA SYNC'}
+          </span>
+        );
+      case 'MISP_SYNC_FAILED':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-950/60 text-rose-400 border border-rose-800/60">
+            <AlertTriangle className="w-3 h-3" /> MISP SYNC FAILED
+          </span>
+        );
+      case 'QUALYS_DELTA_SYNC':
+      case 'QUALYS_FULL_SYNC':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-950/60 text-cyan-400 border border-cyan-800/60">
+            <RefreshCw className="w-3 h-3" /> {action === 'QUALYS_FULL_SYNC' ? 'QUALYS FULL SYNC' : 'QUALYS DELTA SYNC'}
+          </span>
+        );
+      case 'QUALYS_SYNC_FAILED':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-950/60 text-rose-400 border border-rose-800/60">
+            <AlertTriangle className="w-3 h-3" /> QUALYS SYNC FAILED
+          </span>
+        );
       case 'MISP_EVENT_TRIGGERED':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-950/60 text-purple-400 border border-purple-800/60">
@@ -176,13 +220,30 @@ export const AuditLogsPage: React.FC = () => {
               className="bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-primary-500"
             >
               <option value="">All Actions</option>
-              <option value="MISP_EVENT_TRIGGERED">MISP Event Triggered</option>
-              <option value="MISP_ZMQ_FEED_RECEIVED">MISP ZMQ Feed</option>
-              <option value="MISP_FEED_PUSH_RECEIVED">MISP Push</option>
-              <option value="DELETE_ASSET">Delete Asset</option>
-              <option value="RESOLVE_ALERT">Resolve Alert</option>
-              <option value="UPDATE_REMEDIATION">Update Remediation</option>
-              <option value="ASSIGN_OWNER">Assign Owner</option>
+              <optgroup label="User Administration">
+                <option value="UPDATE_USER">Update User</option>
+                <option value="CREATE_USER">Create User</option>
+                <option value="DELETE_USER">Delete User</option>
+              </optgroup>
+              <optgroup label="Threat Intelligence (MISP)">
+                <option value="MISP_DELTA_SYNC">MISP Delta Sync</option>
+                <option value="MISP_FULL_SYNC">MISP Full Sync</option>
+                <option value="MISP_SYNC_FAILED">MISP Sync Failed</option>
+                <option value="MISP_EVENT_TRIGGERED">MISP Event Triggered</option>
+                <option value="MISP_ZMQ_FEED_RECEIVED">MISP ZMQ Feed</option>
+                <option value="MISP_FEED_PUSH_RECEIVED">MISP Push</option>
+              </optgroup>
+              <optgroup label="Vulnerability Sync (Qualys)">
+                <option value="QUALYS_DELTA_SYNC">Qualys Delta Sync</option>
+                <option value="QUALYS_FULL_SYNC">Qualys Full Sync</option>
+                <option value="QUALYS_SYNC_FAILED">Qualys Sync Failed</option>
+              </optgroup>
+              <optgroup label="Asset & Alerts Operations">
+                <option value="ASSIGN_OWNER">Assign Owner</option>
+                <option value="DELETE_ASSET">Delete Asset</option>
+                <option value="RESOLVE_ALERT">Resolve Alert</option>
+                <option value="UPDATE_REMEDIATION">Update Remediation</option>
+              </optgroup>
             </select>
 
             <select
@@ -194,6 +255,8 @@ export const AuditLogsPage: React.FC = () => {
               className="bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-primary-500"
             >
               <option value="">All Target Types</option>
+              <option value="User">User</option>
+              <option value="SYNC">Sync Operation</option>
               <option value="MISP_Advisory">MISP Advisory</option>
               <option value="MISP_Feed">MISP Feed</option>
               <option value="Asset">Asset</option>
@@ -415,6 +478,30 @@ export const AuditLogsPage: React.FC = () => {
                   <span className="text-slate-300 font-mono text-[11px]">{formatDateTimeYMD(inspectedLog.created_at, true)}</span>
                 </div>
               </div>
+
+              {inspectedLog.details?.changes && (
+                <div className="p-3 rounded-xl bg-slate-950 border border-surfaceBorder space-y-2">
+                  <span className="block text-[11px] font-semibold text-sky-400">
+                    Administrative Change Details:
+                  </span>
+                  <div className="space-y-1 font-mono text-xs">
+                    {Object.entries(inspectedLog.details.changes).map(([field, diff]: [string, any]) => (
+                      <div key={field} className="flex items-center gap-2">
+                        <span className="text-slate-400 text-[11px] uppercase">{field}:</span>
+                        {typeof diff === 'object' && diff !== null && 'old' in diff && 'new' in diff ? (
+                          <span className="text-[11px]">
+                            <span className="text-rose-400 line-through mr-1">{String(diff.old ?? 'None')}</span>
+                            &rarr;
+                            <span className="text-emerald-400 ml-1 font-semibold">{String(diff.new ?? 'None')}</span>
+                          </span>
+                        ) : (
+                          <span className="text-slate-200 text-[11px]">{String(diff)}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">

@@ -128,3 +128,54 @@ class TestSettingsAuditAndTelegram:
         assert res.status_code == 200
         # Check that it auto-normalized to -100 format in response and DB
         assert res.json()["telegram_chat_id"] == "-1002142256980"
+
+    @pytest.mark.asyncio
+    async def test_user_management_audit_logging(self, client: AsyncClient, admin_headers: dict):
+        # 1. Create User
+        create_payload = {
+            "username": "audit_test_user",
+            "email": "audit_test_user@internal.security",
+            "password": "Password123!",
+            "role": "analyst",
+            "full_name": "Audit Test Analyst",
+        }
+        create_res = await client.post("/api/v1/auth/users", headers=admin_headers, json=create_payload)
+        assert create_res.status_code == 200
+        user_id = create_res.json()["id"]
+
+        # Verify CREATE_USER in audit logs
+        log_res = await client.get("/api/v1/audit-logs?action=CREATE_USER", headers=admin_headers)
+        assert log_res.status_code == 200
+        create_logs = log_res.json()["items"]
+        assert len(create_logs) > 0
+        assert create_logs[0]["target_id"] == str(user_id)
+        assert create_logs[0]["actor_username"] == "admin"
+
+        # 2. Update User Email & Role
+        update_payload = {
+            "email": "updated_audit_email@internal.security",
+            "role": "viewer",
+        }
+        patch_res = await client.patch(f"/api/v1/auth/users/{user_id}", headers=admin_headers, json=update_payload)
+        assert patch_res.status_code == 200
+
+        # Verify UPDATE_USER in audit logs
+        log_res2 = await client.get("/api/v1/audit-logs?action=UPDATE_USER", headers=admin_headers)
+        assert log_res2.status_code == 200
+        update_logs = log_res2.json()["items"]
+        assert len(update_logs) > 0
+        assert update_logs[0]["target_id"] == str(user_id)
+        assert "changes" in update_logs[0]["details"]
+        assert update_logs[0]["details"]["changes"]["email"]["new"] == "updated_audit_email@internal.security"
+        assert update_logs[0]["details"]["changes"]["role"]["new"] == "viewer"
+
+        # 3. Delete User
+        del_res = await client.delete(f"/api/v1/auth/users/{user_id}", headers=admin_headers)
+        assert del_res.status_code == 200
+
+        # Verify DELETE_USER in audit logs
+        log_res3 = await client.get("/api/v1/audit-logs?action=DELETE_USER", headers=admin_headers)
+        assert log_res3.status_code == 200
+        del_logs = log_res3.json()["items"]
+        assert len(del_logs) > 0
+        assert del_logs[0]["target_id"] == str(user_id)

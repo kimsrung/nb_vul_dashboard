@@ -97,6 +97,27 @@ class MispSyncService:
 
                 if total_adv == 0:
                     result_msg = "No new FS-ISAC advisories fetched from MISP."
+                    await AuditService.log_event(
+                        db=session,
+                        action=f"MISP_{sync_mode.upper()}_SYNC",
+                        target_type="SYNC",
+                        target_id="misp",
+                        target_name=f"MISP Threat Intelligence {sync_mode.capitalize()} Sync",
+                        actor_username=triggered_by,
+                        details={
+                            "sync_mode": sync_mode,
+                            "raw_events_count": 0,
+                            "unique_cves_evaluated": 0,
+                            "assessments_run": 0,
+                            "pre_scan_matches": 0,
+                            "qualys_confirmed": 0,
+                            "clean_cves": 0,
+                            "manual_trigger": manual_trigger,
+                            "triggered_by": triggered_by,
+                        },
+                    )
+                    await session.commit()
+
                     await SyncRunner.complete_job(
                         job_id=job_id,
                         message=result_msg,
@@ -198,6 +219,7 @@ class MispSyncService:
                     target_type="SYNC",
                     target_id="misp",
                     target_name=f"MISP Threat Intelligence {sync_mode.capitalize()} Sync",
+                    actor_username=triggered_by,
                     details={
                         "sync_mode": sync_mode,
                         "raw_events_count": raw_events_count,
@@ -210,6 +232,7 @@ class MispSyncService:
                         "triggered_by": triggered_by,
                     },
                 )
+                await session.commit()
 
                 summary_msg = (
                     f"Synced {raw_events_count} FS-ISAC events ({assessments_run} unique CVE advisories evaluated): "
@@ -243,4 +266,23 @@ class MispSyncService:
             except Exception as e:
                 logger.error(f"MISP sync job #{job_id} failed: {e}", exc_info=True)
                 await SyncRunner.fail_job(job_id=job_id, error_message=str(e))
+                try:
+                    await session.rollback()
+                    await AuditService.log_event(
+                        db=session,
+                        action="MISP_SYNC_FAILED",
+                        target_type="SYNC",
+                        target_id="misp",
+                        target_name=f"MISP Threat Intelligence {sync_mode.capitalize()} Sync",
+                        actor_username=triggered_by,
+                        details={
+                            "sync_mode": sync_mode,
+                            "manual_trigger": manual_trigger,
+                            "triggered_by": triggered_by,
+                            "error": str(e),
+                        },
+                    )
+                    await session.commit()
+                except Exception as audit_err:
+                    logger.error(f"Failed to record MISP sync failure in audit log: {audit_err}")
                 return {"success": False, "message": f"MISP sync failed: {str(e)}"}

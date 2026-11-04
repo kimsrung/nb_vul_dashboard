@@ -444,6 +444,7 @@ class SyncService:
                     target_type="SYNC",
                     target_id="qualys",
                     target_name=f"Qualys {sync_mode.capitalize()} Sync",
+                    actor_username=triggered_by,
                     details={
                         "sync_mode": sync_mode,
                         "assets_updated": assets_updated,
@@ -452,6 +453,7 @@ class SyncService:
                         "kb_items_enriched": kb_items_added,
                         "alerts_triggered": alerts_triggered,
                         "manual_trigger": manual_trigger,
+                        "triggered_by": triggered_by,
                     },
                 )
 
@@ -509,6 +511,24 @@ class SyncService:
                     await SyncRunner.fail_job(job_id=job_id, error_message=err_msg)
                 current_sync_status["status"] = "Error"
                 current_sync_status["message"] = f"Sync failed: {err_msg}"
+                try:
+                    await AuditService.log_event(
+                        db=db,
+                        action="QUALYS_SYNC_FAILED",
+                        target_type="SYNC",
+                        target_id="qualys",
+                        target_name=f"Qualys {sync_mode.capitalize()} Sync",
+                        actor_username=triggered_by,
+                        details={
+                            "sync_mode": sync_mode,
+                            "manual_trigger": manual_trigger,
+                            "triggered_by": triggered_by,
+                            "error": err_msg,
+                        },
+                    )
+                    await db.commit()
+                except Exception as audit_err:
+                    logger.error(f"Failed to record Qualys sync failure in audit log: {audit_err}")
                 return {"success": False, "message": f"Sync failed: {err_msg}"}
 
     @classmethod

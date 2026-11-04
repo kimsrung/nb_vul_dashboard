@@ -15,6 +15,8 @@ class AuditService:
         target_id: str | int,
         target_name: Optional[str] = None,
         actor: Optional[User] = None,
+        actor_username: Optional[str] = None,
+        actor_role: Optional[str] = None,
         request: Optional[Request] = None,
         ip_address: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
@@ -23,14 +25,17 @@ class AuditService:
         if not client_ip and request and request.client:
             client_ip = request.client.host
 
+        final_username = actor.username if actor else (actor_username or "System")
+        final_role = actor.role if actor else (actor_role or ("scheduler" if final_username == "scheduler" else "system"))
+
         audit_entry = AuditLog(
             action=action,
             target_type=target_type,
             target_id=str(target_id),
             target_name=target_name,
             actor_id=actor.id if actor else None,
-            actor_username=actor.username if actor else "System",
-            actor_role=actor.role if actor else "system",
+            actor_username=final_username,
+            actor_role=final_role,
             ip_address=client_ip,
             details=details or {},
             created_at=datetime.now(timezone.utc),
