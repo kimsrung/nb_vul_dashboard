@@ -40,7 +40,7 @@ flowchart TD
 
     subgraph Frontend_App["React 18 + TypeScript + Tailwind Frontend"]
         MOD1["1. Executive Overview (Dashboard)"]
-        MOD2["2. Asset Inventory & Dossier"]
+        MOD2["2. Asset Inventory & Profile"]
         MOD3["3. Threat Alert Center"]
         MOD4["4. User Management"]
         MOD5["5. Audit & History Logs"]
@@ -110,7 +110,7 @@ The Executive Overview provides leadership and SecOps managers with real-time vi
 
 ---
 
-### Module 2: Asset Inventory & Host Dossier (`AssetsPage` & `AssetDetailPage`)
+### Module 2: Asset Inventory & Host Profile (`AssetsPage` & `AssetDetailPage`)
 The Asset Inventory manages all discovered infrastructure, host metadata, Qualys detections, installed software inventory, and remediation workflows.
 
 #### 1. Paginated Inventory Table
@@ -135,7 +135,7 @@ To accommodate enterprise environments where operational teams use shared servic
 │ • Used for RBAC Login & Scoping      │ • Display and notification only    │
 │ • Strictly filtered to role `owner`  │ • No login credentials required    │
 │ • Enforces server access boundaries  │ • Directly included in Telegram    │
-│                                      │   incident alerts & dossiers       │
+│                                      │   incident alerts & profiles       │
 └──────────────────────────────────────┴────────────────────────────────────┘
 ```
 
@@ -145,7 +145,7 @@ To accommodate enterprise environments where operational teams use shared servic
 - **Owner Group**: Dropdown strictly populated with users possessing `role == "owner"`, completely excluding administrative or viewer accounts.
 - **PoC Name & Email**: Direct human contact details (e.g., `Chan Vanna`, `chan.vanna@nbc.gov.kh`).
 
-#### 4. Host Dossier & Software Inventory (`AssetDetailPage`)
+#### 4. Host Profile & Software Inventory (`AssetDetailPage`)
 - **Metadata Cards**: Displays IP, IPv6, FQDN, NetBIOS, OS Family, last Qualys scan full datetime (`YYYY-MM-DD HH:mm:ss`), and the Host Ownership & PoC badge.
 - **Qualys Severity Stat Cards**: Five dedicated counter cards for Sev 5 (Critical), Sev 4 (High), Sev 3 (Medium), Sev 2 (Low), and Sev 1 (Info), alongside total detections.
 - **Qualys Detections Catalog**: Complete table of all findings on the host with QID, Title, Severity (1–5), Status (`Active`, `New`, `Re-Opened`, `Fixed`), Protocol/Port, and Remediation Status.
@@ -168,8 +168,8 @@ The Threat Alert Center consolidates intelligence from external threat feeds (MI
   - **`INVENTORY_PROACTIVE`**: Early-warning match! Identified by comparing installed software versions in `AssetSoftware` against threat criteria **before** Qualys authors or runs a scan.
 - **Alert Metrics**: Displays total active alerts, critical/high breakdown, and count of exposed servers.
 - **Centralized Ingestion Architecture**: The manual "Sync Feed" button is hosted strictly in the **MISP Threat Feed** sub-module (`/misp`), ensuring clean administrative segregation. The Alert Center provides a dedicated database **Refresh** button.
-- **Slide-Over Threat Advisory Dossier**:
-  - Clicking an alert opens the full dossier displaying CVE ID, CVSS score, publisher source (`FS-ISAC` or `MISP`), affected product, and vulnerable criteria.
+- **Slide-Over Threat Advisory Report**:
+  - Clicking an alert opens the full report displaying CVE ID, CVSS score, publisher source (`FS-ISAC` or `MISP`), affected product, and vulnerable criteria.
   - **Affected Infrastructure List**: Shows each affected server with its IP address, diagnostic evidence, Group Owner, and individual PoC contact.
   - **Shell Verification Command**: One-click copyable bash command to verify package versions on target hosts (e.g., `ssh -V || dpkg -l | grep openssh`).
   - **Remediation Action Form**: Allows analysts to update alert status to `Acknowledged`, `Remediated`, or `False_Positive`.
@@ -179,7 +179,7 @@ Located directly under Alert Center in the sidebar navigation (accessible at `/m
 - **Centralized Threat Ingestion**: Houses the primary **"Sync Feed"** button to pull new CVE advisories on-demand, run inventory matching, and record sync metrics.
 - **Comprehensive CVE Catalog**: Displays all ingested threat advisories from MISP (FS-ISAC), including both affected infrastructure matches and clean advisories (`NO_ASSETS_AFFECTED`).
 - **Sorting & Filtering Toolbar**: Sort by Affected Servers, CVE ID, Severity, CVSS score, or Date Added. Filter by Match Type, Severity, and Source.
-- **Slide-Over Threat Dossier**: Detailed advisory view displaying verification commands, sanitized HTML remediation guidance, and affected server details with Group Owner and PoC.
+- **Slide-Over Threat Report**: Detailed advisory view displaying verification commands, sanitized HTML remediation guidance, and affected server details with Group Owner and PoC.
 
 ---
 
@@ -312,7 +312,7 @@ flowchart TD
 flowchart TD
     A["09:00 AM: Log In as Analyst"] --> B["Review MISP Threat Feed & Alert Center"]
     B --> C{"Proactive Pre-Scan Match in MISP or Alerts?"}
-    C -- Yes --> D["Open Threat Dossier -> Copy Verification Command"]
+    C -- Yes --> D["Open Threat Report -> Copy Verification Command"]
     D --> E["Identify Affected Servers, Group Owner & PoC"]
     E --> F["Contact PoC via Telegram / Email with Workaround"]
     C -- No --> G["Inspect High Severity Findings in Asset Inventory"]
@@ -326,7 +326,7 @@ flowchart TD
    - Navigates to **MISP Threat Feed** (`/misp`) to review incoming FS-ISAC advisories, then checks the **Threat Alert Center** (`/alerts`).
    - Identifies a new Critical advisory: `CVE-2024-6387` (OpenSSH regreSSHion), marked as **`INVENTORY_PROACTIVE`**.
 2. **09:15 AM — Evaluating Exposure & Contacting PoC**:
-   - Clicks on the advisory to open the **Threat Dossier Drawer**.
+   - Clicks on the advisory to open the **Threat Report Drawer**.
    - Inspects the affected server list: Server `bk-appcore-sit` (`10.10.20.15`) is running OpenSSH `8.2p1`.
    - Notes the assigned Owner Group (`AppCore_Team`) and PoC (`Chan Vanna <chan.vanna@nbc.gov.kh>`).
    - Copies the shell verification command: `ssh -V || dpkg -l | grep openssh`.
@@ -347,7 +347,7 @@ flowchart TD
 flowchart TD
     A["09:30 AM: Log In as owner_appcore"] --> B["Dashboard Automatically Filtered to Assigned Servers"]
     B --> C["Review Assigned Infrastructure (e.g. bk-appcore-sit)"]
-    C --> D["Open Host Dossier -> Inspect Active Vulnerabilities"]
+    C --> D["Open Host Profile -> Inspect Active Vulnerabilities"]
     D --> E["Click Finding -> Review Vendor Patch & KB Fix Guidance"]
     E --> F["Deploy Vendor Security Patch on Target Server"]
     F --> G["Open Remediation Drawer -> Update Status to In_Progress / Resolved"]
@@ -391,14 +391,7 @@ flowchart TD
    - Inspects the **Executive Overview**: Reviews total monitored infrastructure, the Qualys severity distribution bar, active vulnerability breakdowns, and MISP threat advisories.
 2. **10:30 AM — Inspecting Asset Posture (Read-Only)**:
    - Navigates to **Asset Inventory**. Table defaults to sorting by critical vulnerabilities (`Sev 5`) descending.
-   - Inspects host dossiers and opens remediation drawers to review HTML solution details and full scan datetimes (`YYYY-MM-DD HH:mm:ss`).
-   - **Protection Enforcement**: Elena can read all fix details and notes, but action buttons (**Update Status**, **Delete Asset**, **Edit Contact**) are disabled or hidden, preventing unauthorized modifications.
-3. **11:15 AM — Audit Trail Verification**:
-   - Navigates to **Audit & History Logs**.
-   - Filters logs by action `UPDATE_REMEDIATION_STATUS`.
-   - Verifies that every vulnerability status change has an actor username, source IP, timestamp, and audit justification.
-   - Inspects `QUALYS_DELTA_SYNC` and `QUALYS_FULL_SYNC` records to verify that scanner synchronization ran continuously without interruption.
-   - Inspects host dossiers and opens remediation drawers.
+   - Inspects host profiles and opens remediation drawers to review HTML solution details and full scan datetimes (`YYYY-MM-DD HH:mm:ss`).
    - **Protection Enforcement**: Elena can read all fix details and notes, but action buttons (**Update Status**, **Delete Asset**, **Edit Contact**) are disabled or hidden, preventing unauthorized modifications.
 3. **11:15 AM — Audit Trail Verification**:
    - Navigates to **Audit & History Logs**.

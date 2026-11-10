@@ -71,7 +71,7 @@ export const RemediationDrawer: React.FC<RemediationDrawerProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs transition-opacity">
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs transition-opacity no-top-margin">
       <div className="w-full max-w-2xl bg-surface border-l border-surfaceBorder h-full flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-right duration-200">
         {/* Drawer Header */}
         <div className="p-6 border-b border-surfaceBorder flex items-start justify-between bg-slate-900/50">

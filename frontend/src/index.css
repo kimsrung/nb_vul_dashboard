@@ -115,6 +115,10 @@ body {
   color: #f1f5f9;
 }
 
+.no-top-margin {
+  margin-top: 0 !important;
+}
+
 /* ==========================================================================
    BASE TABLE HEADERS (Night Mode Brand Alignment - Sky / Indigo)
    ========================================================================== */
@@ -1581,7 +1585,7 @@ html.dark button[class*="bg-red-950/40"]:not(aside button) svg {
   color: currentColor !important;
 }
 
-/* Severity Bordered Dossier Cards in Day Mode - Default & Hover States */
+/* Severity Bordered Profile Cards in Day Mode - Default & Hover States */
 html:not(.dark) .asset-card-crit {
   border-color: #ef4444 !important;     /* red-500 */
   background-color: #ffffff !important;
@@ -1647,7 +1651,7 @@ html:not(.dark) .asset-card-neutral:hover {
   box-shadow: 0 6px 12px -2px rgba(0, 0, 0, 0.08) !important;
 }
 
-/* Severity Bordered Dossier Cards in Night Mode - Default & Hover States */
+/* Severity Bordered Profile Cards in Night Mode - Default & Hover States */
 html.dark .asset-card-crit {
   border-color: rgba(239, 68, 68, 0.5) !important;     /* red-500/50 */
   background-color: #111827 !important;                /* slate-900 surface */
@@ -2063,72 +2067,72 @@ html:not(.dark) .mitre-technique-btn.is-active {
   box-shadow: 0 0 0 1.5px rgba(2, 132, 199, 0.3) !important;
 }
 
-/* Technique Dossier Panel */
-html:not(.dark) .mitre-dossier-panel {
+/* Technique Details Panel */
+html:not(.dark) .mitre-technique-panel {
   background-color: #ffffff !important;
   border-color: #e2e8f0 !important;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
 }
 
-html:not(.dark) .mitre-dossier-panel .dossier-header {
+html:not(.dark) .mitre-technique-panel .technique-header {
   border-color: #e2e8f0 !important;
 }
 
-html:not(.dark) .mitre-dossier-panel .dossier-tech-name {
+html:not(.dark) .mitre-technique-panel .technique-detail-name {
   color: #0f172a !important;
 }
 
-html:not(.dark) .mitre-dossier-panel .dossier-tech-desc {
+html:not(.dark) .mitre-technique-panel .technique-detail-desc {
   color: #475569 !important;
 }
 
-html:not(.dark) .mitre-dossier-panel .mitre-adversary-box {
+html:not(.dark) .mitre-technique-panel .mitre-adversary-box {
   background-color: #fffbeb !important;
   border-color: #fde68a !important;
 }
 
-html:not(.dark) .mitre-dossier-panel .mitre-adversary-box .adversary-text {
+html:not(.dark) .mitre-technique-panel .mitre-adversary-box .adversary-text {
   color: #78350f !important;
 }
 
-html:not(.dark) .mitre-dossier-panel .mitre-controls-heading {
+html:not(.dark) .mitre-technique-panel .mitre-controls-heading {
   color: #047857 !important;
 }
 
-html:not(.dark) .mitre-dossier-panel .mitre-control-card {
+html:not(.dark) .mitre-technique-panel .mitre-control-card {
   background-color: #f8fafc !important;
   border-color: #e2e8f0 !important;
 }
 
-html:not(.dark) .mitre-dossier-panel .mitre-control-card .ctrl-id {
+html:not(.dark) .mitre-technique-panel .mitre-control-card .ctrl-id {
   color: #047857 !important;
   font-weight: 700 !important;
 }
 
-html:not(.dark) .mitre-dossier-panel .mitre-control-card .ctrl-name {
+html:not(.dark) .mitre-technique-panel .mitre-control-card .ctrl-name {
   color: #0f172a !important;
   font-weight: 700 !important;
 }
 
-html:not(.dark) .mitre-dossier-panel .mitre-control-card .ctrl-cat {
+html:not(.dark) .mitre-technique-panel .mitre-control-card .ctrl-cat {
   background-color: #e2e8f0 !important;
   color: #334155 !important;
 }
 
-html:not(.dark) .mitre-dossier-panel .mitre-control-card .ctrl-desc {
+html:not(.dark) .mitre-technique-panel .mitre-control-card .ctrl-desc {
   color: #475569 !important;
 }
 
-html:not(.dark) .mitre-dossier-panel .mitre-control-card .ctrl-bullet {
+html:not(.dark) .mitre-technique-panel .mitre-control-card .ctrl-bullet {
   color: #059669 !important;
 }
 
-html:not(.dark) .mitre-dossier-panel .mitre-detection-box {
+html:not(.dark) .mitre-technique-panel .mitre-detection-box {
   background-color: #f8fafc !important;
   border-color: #e2e8f0 !important;
 }
 
-html:not(.dark) .mitre-dossier-panel .mitre-detection-box .detection-indicators {
+html:not(.dark) .mitre-technique-panel .mitre-detection-box .detection-indicators {
   color: #334155 !important;
 }
 

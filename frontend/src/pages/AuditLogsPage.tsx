@@ -449,7 +449,7 @@ export const AuditLogsPage: React.FC = () => {
 
       {/* Details Snapshot Modal */}
       {inspectedLog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs no-top-margin">
           <div className="bg-surface border border-surfaceBorder rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-surfaceBorder">
               <div className="flex items-center gap-2">

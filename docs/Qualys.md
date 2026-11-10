@@ -297,7 +297,7 @@ When an engineer marks a detection as `Resolved` or `False_Positive`, that detec
   ```
   [5] 2   [4] 5   [3] 11   [2] 18   [1] 4   (40 Total)
   ```
-  Clicking any pill or inspecting the host dossier displays findings categorized directly by their raw severity.
+  Clicking any pill or inspecting the host profile displays findings categorized directly by their raw severity.
 
 ---
 

@@ -326,18 +326,18 @@ export const MitreNavigator: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Technique Dossier: Adversary Context + Compensating Controls */}
+                {/* Technique Details: Adversary Context + Compensating Controls */}
                 {selectedTechnique && (
-                  <div className="lg:col-span-2 space-y-4 p-4 rounded-xl bg-slate-950 border border-surfaceBorder mitre-dossier-panel">
-                    <div className="flex items-center justify-between border-b border-surfaceBorder pb-3 dossier-header">
+                  <div className="lg:col-span-2 space-y-4 p-4 rounded-xl bg-slate-950 border border-surfaceBorder mitre-technique-panel">
+                    <div className="flex items-center justify-between border-b border-surfaceBorder pb-3 technique-header">
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="px-2 py-0.5 rounded text-xs font-mono font-bold bg-amber-950 text-amber-300 border border-amber-800 mitre-pill-badge">
                             {selectedTechnique.id}
                           </span>
-                          <h4 className="text-sm font-bold text-slate-100 dossier-tech-name">{selectedTechnique.name}</h4>
+                          <h4 className="text-sm font-bold text-slate-100 technique-detail-name">{selectedTechnique.name}</h4>
                         </div>
-                        <p className="text-xs text-slate-400 mt-1 dossier-tech-desc">{selectedTechnique.description}</p>
+                        <p className="text-xs text-slate-400 mt-1 technique-detail-desc">{selectedTechnique.description}</p>
                       </div>
                       <a
                         href={selectedTechnique.url}

@@ -10,7 +10,7 @@ class TestMispThreatIntelSuite:
     - Verifying proactive inventory match KPI metrics
     - Searching specific CVE advisories (e.g. CVE-2024-6387 OpenSSH regreSSHion)
     - Inspecting match classification tags (Proactive Pre-Scan vs Qualys Confirmed)
-    - Opening and dismissing threat advisory dossier drawer
+    - Opening and dismissing threat advisory report drawer
     """
 
     def test_01_misp_feed_navigation_and_table(self, admin_page: Page):
@@ -31,7 +31,7 @@ class TestMispThreatIntelSuite:
         expect(rows.first).to_be_visible(timeout=10000)
 
     def test_02_misp_cve_search_and_proactive_match_tags(self, admin_page: Page):
-        """Verify searching CVE-2024-6387 displays proactive server match badge and opens dossier drawer."""
+        """Verify searching CVE-2024-6387 displays proactive server match badge and opens report drawer."""
         page = admin_page
 
         # Navigate to MISP Feed via sidebar
@@ -60,7 +60,7 @@ class TestMispThreatIntelSuite:
         expect(detail_btn).to_be_visible()
         detail_btn.click()
 
-        # Assert slide-over threat dossier drawer is rendered
+        # Assert slide-over threat report drawer is rendered
         drawer = page.locator(".fixed.inset-0")
         expect(drawer).to_be_visible()
         expect(drawer.locator("text=CVE-2024-6387").first).to_be_visible()

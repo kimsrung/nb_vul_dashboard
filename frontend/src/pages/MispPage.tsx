@@ -674,14 +674,14 @@ export const MispPage: React.FC = () => {
         />
       </div>
 
-      {/* Slide-over Threat Advisory Dossier Drawer */}
+      {/* Slide-over Threat Advisory Report Drawer */}
       {selectedAssessmentId !== null && (
-        <div className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-xs flex justify-end animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-xs flex justify-end animate-in fade-in duration-200 no-top-margin">
           <div className="w-full max-w-2xl bg-surface border-l border-surfaceBorder h-full flex flex-col shadow-2xl overflow-y-auto">
             {isLoadingDetail ? (
               <div className="p-12 text-center text-slate-500 my-auto">
                 <RotateCw className="w-8 h-8 mx-auto animate-spin mb-3 text-purple-400" />
-                Loading threat advisory dossier...
+                Loading threat advisory report...
               </div>
             ) : selectedDetail ? (
               <div className="p-6 space-y-6">

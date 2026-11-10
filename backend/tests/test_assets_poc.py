@@ -49,7 +49,7 @@ class TestAssetInventoryAndPoC:
         list_res = await client.get("/api/v1/assets?page=1&page_size=1", headers=admin_headers)
         asset_id = list_res.json()["items"][0]["id"]
 
-        # Asset detail dossier
+        # Asset detail profile
         detail_res = await client.get(f"/api/v1/assets/{asset_id}", headers=admin_headers)
         assert detail_res.status_code == 200
         detail = detail_res.json()

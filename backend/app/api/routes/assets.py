@@ -204,7 +204,7 @@ async def get_asset_detail(
     if user.role == "owner" and asset.owner_id != user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to view this asset dossier",
+            detail="You are not authorized to view this asset profile",
         )
 
     return asset

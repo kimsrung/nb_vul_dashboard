@@ -527,7 +527,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                         type="button"
                         onClick={() => handleSelectAsset(asset.id)}
                         className="px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 text-xs font-semibold transition-colors cursor-pointer"
-                        title="View host dossier"
+                        title="View host profile"
                       >
                         Details &rarr;
                       </button>

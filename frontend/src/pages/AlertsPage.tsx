@@ -676,7 +676,7 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
 
       {/* Slide-over Drawer for Assessment Report Detail (Previous FS-ISAC Threat Intel Design) */}
       {selectedAlertId && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200 no-top-margin">
           <div className="w-full max-w-2xl bg-surface border-l border-surfaceBorder h-full flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-right duration-200">
             {/* Drawer Header */}
             <div className="p-6 border-b border-surfaceBorder flex items-start justify-between bg-slate-900/60">
@@ -815,7 +815,7 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
                                 onClick={() => handleSelectAsset(srv.asset_id)}
                                 className="text-sky-400 hover:text-sky-300 text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
                               >
-                                Host Dossier <ExternalLink className="w-3 h-3" />
+                                Host Profile <ExternalLink className="w-3 h-3" />
                               </button>
                             </div>
 

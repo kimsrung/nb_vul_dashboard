@@ -206,7 +206,7 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId: propA
       <div className="p-8 flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-3">
           <RefreshCw className="w-6 h-6 animate-spin text-primary-400" />
-          <p className="text-xs text-slate-400">Loading asset risk dossier...</p>
+          <p className="text-xs text-slate-400">Loading asset profile...</p>
         </div>
       </div>
     );
@@ -248,12 +248,12 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId: propA
             onClick={fetchAssetDetail}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 cursor-pointer"
           >
-            <RotateCw className="w-3.5 h-3.5 text-sky-400" /> Refresh Dossier
+            <RotateCw className="w-3.5 h-3.5 text-sky-400" /> Refresh Profile
           </button>
         </div>
       </div>
 
-      {/* Asset Header Dossier Card */}
+      {/* Asset Header Profile Card */}
       <div className="p-6 rounded-2xl bg-surface border border-surfaceBorder space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-surfaceBorder pb-4">
           <div className="flex items-start gap-4">
@@ -751,7 +751,7 @@ export const AssetDetailPage: React.FC<AssetDetailPageProps> = ({ assetId: propA
 
       {/* Delete Confirmation Modal (Admin Only) */}
       {isDeleteModalOpen && asset && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs no-top-margin">
           <div className="bg-surface border border-surfaceBorder rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-surfaceBorder">
               <div className="flex items-center gap-2 text-red-400">
