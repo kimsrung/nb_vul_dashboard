@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   History, Search, RefreshCw, Trash2, CheckCircle2, Wrench, User,
   X, FileText, ArrowUpDown, ArrowUp, ArrowDown, Radio, Zap,
-  RotateCw, UserPlus, AlertTriangle
+  RotateCw, UserPlus, AlertTriangle, Sliders, ChevronDown, ChevronRight
 } from 'lucide-react';
 import { AuditLogItem, PaginatedAuditLogsResponse, apiClient } from '../api/client';
 import { TablePagination } from '../components/common/TablePagination';
@@ -23,6 +23,7 @@ export const AuditLogsPage: React.FC = () => {
 
   // Details Modal
   const [inspectedLog, setInspectedLog] = useState<AuditLogItem | null>(null);
+  const [showRawJson, setShowRawJson] = useState<boolean>(false);
 
   // Sorting
   const [sortBy, setSortBy] = useState<string>('created_at');
@@ -74,6 +75,12 @@ export const AuditLogsPage: React.FC = () => {
 
   const getActionBadge = (action: string) => {
     switch (action) {
+      case 'UPDATE_SETTINGS':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-950/60 text-amber-400 border border-amber-800/60">
+            <Sliders className="w-3 h-3" /> UPDATE SETTINGS
+          </span>
+        );
       case 'UPDATE_USER':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-950/60 text-sky-400 border border-sky-800/60">
@@ -220,6 +227,9 @@ export const AuditLogsPage: React.FC = () => {
               className="bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-primary-500"
             >
               <option value="">All Actions</option>
+              <optgroup label="System & Configuration">
+                <option value="UPDATE_SETTINGS">Update Settings</option>
+              </optgroup>
               <optgroup label="User Administration">
                 <option value="UPDATE_USER">Update User</option>
                 <option value="CREATE_USER">Create User</option>
@@ -255,6 +265,7 @@ export const AuditLogsPage: React.FC = () => {
               className="bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-primary-500"
             >
               <option value="">All Target Types</option>
+              <option value="Settings">Settings</option>
               <option value="User">User</option>
               <option value="SYNC">Sync Operation</option>
               <option value="MISP_Advisory">MISP Advisory</option>
@@ -406,7 +417,10 @@ export const AuditLogsPage: React.FC = () => {
                     <td className="py-3 px-4 text-right font-sans whitespace-nowrap">
                       <button
                         type="button"
-                        onClick={() => setInspectedLog(log)}
+                        onClick={() => {
+                          setInspectedLog(log);
+                          setShowRawJson(false);
+                        }}
                         className="px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 text-xs font-semibold transition-colors cursor-pointer"
                         title="View audit event details"
                       >
@@ -436,7 +450,7 @@ export const AuditLogsPage: React.FC = () => {
       {/* Details Snapshot Modal */}
       {inspectedLog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
-          <div className="bg-surface border border-surfaceBorder rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-surface border border-surfaceBorder rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-surfaceBorder">
               <div className="flex items-center gap-2">
                 <History className="w-5 h-5 text-sky-400" />
@@ -479,37 +493,96 @@ export const AuditLogsPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Setting Parameter Changes Comparison Table */}
               {inspectedLog.details?.changes && (
-                <div className="p-3 rounded-xl bg-slate-950 border border-surfaceBorder space-y-2">
-                  <span className="block text-[11px] font-semibold text-sky-400">
-                    Administrative Change Details:
-                  </span>
-                  <div className="space-y-1 font-mono text-xs">
-                    {Object.entries(inspectedLog.details.changes).map(([field, diff]: [string, any]) => (
-                      <div key={field} className="flex items-center gap-2">
-                        <span className="text-slate-400 text-[11px] uppercase">{field}:</span>
-                        {typeof diff === 'object' && diff !== null && 'old' in diff && 'new' in diff ? (
-                          <span className="text-[11px]">
-                            <span className="text-rose-400 line-through mr-1">{String(diff.old ?? 'None')}</span>
-                            &rarr;
-                            <span className="text-emerald-400 ml-1 font-semibold">{String(diff.new ?? 'None')}</span>
-                          </span>
-                        ) : (
-                          <span className="text-slate-200 text-[11px]">{String(diff)}</span>
-                        )}
-                      </div>
-                    ))}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-sky-400 flex items-center gap-1.5">
+                      <Sliders className="w-3.5 h-3.5 text-sky-400" />
+                      Settings Parameter Changes
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      {Object.keys(inspectedLog.details.changes).length} {Object.keys(inspectedLog.details.changes).length === 1 ? 'parameter' : 'parameters'} modified
+                    </span>
+                  </div>
+                  <div className="border border-surfaceBorder rounded-xl overflow-hidden bg-slate-950">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="bg-slate-900 border-b border-surfaceBorder text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+                            <th className="py-2.5 px-3.5">Setting / Parameter</th>
+                            <th className="py-2.5 px-3.5">Previous Value</th>
+                            <th className="py-2.5 px-3.5">New Value</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-surfaceBorder">
+                          {Object.entries(inspectedLog.details.changes).map(([field, diff]: [string, any]) => {
+                            const isDiffObj = typeof diff === 'object' && diff !== null && 'old' in diff && 'new' in diff;
+                            const oldVal = isDiffObj ? String(diff.old ?? '—') : '—';
+                            const newVal = isDiffObj ? String(diff.new ?? '—') : String(diff ?? '—');
+                            return (
+                              <tr key={field} className="hover:bg-slate-900/50 font-mono">
+                                <td className="py-2 px-3.5 text-slate-300 font-semibold text-[11px]">
+                                  <span className="px-2 py-0.5 rounded bg-slate-800 text-sky-300 border border-slate-700/60 inline-block">
+                                    {field}
+                                  </span>
+                                </td>
+                                <td className="py-2 px-3.5 text-[11px]">
+                                  <span className="inline-block px-2.5 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/25 line-through">
+                                    {oldVal}
+                                  </span>
+                                </td>
+                                <td className="py-2 px-3.5 text-[11px]">
+                                  <span className="inline-block px-2.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/25 font-semibold">
+                                    {newVal}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               )}
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Recorded Event Snapshot & Metadata (JSON):
-                </label>
-                <pre className="p-3 rounded-xl bg-slate-950 border border-surfaceBorder text-slate-200 font-mono text-[11px] overflow-x-auto max-h-60 leading-relaxed">
-                  {JSON.stringify(inspectedLog.details, null, 2)}
-                </pre>
+              {/* Status Transition (Alerts / Tasks) */}
+              {inspectedLog.details?.old_status && inspectedLog.details?.new_status && (
+                <div className="p-3 rounded-xl bg-slate-950 border border-surfaceBorder flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-300">Status Transition:</span>
+                  <div className="flex items-center gap-2 font-mono text-xs">
+                    <span className="px-2.5 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20 line-through">
+                      {inspectedLog.details.old_status}
+                    </span>
+                    <span className="text-slate-500">&rarr;</span>
+                    <span className="px-2.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-semibold">
+                      {inspectedLog.details.new_status}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Collapsible Raw Snapshot / JSON */}
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowRawJson(!showRawJson)}
+                  className="flex items-center justify-between w-full p-2.5 rounded-xl bg-slate-900/60 hover:bg-slate-900 border border-surfaceBorder text-slate-300 text-xs transition-colors cursor-pointer"
+                >
+                  <span className="flex items-center gap-2 font-medium">
+                    {showRawJson ? <ChevronDown className="w-4 h-4 text-sky-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
+                    Recorded Event Snapshot & Metadata (JSON)
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {showRawJson ? 'Click to collapse' : 'Click to inspect raw JSON'}
+                  </span>
+                </button>
+                {showRawJson && (
+                  <pre className="mt-2 p-3 rounded-xl bg-slate-950 border border-surfaceBorder text-slate-200 font-mono text-[11px] overflow-x-auto max-h-60 leading-relaxed animate-in fade-in duration-150">
+                    {JSON.stringify(inspectedLog.details, null, 2)}
+                  </pre>
+                )}
               </div>
             </div>
 
@@ -517,7 +590,7 @@ export const AuditLogsPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setInspectedLog(null)}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition-colors"
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition-colors cursor-pointer"
               >
                 Close
               </button>

@@ -40,6 +40,44 @@ class TestSettingsAuditAndTelegram:
         assert get_res.json()["telegram_cooldown_hours"] == 8
 
     @pytest.mark.asyncio
+    async def test_update_settings_audit_logging(self, client: AsyncClient, admin_headers: dict):
+        # 1. Update settings with changed fields
+        payload = {
+            "qualys_sync_interval_hours": 12,
+            "misp_api_key": "new_secret_key_12345",
+        }
+        res = await client.post("/api/v1/settings", headers=admin_headers, json=payload)
+        assert res.status_code == 200
+
+        # Verify audit log recorded UPDATE_SETTINGS
+        audit_res = await client.get("/api/v1/audit-logs?action=UPDATE_SETTINGS", headers=admin_headers)
+        assert audit_res.status_code == 200
+        items = audit_res.json()["items"]
+        assert len(items) > 0
+        latest_log = items[0]
+        assert latest_log["action"] == "UPDATE_SETTINGS"
+        assert latest_log["target_type"] == "Settings"
+        assert latest_log["actor_username"] == "admin"
+        assert "changes" in latest_log["details"]
+
+        # Sensitive key was masked
+        misp_key_change = latest_log["details"]["changes"].get("misp_api_key")
+        assert misp_key_change is not None
+        assert "new_secret_key_12345" not in misp_key_change["new"]  # Never stored in plaintext!
+        assert "..." in misp_key_change["new"]
+
+        # Non-sensitive key recorded clean diff
+        assert latest_log["details"]["changes"]["qualys_sync_interval_hours"]["new"] == 12
+
+        # 2. Resubmit identical settings -> No new audit log generated (no noise)
+        before_count = audit_res.json()["total"]
+        res_dup = await client.post("/api/v1/settings", headers=admin_headers, json=payload)
+        assert res_dup.status_code == 200
+
+        audit_res2 = await client.get("/api/v1/audit-logs?action=UPDATE_SETTINGS", headers=admin_headers)
+        assert audit_res2.json()["total"] == before_count
+
+    @pytest.mark.asyncio
     async def test_audit_logs_pagination_and_search(self, client: AsyncClient, admin_headers: dict):
         res = await client.get("/api/v1/audit-logs?page=1&page_size=10", headers=admin_headers)
         assert res.status_code == 200
