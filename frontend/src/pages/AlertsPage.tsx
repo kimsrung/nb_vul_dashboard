@@ -4,7 +4,7 @@ import {
   Bell, CheckCircle2, Send, RefreshCw, RotateCw, ShieldAlert,
   Search, Server, Zap, Calendar, Terminal,
   Check, Copy, AlertTriangle, ExternalLink,
-  ArrowUpDown, ArrowUp, ArrowDown, X, CheckCircle, Radio
+  ArrowUpDown, ArrowUp, ArrowDown, X, CheckCircle, Radio, ShieldCheck, Target
 } from 'lucide-react';
 import { AlertItem, PaginatedAlertsResponse, apiClient } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -573,6 +573,20 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
                           Target: <span className="text-sky-300 font-semibold">{al.affected_product}</span>
                           {al.vulnerable_versions && ` (${al.vulnerable_versions})`}
                         </div>
+                        {al.mitre_techniques && al.mitre_techniques.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {al.mitre_techniques.map((t) => (
+                              <span
+                                key={t.id}
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-950/40 text-amber-300 border border-amber-800/50"
+                                title={`${t.name} (${t.tactic_name})`}
+                              >
+                                <Target className="w-2.5 h-2.5 text-amber-400" />
+                                {t.id}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </td>
 
                       {/* Affected Servers Column (Showing Server Names) */}
@@ -855,6 +869,111 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
                       </div>
                     </div>
                   )}
+
+                  {/* MITRE ATT&CK & Adversary Intelligence */}
+                  {selectedDetail.mitre_techniques && selectedDetail.mitre_techniques.length > 0 && (
+                    <div className="space-y-3">
+                      <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Target className="w-3.5 h-3.5 text-amber-400" /> Adversary Perspective & MITRE ATT&CK
+                      </span>
+                      <div className="space-y-3">
+                        {selectedDetail.mitre_techniques.map((tech) => (
+                          <div
+                            key={tech.id}
+                            className="p-3.5 rounded-xl bg-slate-950 border border-surfaceBorder space-y-2.5"
+                          >
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-amber-950 text-amber-300 border border-amber-800">
+                                  {tech.id}
+                                </span>
+                                <span className="font-bold text-slate-100 text-xs">{tech.name}</span>
+                              </div>
+                              <a
+                                href={tech.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[10px] text-sky-400 hover:text-sky-300 flex items-center gap-1 font-mono"
+                              >
+                                MITRE Matrix <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </div>
+
+                            <div className="flex items-center gap-3 text-[10px] text-slate-400 font-mono">
+                              <span>Tactic: <span className="text-amber-400 font-bold">{tech.tactic_name} ({tech.tactic_id})</span></span>
+                              <span>Impact: <span className="text-red-400 font-bold">{tech.severity_impact}</span></span>
+                            </div>
+
+                            <p className="text-[11px] text-slate-300 leading-relaxed font-sans bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
+                              <span className="text-amber-400 font-semibold block text-[10px] uppercase mb-1">
+                                Adversary Attack Vector:
+                              </span>
+                              {tech.adversary_perspective}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Safe Compensating Controls (For System Owners) */}
+                  {selectedDetail.mitre_techniques &&
+                    selectedDetail.mitre_techniques.some((t) => t.compensating_controls?.length > 0) && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                            Safe Compensating Controls (Zero Downtime)
+                          </span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-800">
+                            Apply Before Patching
+                          </span>
+                        </div>
+
+                        <div className="p-3.5 rounded-xl bg-emerald-950/20 border border-emerald-800/40 text-[11px] text-emerald-200/80 leading-relaxed">
+                          Cannot patch this system immediately during banking operations? System owners can apply these safe workarounds to neutralize the attack vector without restarting services.
+                        </div>
+
+                        <div className="space-y-2.5">
+                          {selectedDetail.mitre_techniques
+                            .flatMap((t) => t.compensating_controls || [])
+                            .map((ctrl) => (
+                              <div
+                                key={ctrl.id}
+                                className="p-3.5 rounded-xl bg-slate-950 border border-surfaceBorder space-y-2"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">
+                                      {ctrl.id}
+                                    </span>
+                                    <span className="font-bold text-slate-200 text-xs">{ctrl.name}</span>
+                                  </div>
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
+                                    {ctrl.category}
+                                  </span>
+                                </div>
+
+                                <p className="text-[11px] text-slate-300">{ctrl.description}</p>
+
+                                <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px]">
+                                  <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                                    Recommended Implementation:
+                                  </span>
+                                  <ul className="space-y-1 text-slate-300">
+                                    {ctrl.implementation_steps.map((st, i) => (
+                                      <li key={i} className="flex items-start gap-1">
+                                        <span className="text-emerald-400 font-bold">•</span>
+                                        <span>{st}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
 
                   {/* Suggested Solution & Remediation Guidance */}
                   {selectedDetail.suggested_solution && (

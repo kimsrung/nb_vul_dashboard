@@ -24,6 +24,7 @@ from app.services.audit_service import AuditService
 from app.services.misp_client import MispClient
 from app.services.proactive_assessment_engine import ProactiveAssessmentEngine
 from app.services.telegram_service import TelegramService
+from app.services.mitre_service import MitreService
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,13 @@ def _map_assessment_to_alert(a: MispCveAssessment) -> AlertItem:
 
     misp_eid = str(report.get("misp_event_id") or a.id)
 
+    techniques = MitreService.map_to_techniques(
+        title=a.title,
+        description=a.description,
+        cve_list=[a.cve_id] if a.cve_id else [],
+        product=a.affected_product,
+    )
+
     return AlertItem(
         id=a.id,
         misp_event_id=misp_eid,
@@ -79,6 +87,7 @@ def _map_assessment_to_alert(a: MispCveAssessment) -> AlertItem:
         dispatched_telegram=a.dispatched_telegram,
         date_detected=a.created_at,
         updated_at=a.updated_at,
+        mitre_techniques=techniques,
     )
 
 

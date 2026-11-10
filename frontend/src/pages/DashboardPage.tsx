@@ -2,13 +2,15 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ShieldAlert, Server, Bug, Flame, ArrowUpRight,
-  Activity, ArrowUpDown, ArrowUp, ArrowDown
+  Activity, ArrowUpDown, ArrowUp, ArrowDown,
+  Target
 } from 'lucide-react';
 import { DashboardSummary, AssetListItem } from '../api/client';
 import { SeverityPills } from '../components/common/SeverityPills';
 import { TablePagination } from '../components/common/TablePagination';
 import { formatDateYMD } from '../utils/date';
 import { useAuth } from '../context/AuthContext';
+import { MitreNavigator } from '../components/dashboard/MitreNavigator';
 
 interface DashboardPageProps {
   summary: DashboardSummary | null;
@@ -41,6 +43,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     }
   };
 
+  const [viewMode, setViewMode] = useState<'operational' | 'mitre_readiness'>('operational');
   const [sortField, setSortField] = useState<string>('critical_vulns');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -133,7 +136,42 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         </div>
       </div>
 
-      {/* Themed 3-KPI Cards Grid */}
+      {/* View Switcher: Operational vs MITRE Readiness */}
+      <div className="flex items-center justify-between border-b border-surfaceBorder pb-2">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setViewMode('operational')}
+            className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+              viewMode === 'operational'
+                ? 'bg-primary-600 text-white shadow-md'
+                : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 border border-surfaceBorder'
+            }`}
+          >
+            <Activity className="w-3.5 h-3.5" />
+            Operational Risk Telemetry
+          </button>
+          <button
+            onClick={() => setViewMode('mitre_readiness')}
+            className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+              viewMode === 'mitre_readiness'
+                ? 'bg-amber-600 text-white shadow-md'
+                : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 border border-surfaceBorder'
+            }`}
+          >
+            <Target className="w-3.5 h-3.5" />
+            MITRE ATT&CK & Threat Readiness
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-950/80 text-amber-300 border border-amber-700">
+              Live Posture
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {viewMode === 'mitre_readiness' ? (
+        <MitreNavigator />
+      ) : (
+        <>
+          {/* Themed 3-KPI Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {/* Total Assets */}
         <div className="p-5 rounded-2xl bg-sky-950/20 border border-sky-900/40 hover:border-sky-700/60 transition-all shadow-lg hover:shadow-sky-500/5 group flex flex-col justify-between">
@@ -515,6 +553,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           />
         )}
       </div>
+        </>
+      )}
     </div>
   );
 };

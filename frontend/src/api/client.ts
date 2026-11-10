@@ -115,6 +115,7 @@ export interface KnowledgeBaseItem {
   workaround: string | null;
   cve_list: string[] | null;
   threat_intel_flags: Record<string, boolean> | null;
+  mitre_techniques?: MitreTechnique[];
 }
 
 export interface DetectionItem {
@@ -154,6 +155,99 @@ export interface AffectedServerItem {
   recommended_verification?: string;
 }
 
+export interface CompensatingControl {
+  id: string; // e.g. "M1030"
+  name: string; // e.g. "Network Segmentation"
+  category: string; // "Network" | "Configuration" | "Access_Control" | "Application_Shielding"
+  description: string;
+  implementation_steps: string[];
+  downtime_required: boolean;
+  applicable_platforms: string[];
+}
+
+export interface DetectionGuidance {
+  log_sources: string[];
+  indicator_summary: string;
+  sample_query?: string | null;
+  event_ids: string[];
+}
+
+export interface MitreTechnique {
+  id: string; // e.g. "T1190"
+  name: string;
+  tactic_id: string;
+  tactic_name: string;
+  description: string;
+  adversary_perspective: string;
+  severity_impact: string;
+  url: string;
+  compensating_controls: CompensatingControl[];
+  detection_guidance?: DetectionGuidance | null;
+}
+
+export interface MitreTacticSummary {
+  id: string;
+  name: string;
+  short_name: string;
+  description: string;
+  kill_chain_order: number;
+  active_threats_count: number;
+  affected_assets_count: number;
+  critical_tier_exposure_count: number;
+  techniques: MitreTechnique[];
+}
+
+export interface MitreMatrixResponse {
+  total_techniques_mapped: number;
+  tactics: MitreTacticSummary[];
+  top_critical_techniques: MitreTechnique[];
+}
+
+export interface MitreTechniqueDetail {
+  technique: MitreTechnique;
+  affected_assets: Array<{
+    asset_id: number;
+    server_name?: string;
+    ip_address?: string;
+    os_name?: string;
+    poc_name?: string;
+    poc_email?: string;
+    source?: string;
+    evidence?: string;
+  }>;
+  related_cves: string[];
+  related_qids: number[];
+}
+
+export interface BankingTierReadiness {
+  tier_name: string;
+  tier_level: number;
+  total_assets: number;
+  clean_assets: number;
+  exposed_assets: number;
+  readiness_percentage: number;
+  critical_cves_count: number;
+  active_threats_count: number;
+  status: 'Optimal' | 'Good' | 'Requires_Attention' | 'Critical_Exposure';
+}
+
+export interface ThreatReadinessResponse {
+  overall_readiness_score: number;
+  readiness_grade: string;
+  status_summary: string;
+  last_assessment_time: string;
+  tier_breakdown: BankingTierReadiness[];
+  mitre_coverage_percentage: number;
+  proactive_shield_rate: number;
+  top_recommended_actions: Array<{
+    priority: string;
+    action_type: string;
+    title: string;
+    description: string;
+    target_scope: string;
+  }>;
+}
+
 export interface AlertItem {
   id: number;
   misp_event_id?: string;
@@ -177,6 +271,7 @@ export interface AlertItem {
   dispatched_telegram: boolean;
   date_detected: string;
   updated_at: string;
+  mitre_techniques?: MitreTechnique[];
 }
 
 export interface PaginatedAlertsResponse {

@@ -1,5 +1,6 @@
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, ConfigDict
+from app.schemas.mitre import MitreTechnique
 
 
 class KnowledgeBaseItem(BaseModel):
@@ -19,3 +20,4 @@ class KnowledgeBaseItem(BaseModel):
     workaround: Optional[str] = None
     cve_list: Optional[List[str]] = None
     threat_intel_flags: Optional[Dict[str, Any]] = None
+    mitre_techniques: List[MitreTechnique] = []
