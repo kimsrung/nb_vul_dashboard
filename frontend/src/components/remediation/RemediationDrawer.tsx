@@ -158,7 +158,7 @@ export const RemediationDrawer: React.FC<RemediationDrawerProps> = ({
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
             Compensating Controls
             {allControls.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800">
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800 remediation-emerald-pill">
                 {allControls.length} Safe
               </span>
             )}
@@ -174,7 +174,7 @@ export const RemediationDrawer: React.FC<RemediationDrawerProps> = ({
             <Target className="w-3.5 h-3.5 text-amber-400" />
             MITRE ATT&CK
             {mitreTechniques.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-950 text-amber-300 border border-amber-800">
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-950 text-amber-300 border border-amber-800 remediation-amber-pill">
                 {mitreTechniques.map((t) => t.id).join(', ')}
               </span>
             )}
@@ -305,18 +305,18 @@ export const RemediationDrawer: React.FC<RemediationDrawerProps> = ({
 
           {activeTab === 'controls' && (
             <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-800/60 space-y-1.5">
-                <div className="flex items-center gap-2 font-bold text-emerald-300 text-xs">
-                  <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-800/60 space-y-1.5 remediation-compensating-banner">
+                <div className="flex items-center gap-2 font-bold text-emerald-300 text-xs banner-title">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 banner-icon" />
                   Safe Compensating Controls (Zero Production Downtime)
                 </div>
-                <p className="text-emerald-200/80 text-[11px] leading-relaxed">
+                <p className="text-emerald-200/80 text-[11px] leading-relaxed banner-text">
                   Cannot patch immediately due to banking change freezes or maintenance windows? These defensive controls shield your system against exploit attempts without restarting packages or interrupting banking transactions.
                 </p>
               </div>
 
               {allControls.length === 0 ? (
-                <div className="p-6 rounded-xl bg-slate-900/50 border border-surfaceBorder text-center text-slate-400 text-xs">
+                <div className="p-6 rounded-xl bg-slate-900/50 border border-surfaceBorder text-center text-slate-400 text-xs remediation-empty-box">
                   No specific compensating controls identified for this finding. Apply standard network boundary restrictions and vendor patch when feasible.
                 </div>
               ) : (
@@ -324,42 +324,42 @@ export const RemediationDrawer: React.FC<RemediationDrawerProps> = ({
                   {allControls.map((ctrl) => (
                     <div
                       key={ctrl.id}
-                      className="p-4 rounded-xl bg-slate-900/80 border border-surfaceBorder space-y-2.5 hover:border-slate-700 transition-colors"
+                      className="p-4 rounded-xl bg-slate-900/80 border border-surfaceBorder space-y-2.5 hover:border-slate-700 transition-colors remediation-control-card"
                     >
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <div className="flex items-center gap-2">
-                          <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">
+                          <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-emerald-950 text-emerald-300 border border-emerald-800 remediation-emerald-pill">
                             {ctrl.id}
                           </span>
-                          <span className="font-bold text-slate-100 text-xs">{ctrl.name}</span>
+                          <span className="font-bold text-slate-100 text-xs ctrl-card-title">{ctrl.name}</span>
                         </div>
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 ctrl-category-tag">
                           {ctrl.category}
                         </span>
                       </div>
 
-                      <p className="text-xs text-slate-300 leading-relaxed">{ctrl.description}</p>
+                      <p className="text-xs text-slate-300 leading-relaxed ctrl-card-desc">{ctrl.description}</p>
 
-                      <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-1.5">
-                        <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                      <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-1.5 remediation-steps-box">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider steps-heading">
                           Recommended Implementation Steps:
                         </span>
-                        <ul className="space-y-1 text-xs text-slate-300">
+                        <ul className="space-y-1 text-xs text-slate-300 steps-list">
                           {ctrl.implementation_steps.map((step, idx) => (
                             <li key={idx} className="flex items-start gap-1.5">
-                              <span className="text-emerald-400 font-bold shrink-0">•</span>
-                              <span>{step}</span>
+                              <span className="text-emerald-400 font-bold shrink-0 step-bullet">•</span>
+                              <span className="step-text">{step}</span>
                             </li>
                           ))}
                         </ul>
                       </div>
 
-                      <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                      <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 ctrl-footer">
                         <span>
-                          Downtime: <span className="text-emerald-400 font-semibold">{ctrl.downtime_required ? 'Required' : 'Zero Downtime'}</span>
+                          Downtime: <span className="text-emerald-400 font-semibold downtime-tag">{ctrl.downtime_required ? 'Required' : 'Zero Downtime'}</span>
                         </span>
                         <span>
-                          Platforms: <span className="text-slate-300 font-mono">{ctrl.applicable_platforms.join(', ')}</span>
+                          Platforms: <span className="text-slate-300 font-mono platform-text">{ctrl.applicable_platforms.join(', ')}</span>
                         </span>
                       </div>
                     </div>
@@ -371,18 +371,18 @@ export const RemediationDrawer: React.FC<RemediationDrawerProps> = ({
 
           {activeTab === 'mitre' && (
             <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-amber-950/30 border border-amber-800/60 space-y-1.5">
-                <div className="flex items-center gap-2 font-bold text-amber-300 text-xs">
-                  <Target className="w-4 h-4 text-amber-400 shrink-0" />
+              <div className="p-4 rounded-xl bg-amber-950/30 border border-amber-800/60 space-y-1.5 remediation-mitre-banner">
+                <div className="flex items-center gap-2 font-bold text-amber-300 text-xs banner-title">
+                  <Target className="w-4 h-4 text-amber-400 shrink-0 banner-icon" />
                   Adversary Perspective & MITRE ATT&CK Mapping
                 </div>
-                <p className="text-amber-200/80 text-[11px] leading-relaxed">
+                <p className="text-amber-200/80 text-[11px] leading-relaxed banner-text">
                   Understand how threat actors, ransomware operators, or APT campaigns weaponize this weakness against banking perimeters and internal networks.
                 </p>
               </div>
 
               {mitreTechniques.length === 0 ? (
-                <div className="p-6 rounded-xl bg-slate-900/50 border border-surfaceBorder text-center text-slate-400 text-xs">
+                <div className="p-6 rounded-xl bg-slate-900/50 border border-surfaceBorder text-center text-slate-400 text-xs remediation-empty-box">
                   No MITRE ATT&CK technique directly linked. Treat as general software maintenance finding.
                 </div>
               ) : (
@@ -390,37 +390,37 @@ export const RemediationDrawer: React.FC<RemediationDrawerProps> = ({
                   {mitreTechniques.map((tech) => (
                     <div
                       key={tech.id}
-                      className="p-4 rounded-xl bg-slate-900/80 border border-surfaceBorder space-y-3"
+                      className="p-4 rounded-xl bg-slate-900/80 border border-surfaceBorder space-y-3 remediation-tech-card"
                     >
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <div className="flex items-center gap-2">
-                          <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-amber-950 text-amber-300 border border-amber-800">
+                          <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-amber-950 text-amber-300 border border-amber-800 remediation-amber-pill">
                             {tech.id}
                           </span>
-                          <span className="font-bold text-slate-100 text-xs">{tech.name}</span>
+                          <span className="font-bold text-slate-100 text-xs tech-card-title">{tech.name}</span>
                         </div>
                         <a
                           href={tech.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-[11px] text-sky-400 hover:text-sky-300 flex items-center gap-1 font-mono"
+                          className="text-[11px] text-sky-400 hover:text-sky-300 flex items-center gap-1 font-mono mitre-link"
                         >
                           MITRE Matrix <ExternalLink className="w-3 h-3" />
                         </a>
                       </div>
 
-                      <div className="flex items-center gap-4 text-[11px] text-slate-400 font-mono">
+                      <div className="flex items-center gap-4 text-[11px] text-slate-400 font-mono tech-card-meta">
                         <span>Tactic: <span className="text-amber-400 font-bold">{tech.tactic_name} ({tech.tactic_id})</span></span>
                         <span>Severity Impact: <span className="text-red-400 font-bold">{tech.severity_impact}</span></span>
                       </div>
 
-                      <p className="text-xs text-slate-300 leading-relaxed">{tech.description}</p>
+                      <p className="text-xs text-slate-300 leading-relaxed tech-card-desc">{tech.description}</p>
 
-                      <div className="p-3.5 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-amber-400 block tracking-wider">
+                      <div className="p-3.5 rounded-lg bg-slate-950 border border-slate-800 space-y-1 remediation-adversary-box">
+                        <span className="text-[10px] uppercase font-bold text-amber-400 block tracking-wider box-heading">
                           How Threat Actors Leverage This (Banking Kill-Chain):
                         </span>
-                        <p className="text-xs text-slate-300 leading-relaxed font-sans">
+                        <p className="text-xs text-slate-300 leading-relaxed font-sans box-text">
                           {tech.adversary_perspective}
                         </p>
                       </div>
@@ -433,12 +433,12 @@ export const RemediationDrawer: React.FC<RemediationDrawerProps> = ({
 
           {activeTab === 'detection' && (
             <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-sky-950/30 border border-sky-800/60 space-y-1.5">
-                <div className="flex items-center gap-2 font-bold text-sky-300 text-xs">
-                  <Terminal className="w-4 h-4 text-sky-400 shrink-0" />
+              <div className="p-4 rounded-xl bg-sky-950/30 border border-sky-800/60 space-y-1.5 remediation-detection-banner">
+                <div className="flex items-center gap-2 font-bold text-sky-300 text-xs banner-title">
+                  <Terminal className="w-4 h-4 text-sky-400 shrink-0 banner-icon" />
                   Security Analyst Detection & Monitoring Guidance
                 </div>
-                <p className="text-sky-200/80 text-[11px] leading-relaxed">
+                <p className="text-sky-200/80 text-[11px] leading-relaxed banner-text">
                   How to detect if this technique is being probed or exploited on your servers before an intrusion occurs.
                 </p>
               </div>
@@ -449,23 +449,23 @@ export const RemediationDrawer: React.FC<RemediationDrawerProps> = ({
                 return (
                   <div
                     key={tech.id}
-                    className="p-4 rounded-xl bg-slate-900/80 border border-surfaceBorder space-y-3"
+                    className="p-4 rounded-xl bg-slate-900/80 border border-surfaceBorder space-y-3 remediation-det-card"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-100 text-xs flex items-center gap-2">
-                        <span className="font-mono text-sky-400">{tech.id}</span> — {tech.name}
+                      <span className="font-bold text-slate-100 text-xs flex items-center gap-2 det-card-title">
+                        <span className="font-mono text-sky-400 det-tech-id">{tech.id}</span> — {tech.name}
                       </span>
                     </div>
 
                     <div className="space-y-1">
-                      <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider det-log-heading">
                         Monitored Telemetry & Log Sources:
                       </span>
                       <div className="flex flex-wrap gap-1.5">
                         {det.log_sources.map((src, i) => (
                           <span
                             key={i}
-                            className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[11px] border border-slate-700"
+                            className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[11px] border border-slate-700 det-src-badge"
                           >
                             {src}
                           </span>
@@ -473,11 +473,11 @@ export const RemediationDrawer: React.FC<RemediationDrawerProps> = ({
                       </div>
                     </div>
 
-                    <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
-                      <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                    <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-1 remediation-det-indicators">
+                      <span className="text-[10px] uppercase font-bold text-sky-400 block tracking-wider det-ind-heading">
                         Detection Indicator:
                       </span>
-                      <p className="text-xs text-slate-300 leading-relaxed font-sans">
+                      <p className="text-xs text-slate-300 leading-relaxed font-sans det-ind-text">
                         {det.indicator_summary}
                       </p>
                     </div>
@@ -485,7 +485,7 @@ export const RemediationDrawer: React.FC<RemediationDrawerProps> = ({
                     {det.sample_query && (
                       <div className="space-y-1">
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider det-query-heading">
                             Sample Log Query:
                           </span>
                           <button
@@ -504,18 +504,18 @@ export const RemediationDrawer: React.FC<RemediationDrawerProps> = ({
                             )}
                           </button>
                         </div>
-                        <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 font-mono text-[11px] text-emerald-400 overflow-x-auto">
-                          <code>{det.sample_query}</code>
+                        <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 font-mono text-[11px] text-emerald-400 overflow-x-auto remediation-terminal-box">
+                          <code className="remediation-terminal-code">{det.sample_query}</code>
                         </div>
                       </div>
                     )}
 
                     {det.event_ids && det.event_ids.length > 0 && (
-                      <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                      <div className="flex items-center gap-2 text-[11px] text-slate-400 det-events">
                         <span>Event IDs / Signatures:</span>
                         <div className="flex flex-wrap gap-1">
                           {det.event_ids.map((eid, idx) => (
-                            <span key={idx} className="font-mono text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded">
+                            <span key={idx} className="font-mono text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded det-eid-tag">
                               {eid}
                             </span>
                           ))}

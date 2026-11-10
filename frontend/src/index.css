@@ -1786,3 +1786,693 @@ html:not(.dark) div.bg-slate-950\/60 {
   border-color: #e2e8f0 !important;
   color: #334155 !important;
 }
+
+/* ==========================================================================
+   10. MITRE ATT&CK & THREAT READINESS (Daylight Mode Contrast & Aesthetics)
+   ========================================================================== */
+
+/* Executive Readiness Cards */
+html:not(.dark) .mitre-score-card,
+html:not(.dark) .mitre-tier-card {
+  background-image: none !important;
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05) !important;
+}
+
+html:not(.dark) .mitre-tier-warning-card {
+  background-image: none !important;
+  background-color: #fffdf5 !important;
+  border-color: #fde68a !important;
+  box-shadow: 0 4px 6px -1px rgba(245, 158, 11, 0.08) !important;
+}
+
+html:not(.dark) .mitre-tier-danger-card {
+  background-image: none !important;
+  background-color: #fef2f2 !important;
+  border-color: #fca5a5 !important;
+  box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.1) !important;
+}
+
+html:not(.dark) .mitre-score-card .score-val,
+html:not(.dark) .mitre-tier-card .tier-pct {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .mitre-score-card .score-grade {
+  color: #047857 !important;
+  font-weight: 700 !important;
+}
+
+html:not(.dark) .mitre-score-card .score-summary {
+  color: #475569 !important;
+}
+
+html:not(.dark) .mitre-tier-card .tier-title {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .mitre-tier-card .tier-badge {
+  color: #64748b !important;
+}
+
+html:not(.dark) .mitre-tier-card .tier-sub,
+html:not(.dark) .mitre-score-card .score-footer,
+html:not(.dark) .mitre-tier-card .tier-footer {
+  border-color: #e2e8f0 !important;
+  color: #64748b !important;
+}
+
+/* Pill status badges */
+html:not(.dark) .mitre-pill-badge.bg-primary-950 {
+  background-color: #f0fdf4 !important;
+  color: #15803d !important;
+  border-color: #bbf7d0 !important;
+}
+
+html:not(.dark) .mitre-pill-badge.bg-emerald-950 {
+  background-color: #ecfdf5 !important;
+  color: #047857 !important;
+  border-color: #a7f3d0 !important;
+}
+
+html:not(.dark) .mitre-pill-badge.bg-sky-950 {
+  background-color: #f0f9ff !important;
+  color: #0369a1 !important;
+  border-color: #bae6fd !important;
+}
+
+html:not(.dark) .mitre-pill-badge.bg-amber-950 {
+  background-color: #fffbeb !important;
+  color: #b45309 !important;
+  border-color: #fde68a !important;
+}
+
+html:not(.dark) .mitre-pill-badge.bg-rose-950 {
+  background-color: #fef2f2 !important;
+  color: #dc2626 !important;
+  border-color: #fca5a5 !important;
+}
+
+/* Priority Compensating Controls Banner */
+html:not(.dark) .mitre-priority-actions-banner {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html:not(.dark) .mitre-priority-actions-banner .banner-heading {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .mitre-priority-actions-banner .banner-sub {
+  color: #64748b !important;
+}
+
+html:not(.dark) .mitre-action-card {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
+}
+
+html:not(.dark) .mitre-action-card .act-title {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .mitre-action-card .act-desc {
+  color: #475569 !important;
+}
+
+html:not(.dark) .mitre-action-card .mitre-action-badge {
+  background-color: #ecfdf5 !important;
+  color: #047857 !important;
+  border-color: #a7f3d0 !important;
+}
+
+/* MITRE Matrix Container */
+html:not(.dark) .mitre-matrix-container {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html:not(.dark) .mitre-matrix-container .matrix-title {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .mitre-matrix-container .matrix-desc {
+  color: #64748b !important;
+}
+
+html:not(.dark) .mitre-matrix-container .matrix-tech-count {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+/* 14 Tactics Grid Buttons */
+html:not(.dark) .mitre-tactic-btn.is-clean {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #64748b !important;
+  opacity: 1 !important;
+}
+
+html:not(.dark) .mitre-tactic-btn.is-clean:hover {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+
+html:not(.dark) .mitre-tactic-btn.is-clean .tactic-id {
+  color: #64748b !important;
+}
+
+html:not(.dark) .mitre-tactic-btn.is-clean .tactic-order {
+  color: #94a3b8 !important;
+}
+
+html:not(.dark) .mitre-tactic-btn.is-clean .tactic-title {
+  color: #334155 !important;
+}
+
+html:not(.dark) .mitre-tactic-btn.is-clean .tactic-footer {
+  border-color: #e2e8f0 !important;
+  color: #94a3b8 !important;
+}
+
+html:not(.dark) .mitre-tactic-btn.has-threats {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+  box-shadow: 0 1px 2px 0 rgba(245, 158, 11, 0.05) !important;
+}
+
+html:not(.dark) .mitre-tactic-btn.has-threats:hover {
+  background-color: #fef3c7 !important;
+  border-color: #fcd34d !important;
+}
+
+html:not(.dark) .mitre-tactic-btn.has-threats .tactic-id {
+  color: #b45309 !important;
+}
+
+html:not(.dark) .mitre-tactic-btn.has-threats .tactic-order {
+  color: #d97706 !important;
+}
+
+html:not(.dark) .mitre-tactic-btn.has-threats .tactic-title {
+  color: #78350f !important;
+  font-weight: 700 !important;
+}
+
+html:not(.dark) .mitre-tactic-btn.has-threats .tactic-footer {
+  border-color: #fde68a !important;
+  color: #b45309 !important;
+}
+
+html:not(.dark) .mitre-tactic-btn.is-selected {
+  background-color: #fef3c7 !important;
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35) !important;
+}
+
+html:not(.dark) .mitre-tactic-btn.is-selected .tactic-id {
+  color: #92400e !important;
+}
+
+html:not(.dark) .mitre-tactic-btn.is-selected .tactic-order {
+  color: #b45309 !important;
+}
+
+html:not(.dark) .mitre-tactic-btn.is-selected .tactic-title {
+  color: #78350f !important;
+  font-weight: 800 !important;
+}
+
+html:not(.dark) .mitre-tactic-btn.is-selected .tactic-footer {
+  border-color: #fde68a !important;
+  color: #92400e !important;
+}
+
+/* Drill-Down Panel */
+html:not(.dark) .mitre-drilldown-panel .mitre-drilldown-header {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html:not(.dark) .mitre-drilldown-panel .drilldown-title {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .mitre-drilldown-panel .drilldown-desc {
+  color: #64748b !important;
+}
+
+html:not(.dark) .mitre-drilldown-panel .drilldown-stats span {
+  color: #475569 !important;
+}
+
+html:not(.dark) .mitre-drilldown-panel .tech-list-heading {
+  color: #64748b !important;
+}
+
+/* Technique list buttons */
+html:not(.dark) .mitre-technique-btn {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html:not(.dark) .mitre-technique-btn:hover {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+
+html:not(.dark) .mitre-technique-btn .tech-id {
+  color: #0284c7 !important;
+  font-weight: 700 !important;
+}
+
+html:not(.dark) .mitre-technique-btn .tech-name {
+  color: #1e293b !important;
+}
+
+html:not(.dark) .mitre-technique-btn .tech-impact {
+  color: #64748b !important;
+}
+
+html:not(.dark) .mitre-technique-btn.is-active {
+  background-color: #f0f9ff !important;
+  border-color: #0284c7 !important;
+  box-shadow: 0 0 0 1.5px rgba(2, 132, 199, 0.3) !important;
+}
+
+/* Technique Dossier Panel */
+html:not(.dark) .mitre-dossier-panel {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
+}
+
+html:not(.dark) .mitre-dossier-panel .dossier-header {
+  border-color: #e2e8f0 !important;
+}
+
+html:not(.dark) .mitre-dossier-panel .dossier-tech-name {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .mitre-dossier-panel .dossier-tech-desc {
+  color: #475569 !important;
+}
+
+html:not(.dark) .mitre-dossier-panel .mitre-adversary-box {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+}
+
+html:not(.dark) .mitre-dossier-panel .mitre-adversary-box .adversary-text {
+  color: #78350f !important;
+}
+
+html:not(.dark) .mitre-dossier-panel .mitre-controls-heading {
+  color: #047857 !important;
+}
+
+html:not(.dark) .mitre-dossier-panel .mitre-control-card {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html:not(.dark) .mitre-dossier-panel .mitre-control-card .ctrl-id {
+  color: #047857 !important;
+  font-weight: 700 !important;
+}
+
+html:not(.dark) .mitre-dossier-panel .mitre-control-card .ctrl-name {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+html:not(.dark) .mitre-dossier-panel .mitre-control-card .ctrl-cat {
+  background-color: #e2e8f0 !important;
+  color: #334155 !important;
+}
+
+html:not(.dark) .mitre-dossier-panel .mitre-control-card .ctrl-desc {
+  color: #475569 !important;
+}
+
+html:not(.dark) .mitre-dossier-panel .mitre-control-card .ctrl-bullet {
+  color: #059669 !important;
+}
+
+html:not(.dark) .mitre-dossier-panel .mitre-detection-box {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html:not(.dark) .mitre-dossier-panel .mitre-detection-box .detection-indicators {
+  color: #334155 !important;
+}
+
+/* ==========================================================================
+   11. AUTHENTIC DARK CLI TERMINAL BOX (Preserved in Daylight Mode)
+   ========================================================================== */
+
+html:not(.dark) .mitre-terminal-box,
+html:not(.dark) .remediation-terminal-box {
+  background-color: #020617 !important; /* deep dark console background */
+  border-color: #1e293b !important;
+  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.45) !important;
+}
+
+html:not(.dark) .mitre-terminal-box .mitre-terminal-code,
+html:not(.dark) .remediation-terminal-box .remediation-terminal-code {
+  color: #34d399 !important;            /* crisp bright emerald code text */
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-weight: 500 !important;
+}
+
+/* ==========================================================================
+   12. REMEDIATION DRAWER (High-Contrast Daylight Styling)
+   ========================================================================== */
+
+/* Compensating Controls Banner */
+html:not(.dark) .remediation-compensating-banner {
+  background-color: #ecfdf5 !important; /* emerald-50 */
+  border-color: #a7f3d0 !important;     /* emerald-200 */
+}
+
+html:not(.dark) .remediation-compensating-banner .banner-title {
+  color: #064e3b !important;            /* emerald-900 */
+  font-weight: 700 !important;
+}
+
+html:not(.dark) .remediation-compensating-banner .banner-icon {
+  color: #047857 !important;            /* emerald-700 */
+}
+
+html:not(.dark) .remediation-compensating-banner .banner-text {
+  color: #065f46 !important;            /* emerald-800 */
+}
+
+/* Compensating Pills & Badges */
+html:not(.dark) .remediation-emerald-pill {
+  background-color: #d1fae5 !important; /* emerald-100 */
+  color: #065f46 !important;            /* emerald-800 */
+  border-color: #6ee7b7 !important;     /* emerald-300 */
+  font-weight: 700 !important;
+}
+
+/* Control Cards in Drawer */
+html:not(.dark) .remediation-control-card {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
+}
+
+html:not(.dark) .remediation-control-card .ctrl-card-title {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .remediation-control-card .ctrl-card-desc {
+  color: #334155 !important;
+}
+
+html:not(.dark) .remediation-control-card .ctrl-category-tag {
+  background-color: #f1f5f9 !important;
+  color: #475569 !important;
+  border-color: #cbd5e1 !important;
+}
+
+html:not(.dark) .remediation-steps-box {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html:not(.dark) .remediation-steps-box .steps-heading {
+  color: #64748b !important;
+}
+
+html:not(.dark) .remediation-steps-box .steps-list li .step-text {
+  color: #1e293b !important;
+}
+
+html:not(.dark) .remediation-steps-box .steps-list li .step-bullet {
+  color: #059669 !important;
+}
+
+html:not(.dark) .remediation-control-card .ctrl-footer {
+  color: #64748b !important;
+}
+
+html:not(.dark) .remediation-control-card .downtime-tag {
+  color: #047857 !important;
+  font-weight: 700 !important;
+}
+
+html:not(.dark) .remediation-control-card .platform-text {
+  color: #334155 !important;
+}
+
+/* MITRE ATT&CK Banner in Drawer */
+html:not(.dark) .remediation-mitre-banner {
+  background-color: #fffbeb !important; /* amber-50 */
+  border-color: #fde68a !important;     /* amber-200 */
+}
+
+html:not(.dark) .remediation-mitre-banner .banner-title {
+  color: #78350f !important;            /* amber-900 */
+  font-weight: 700 !important;
+}
+
+html:not(.dark) .remediation-mitre-banner .banner-icon {
+  color: #b45309 !important;            /* amber-700 */
+}
+
+html:not(.dark) .remediation-mitre-banner .banner-text {
+  color: #92400e !important;            /* amber-800 */
+}
+
+html:not(.dark) .remediation-amber-pill {
+  background-color: #fef3c7 !important; /* amber-100 */
+  color: #92400e !important;            /* amber-800 */
+  border-color: #fcd34d !important;     /* amber-300 */
+  font-weight: 700 !important;
+}
+
+/* MITRE Technique Card in Drawer */
+html:not(.dark) .remediation-tech-card {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
+}
+
+html:not(.dark) .remediation-tech-card .tech-card-title {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .remediation-tech-card .tech-card-desc {
+  color: #334155 !important;
+}
+
+html:not(.dark) .remediation-tech-card .tech-card-meta {
+  color: #64748b !important;
+}
+
+html:not(.dark) .remediation-adversary-box {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+}
+
+html:not(.dark) .remediation-adversary-box .box-heading {
+  color: #b45309 !important;
+}
+
+html:not(.dark) .remediation-adversary-box .box-text {
+  color: #78350f !important;
+}
+
+/* Detection Guidance Banner & Card in Drawer */
+html:not(.dark) .remediation-detection-banner {
+  background-color: #f0f9ff !important; /* sky-50 */
+  border-color: #bae6fd !important;     /* sky-200 */
+}
+
+html:not(.dark) .remediation-detection-banner .banner-title {
+  color: #0369a1 !important;            /* sky-800 */
+  font-weight: 700 !important;
+}
+
+html:not(.dark) .remediation-detection-banner .banner-icon {
+  color: #0284c7 !important;            /* sky-600 */
+}
+
+html:not(.dark) .remediation-detection-banner .banner-text {
+  color: #075985 !important;            /* sky-900 */
+}
+
+html:not(.dark) .remediation-sky-pill {
+  background-color: #e0f2fe !important; /* sky-100 */
+  color: #0369a1 !important;            /* sky-800 */
+  border-color: #7dd3fc !important;     /* sky-300 */
+  font-weight: 700 !important;
+}
+
+html:not(.dark) .remediation-det-card {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
+}
+
+html:not(.dark) .remediation-det-card .det-card-title {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .remediation-det-card .det-tech-id {
+  color: #0284c7 !important;
+  font-weight: 700 !important;
+}
+
+html:not(.dark) .remediation-det-card .det-log-heading,
+html:not(.dark) .remediation-det-card .det-query-heading {
+  color: #64748b !important;
+}
+
+html:not(.dark) .remediation-det-card .det-src-badge {
+  background-color: #f1f5f9 !important;
+  color: #475569 !important;
+  border-color: #cbd5e1 !important;
+}
+
+html:not(.dark) .remediation-det-indicators {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html:not(.dark) .remediation-det-indicators .det-ind-heading {
+  color: #0284c7 !important;
+}
+
+html:not(.dark) .remediation-det-indicators .det-ind-text {
+  color: #334155 !important;
+}
+
+html:not(.dark) .remediation-det-card .det-events {
+  color: #64748b !important;
+}
+
+html:not(.dark) .remediation-det-card .det-eid-tag {
+  background-color: #f1f5f9 !important;
+  color: #334155 !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+/* ==========================================================================
+   13. ALERT CENTER DETAIL MODAL (Safe Compensating Controls & MITRE Daylight)
+   ========================================================================== */
+
+/* Universal Daylight mint/pale green text guard */
+html:not(.dark) .text-emerald-200\/80,
+html:not(.dark) .text-emerald-200 {
+  color: #065f46 !important;            /* accessible deep forest green */
+}
+
+/* Compensating Controls Section Header */
+html:not(.dark) .alert-detail-compensating-header {
+  color: #047857 !important;
+}
+
+/* Green Advisory Callout Box Under Safe Compensating Controls */
+html:not(.dark) .alert-detail-compensating-callout {
+  background-color: #ecfdf5 !important; /* soft emerald-50 */
+  border-color: #a7f3d0 !important;     /* crisp emerald-200 */
+  color: #065f46 !important;            /* deep readable forest green */
+  font-weight: 500 !important;
+  box-shadow: 0 1px 2px 0 rgba(16, 185, 129, 0.05) !important;
+}
+
+/* "Apply Before Patching" Badge */
+html:not(.dark) .alert-detail-compensating-badge {
+  background-color: #d1fae5 !important; /* emerald-100 */
+  color: #065f46 !important;            /* emerald-800 */
+  border-color: #6ee7b7 !important;     /* emerald-300 */
+  font-weight: 700 !important;
+}
+
+/* Individual Compensating Control Cards */
+html:not(.dark) .alert-detail-control-card {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
+}
+
+html:not(.dark) .alert-detail-control-card .alert-detail-control-badge {
+  background-color: #d1fae5 !important;
+  color: #065f46 !important;
+  border-color: #6ee7b7 !important;
+  font-weight: 700 !important;
+}
+
+html:not(.dark) .alert-detail-control-card .alert-detail-control-name {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+html:not(.dark) .alert-detail-control-card .alert-detail-control-desc {
+  color: #334155 !important;
+}
+
+html:not(.dark) .alert-detail-control-card .alert-detail-control-cat {
+  background-color: #f1f5f9 !important;
+  color: #475569 !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+html:not(.dark) .alert-detail-steps-box {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html:not(.dark) .alert-detail-steps-box .steps-heading {
+  color: #64748b !important;
+}
+
+html:not(.dark) .alert-detail-steps-box .steps-list li .step-text {
+  color: #1e293b !important;
+}
+
+html:not(.dark) .alert-detail-steps-box .steps-list li .step-bullet {
+  color: #059669 !important;
+}
+
+/* MITRE Technique Section in Alert Detail Modal */
+html:not(.dark) .alert-detail-mitre-card {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
+}
+
+html:not(.dark) .alert-detail-mitre-badge {
+  background-color: #fef3c7 !important; /* amber-100 */
+  color: #92400e !important;            /* amber-800 */
+  border-color: #fcd34d !important;     /* amber-300 */
+  font-weight: 700 !important;
+}
+
+html:not(.dark) .alert-detail-mitre-card .alert-detail-mitre-name {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .alert-detail-mitre-card .alert-detail-mitre-meta {
+  color: #64748b !important;
+}
+
+html:not(.dark) .alert-detail-adversary-box {
+  background-color: #fffbeb !important; /* soft amber-50 */
+  border-color: #fde68a !important;     /* amber-200 */
+  color: #78350f !important;            /* deep amber-900 */
+}
+
+html:not(.dark) .alert-detail-adversary-box span[class*="text-amber-400"] {
+  color: #b45309 !important;
+}
+
+
