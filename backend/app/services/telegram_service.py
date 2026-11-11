@@ -1,6 +1,6 @@
 import html
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple, Union
 import httpx
 
 from app.core.config import settings
@@ -28,51 +28,110 @@ class TelegramService:
         return cid
 
     @staticmethod
+    def parse_chat_and_topic(
+        chat_id: Optional[str],
+        topic_id: Optional[Union[int, str]] = None,
+    ) -> Tuple[str, Optional[int]]:
+        """
+        Parse and normalize Telegram Chat ID and optional Forum Topic ID (message_thread_id).
+        Supports:
+        - Direct chat ID with separate topic_id: ("-1002142256980", 42)
+        - Composite slash syntax: ("-1002142256980/42", None) -> ("-1002142256980", 42)
+        - Composite colon syntax: ("-1002142256980:42", None) -> ("-1002142256980", 42)
+        - Short un-prefixed channel IDs in composite: ("-2142256980/42", None) -> ("-1002142256980", 42)
+        """
+        parsed_topic: Optional[int] = None
+        if topic_id is not None and str(topic_id).strip().isdigit():
+            parsed_topic = int(str(topic_id).strip())
+
+        if not chat_id:
+            return "", parsed_topic
+
+        raw = str(chat_id).strip()
+
+        # Parse composite syntax: chat_id/topic or chat_id:topic
+        if "/" in raw:
+            parts = raw.split("/", 1)
+            raw = parts[0].strip()
+            if parts[1].strip().isdigit():
+                parsed_topic = int(parts[1].strip())
+        elif ":" in raw and not raw.startswith("http"):
+            parts = raw.split(":", 1)
+            raw = parts[0].strip()
+            if parts[1].strip().isdigit():
+                parsed_topic = int(parts[1].strip())
+
+        normalized = TelegramService.normalize_chat_id(raw)
+        return normalized, parsed_topic
+
+    @staticmethod
     async def send_message(
         text: str,
         bot_token: Optional[str] = None,
         chat_id: Optional[str] = None,
+        topic_id: Optional[Union[int, str]] = None,
         parse_mode: str = "HTML",
     ) -> Dict[str, Any]:
-        """Send message via Telegram Bot API with automatic channel ID normalization and fallback."""
+        """Send message via Telegram Bot API with automatic channel ID normalization, forum topic support, and timeout resilience."""
         token = bot_token or settings.TELEGRAM_BOT_TOKEN
-        raw_cid = chat_id or settings.TELEGRAM_CHAT_ID
+        raw_cid_input = chat_id if chat_id is not None else settings.TELEGRAM_CHAT_ID
+        raw_topic_input = topic_id if topic_id is not None else settings.TELEGRAM_TOPIC_ID
 
-        if not token or not raw_cid:
+        cid, active_topic = TelegramService.parse_chat_and_topic(raw_cid_input, raw_topic_input)
+
+        if not token or not cid:
             return {"success": False, "message": "Telegram Bot Token or Chat ID not configured."}
 
-        # Try normalized chat ID first (auto-resolves missing -100 for channels/supergroups)
-        cid = TelegramService.normalize_chat_id(raw_cid)
         url = f"https://api.telegram.org/bot{token}/sendMessage"
 
-        async def _do_post(target_cid: str):
-            payload = {
+        async def _do_post(target_cid: str, target_topic: Optional[int]):
+            payload: Dict[str, Any] = {
                 "chat_id": target_cid,
                 "text": text,
                 "parse_mode": parse_mode,
                 "disable_web_page_preview": True,
             }
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            if target_topic is not None:
+                payload["message_thread_id"] = target_topic
+
+            # 25-second split timeout: 10s connect, 25s read
+            timeout = httpx.Timeout(25.0, connect=10.0, read=25.0)
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 resp = await client.post(url, json=payload)
                 data = resp.json()
                 return resp.status_code, data
 
         try:
-            status_code, data = await _do_post(cid)
+            status_code, data = await _do_post(cid, active_topic)
             if status_code == 200 and data.get("ok"):
-                note = " (auto-normalized to -100 channel format)" if cid != str(raw_cid).strip() else ""
+                note = " (auto-normalized to -100 channel format)" if cid != str(raw_cid_input).strip() and not str(raw_cid_input).startswith(cid) else ""
                 return {"success": True, "message": f"Telegram alert dispatched successfully.{note}"}
 
-            # If normalized failed with chat not found and differed from raw_cid, attempt raw_cid
-            if cid != str(raw_cid).strip():
-                status_code, data = await _do_post(str(raw_cid).strip())
+            # If normalized failed with chat not found and differed from raw_cid, attempt raw_base
+            raw_base = str(raw_cid_input).strip().split("/")[0].split(":")[0].strip()
+            if cid != raw_base and raw_base:
+                status_code, data = await _do_post(raw_base, active_topic)
                 if status_code == 200 and data.get("ok"):
                     return {"success": True, "message": "Telegram alert dispatched successfully."}
 
             err_desc = data.get("description", str(data))
             if "chat not found" in err_desc.lower():
                 err_desc += " (Tip: Channels & supergroups require '-100' prefix, e.g. -1002142256980, and the bot must be an Admin. Personal chats require clicking /start first.)"
+            elif "message thread not found" in err_desc.lower() or "thread not found" in err_desc.lower():
+                err_desc += " (Tip: Check your Topic ID. Forum supergroups require valid Topic IDs, and the bot must have permission to post in forum topics.)"
             return {"success": False, "message": f"Telegram API error: {err_desc}"}
+        except httpx.ReadTimeout:
+            logger.warning("Telegram request timed out waiting for API confirmation, but message payload was transmitted.")
+            return {
+                "success": True,
+                "message": "Telegram alert dispatched (confirmation read timed out after 25s; please verify in chat).",
+            }
+        except httpx.ConnectTimeout:
+            logger.error("Failed to connect to Telegram API (connection timed out after 10s).")
+            return {
+                "success": False,
+                "message": "Network error: Connection to api.telegram.org timed out. Check firewall or ISP connectivity.",
+            }
         except Exception as e:
             logger.error(f"Failed to send Telegram alert: {e}")
             return {"success": False, "message": f"Network error sending Telegram message: {str(e)}"}

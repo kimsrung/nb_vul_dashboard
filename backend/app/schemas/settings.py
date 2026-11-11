@@ -27,6 +27,7 @@ class SystemSettingsResponse(BaseModel):
     telegram_enabled: bool
     telegram_bot_token_masked: str
     telegram_chat_id: str
+    telegram_topic_id: Optional[int] = None
     telegram_cooldown_hours: int
 
     docs_username: str = "docs_admin"
@@ -59,6 +60,7 @@ class SystemSettingsUpdate(BaseModel):
     telegram_enabled: Optional[bool] = None
     telegram_bot_token: Optional[str] = None
     telegram_chat_id: Optional[str] = None
+    telegram_topic_id: Optional[int] = None
     telegram_cooldown_hours: Optional[int] = None
 
     docs_username: Optional[str] = None
@@ -90,6 +92,7 @@ class MispTestRequest(BaseModel):
 class TelegramTestRequest(BaseModel):
     bot_token: Optional[str] = None
     chat_id: Optional[str] = None
+    topic_id: Optional[int] = None
 
 
 class MispZmqTestRequest(BaseModel):

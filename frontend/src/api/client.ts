@@ -347,6 +347,7 @@ export interface SystemSettings {
   telegram_enabled: boolean;
   telegram_bot_token_masked: string;
   telegram_chat_id: string;
+  telegram_topic_id?: number | null;
   telegram_cooldown_hours: number;
   docs_username?: string;
   docs_password_masked?: string;

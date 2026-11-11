@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
@@ -49,6 +50,7 @@ class Settings(BaseSettings):
     TELEGRAM_ENABLED: bool = False
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_CHAT_ID: str = ""
+    TELEGRAM_TOPIC_ID: Optional[int] = None
     TELEGRAM_COOLDOWN_HOURS: int = 6
 
     # MISP Threat Intelligence (FS-ISAC / CIRCL Feed) Configuration

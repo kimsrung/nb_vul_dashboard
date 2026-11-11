@@ -50,6 +50,7 @@ export const SettingsPage: React.FC = () => {
   const [telegramEnabled, setTelegramEnabled] = useState<boolean>(false);
   const [telegramToken, setTelegramToken] = useState<string>('');
   const [telegramChatId, setTelegramChatId] = useState<string>('');
+  const [telegramTopicId, setTelegramTopicId] = useState<number | null>(null);
   const [telegramCooldown, setTelegramCooldown] = useState<number>(6);
 
   // Form states - API Documentation
@@ -95,6 +96,7 @@ export const SettingsPage: React.FC = () => {
 
       setTelegramEnabled(data.telegram_enabled);
       setTelegramChatId(data.telegram_chat_id || '');
+      setTelegramTopicId(data.telegram_topic_id ?? null);
       setTelegramCooldown(data.telegram_cooldown_hours);
 
       setDocsUsername(data.docs_username || 'docs_admin');
@@ -137,6 +139,7 @@ export const SettingsPage: React.FC = () => {
         misp_zmq_username: mispZmqUsername,
         telegram_enabled: telegramEnabled,
         telegram_chat_id: telegramChatId,
+        telegram_topic_id: telegramTopicId !== null && telegramTopicId !== undefined ? Number(telegramTopicId) : null,
         telegram_cooldown_hours: Number(telegramCooldown),
       };
 
@@ -233,6 +236,7 @@ export const SettingsPage: React.FC = () => {
       const res = await apiClient.post('/settings/test-telegram', {
         bot_token: telegramToken || undefined,
         chat_id: telegramChatId || undefined,
+        topic_id: telegramTopicId !== null && telegramTopicId !== undefined ? Number(telegramTopicId) : undefined,
       });
       setTelegramTestResult(res.data);
     } catch (err: any) {
@@ -860,6 +864,24 @@ export const SettingsPage: React.FC = () => {
                   </button>
                 </div>
               )}
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-medium text-slate-300">Forum Topic ID / Thread ID (Optional)</label>
+                <span className="text-[10px] text-slate-400">For Forum Supergroups</span>
+              </div>
+              <input
+                type="number"
+                value={telegramTopicId !== null && telegramTopicId !== undefined ? telegramTopicId : ''}
+                onChange={(e) => setTelegramTopicId(e.target.value === '' ? null : Number(e.target.value))}
+                disabled={!isAdmin || !telegramEnabled}
+                placeholder="e.g. 42 (leave blank for General or direct chat)"
+                className="w-full bg-slate-950 border border-surfaceBorder rounded-lg px-3 py-2 text-xs text-slate-100 font-mono focus:outline-none focus:border-primary-500 disabled:opacity-50"
+              />
+              <span className="text-[10px] text-slate-400 mt-1 block">
+                Target topic inside a Telegram Forum supergroup (<code className="text-sky-300 font-mono">message_thread_id</code>). You can also enter <code className="text-slate-300 font-mono">-1002142256980/42</code> directly into Chat ID.
+              </span>
             </div>
 
             <div>

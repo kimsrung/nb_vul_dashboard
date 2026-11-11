@@ -731,20 +731,20 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
                 <>
                   {/* Match Banner (Qualys Confirmed in BLUE) */}
                   {selectedDetail.match_type === 'QUALYS_CONFIRMED' ? (
-                    <div className="p-4 rounded-xl bg-blue-950/40 border border-blue-800 space-y-1">
-                      <div className="flex items-center gap-2 font-bold text-blue-300 text-sm">
+                    <div className="p-4 rounded-xl bg-blue-950/40 border border-blue-800 space-y-1 alert-detail-qualys-banner">
+                      <div className="flex items-center gap-2 font-bold text-blue-300 text-sm alert-detail-qualys-title">
                         <ShieldAlert className="w-4 h-4 text-blue-400" /> Qualys Scanner Confirmed Finding
                       </div>
-                      <p className="text-blue-200/80 leading-relaxed text-[11px]">
+                      <p className="text-blue-200/80 leading-relaxed text-[11px] alert-detail-qualys-desc">
                         Qualys scanner has verified active vulnerability detections for this CVE across your scanned infrastructure with scanner diagnostic proof.
                       </p>
                     </div>
                   ) : (
-                    <div className="p-4 rounded-xl bg-amber-950/40 border border-amber-800 space-y-1">
-                      <div className="flex items-center gap-2 font-bold text-amber-300 text-sm">
+                    <div className="p-4 rounded-xl bg-amber-950/40 border border-amber-800 space-y-1 alert-detail-prescan-banner">
+                      <div className="flex items-center gap-2 font-bold text-amber-300 text-sm alert-detail-prescan-title">
                         <Zap className="w-4 h-4 text-amber-400" /> Pre-Scan Proactive Finding (Inventory Match)
                       </div>
-                      <p className="text-amber-200/80 leading-relaxed text-[11px]">
+                      <p className="text-amber-200/80 leading-relaxed text-[11px] alert-detail-prescan-desc">
                         Qualys scanner has <b>not</b> detected this vulnerability yet. Our proactive engine identified exposure by comparing installed package versions and OS platform on your servers against FS-ISAC criteria.
                       </p>
                     </div>

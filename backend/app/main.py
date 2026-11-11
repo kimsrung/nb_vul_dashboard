@@ -127,6 +127,8 @@ async def init_db_and_seed():
                 settings.TELEGRAM_BOT_TOKEN = v
             elif k == "telegram_chat_id" and v:
                 settings.TELEGRAM_CHAT_ID = v
+            elif k == "telegram_topic_id":
+                settings.TELEGRAM_TOPIC_ID = int(v) if v and v.isdigit() else None
             elif k == "telegram_cooldown_hours" and v.isdigit():
                 settings.TELEGRAM_COOLDOWN_HOURS = int(v)
             elif k == "docs_username" and v:

@@ -53,6 +53,7 @@ async def get_settings(admin: User = Depends(require_admin)):
         telegram_enabled=settings.TELEGRAM_ENABLED,
         telegram_bot_token_masked=_mask_token(settings.TELEGRAM_BOT_TOKEN),
         telegram_chat_id=settings.TELEGRAM_CHAT_ID,
+        telegram_topic_id=settings.TELEGRAM_TOPIC_ID,
         telegram_cooldown_hours=settings.TELEGRAM_COOLDOWN_HOURS,
         docs_username=settings.DOCS_USERNAME,
         docs_password_masked="••••••••" if settings.DOCS_PASSWORD else "Not Set",
@@ -184,9 +185,15 @@ async def update_settings(
             settings.TELEGRAM_BOT_TOKEN = new_token
 
     if settings_in.telegram_chat_id is not None:
-        new_cid = TelegramService.normalize_chat_id(settings_in.telegram_chat_id)
+        new_cid, auto_topic = TelegramService.parse_chat_and_topic(settings_in.telegram_chat_id, settings_in.telegram_topic_id)
         record_change("telegram_chat_id", settings.TELEGRAM_CHAT_ID, new_cid)
         settings.TELEGRAM_CHAT_ID = new_cid
+        if auto_topic is not None:
+            settings_in.telegram_topic_id = auto_topic
+
+    if settings_in.telegram_topic_id is not None:
+        record_change("telegram_topic_id", settings.TELEGRAM_TOPIC_ID, settings_in.telegram_topic_id)
+        settings.TELEGRAM_TOPIC_ID = settings_in.telegram_topic_id
 
     if settings_in.telegram_cooldown_hours is not None:
         record_change("telegram_cooldown_hours", settings.TELEGRAM_COOLDOWN_HOURS, settings_in.telegram_cooldown_hours)
@@ -260,6 +267,7 @@ async def update_settings(
         "telegram_enabled": "true" if settings.TELEGRAM_ENABLED else "false",
         "telegram_bot_token": settings.TELEGRAM_BOT_TOKEN,
         "telegram_chat_id": settings.TELEGRAM_CHAT_ID,
+        "telegram_topic_id": str(settings.TELEGRAM_TOPIC_ID) if settings.TELEGRAM_TOPIC_ID is not None else "",
         "telegram_cooldown_hours": str(settings.TELEGRAM_COOLDOWN_HOURS),
         "docs_username": settings.DOCS_USERNAME,
         "docs_password": settings.DOCS_PASSWORD,
@@ -307,6 +315,7 @@ async def update_settings(
         telegram_enabled=settings.TELEGRAM_ENABLED,
         telegram_bot_token_masked=_mask_token(settings.TELEGRAM_BOT_TOKEN),
         telegram_chat_id=settings.TELEGRAM_CHAT_ID,
+        telegram_topic_id=settings.TELEGRAM_TOPIC_ID,
         telegram_cooldown_hours=settings.TELEGRAM_COOLDOWN_HOURS,
         docs_username=settings.DOCS_USERNAME,
         docs_password_masked="••••••••" if settings.DOCS_PASSWORD else "Not Set",
@@ -364,6 +373,7 @@ async def test_telegram_connection(
 ):
     token = test_req.bot_token or settings.TELEGRAM_BOT_TOKEN
     cid = test_req.chat_id or settings.TELEGRAM_CHAT_ID
+    topic_id = test_req.topic_id if test_req.topic_id is not None else settings.TELEGRAM_TOPIC_ID
 
     if not token or not cid:
         raise HTTPException(
@@ -372,7 +382,7 @@ async def test_telegram_connection(
         )
 
     msg = "🛡 <b>Risk Alert Dashboard: Test Alert</b>\n\n✅ Your Telegram Bot integration is configured correctly!"
-    result = await TelegramService.send_message(msg, bot_token=token, chat_id=cid)
+    result = await TelegramService.send_message(msg, bot_token=token, chat_id=cid, topic_id=topic_id)
     return result
 
 
