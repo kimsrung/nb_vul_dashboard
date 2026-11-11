@@ -312,6 +312,18 @@ async def get_alert_detail(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Alert {alert_id} not found",
         )
+
+    # RBAC Scoping: "owner" role cannot inspect threat alerts outside their assigned servers
+    if user.role == "owner":
+        owned_assets_res = await db.execute(select(Asset.id).where(Asset.owner_id == user.id))
+        owned_ids = set(owned_assets_res.scalars().all())
+        adv_asset_ids = [a.get("asset_id") for a in (assessment.assessment_report or {}).get("affected_assets", [])]
+        if not any(aid in owned_ids for aid in adv_asset_ids):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not authorized to view this threat alert",
+            )
+
     return _map_assessment_to_alert(assessment)
 
 

@@ -107,11 +107,9 @@ class TestSettingsAuditAndTelegram:
             total_vulns=5,
         )
         msg = TelegramService.format_asset_alert(asset, [], {})
-        assert "bk-appcore-sit" in msg
-        assert "10.20.6.190" in msg
-        assert "owner_appcore" in msg
-        assert "Chan Vanna" in msg
-        assert "chan.vanna@nbc.gov.kh" in msg
+        assert "Threat Center: High-Risk Asset Alert" in msg
+        assert "bk-appcore-sit" not in msg
+        assert "10.20.6.190" not in msg
         assert "Vulnerabilities:" in msg
         assert "Crit (Sev 5)" in msg
 
@@ -139,8 +137,8 @@ class TestSettingsAuditAndTelegram:
         )
         msg = TelegramService.format_misp_assessment_alert(assessment)
         assert "CVE-2024-6387" in msg
-        assert "bk-appcore-sit" in msg
-        assert "10.20.6.190" in msg
+        assert "bk-appcore-sit" not in msg
+        assert "10.20.6.190" not in msg
         assert "PROACTIVE PRE-SCAN MATCH" in msg
         assert "dpkg -l openssh-server" in msg
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Radio,
@@ -85,8 +85,12 @@ export const MispPage: React.FC = () => {
   const [isLoadingDetail, setIsLoadingDetail] = useState<boolean>(false);
   const [copiedCmd, setCopiedCmd] = useState<boolean>(false);
 
+  // Stale request tracking
+  const fetchReqId = useRef<number>(0);
+
   // Fetch feed items
   const fetchFeed = useCallback(async () => {
+    const currentReqId = ++fetchReqId.current;
     setIsLoading(true);
     try {
       const params: Record<string, any> = {
@@ -101,6 +105,7 @@ export const MispPage: React.FC = () => {
       if (sourceFilter) params.source = sourceFilter;
 
       const res = await apiClient.get<PaginatedMispFeedResponse>('/misp/feed', { params });
+      if (currentReqId !== fetchReqId.current) return;
       setItems(res.data.items);
       setTotal(res.data.total);
       if (res.data.total_events) {
@@ -111,9 +116,12 @@ export const MispPage: React.FC = () => {
       setConfirmedCount(res.data.confirmed_count);
       setCleanCount(res.data.clean_count);
     } catch (err: any) {
+      if (currentReqId !== fetchReqId.current) return;
       console.error('Failed to fetch MISP feed', err);
     } finally {
-      setIsLoading(false);
+      if (currentReqId === fetchReqId.current) {
+        setIsLoading(false);
+      }
     }
   }, [page, pageSize, sortBy, sortOrder, search, matchType, severity, sourceFilter]);
 

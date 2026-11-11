@@ -37,13 +37,12 @@ class TestMispThreatIntelSuite:
         # Navigate to MISP Feed via sidebar
         page.locator('nav button:has-text("MISP Feed")').click()
         page.wait_for_url("**/misp*", timeout=10000)
+        expect(page.locator("table tbody tr").first).to_be_visible(timeout=10000)
 
         # Search by CVE ID
         search_input = page.locator('input[placeholder*="Search by CVE ID"]')
         expect(search_input).to_be_visible()
         search_input.fill("CVE-2024-6387")
-        page.keyboard.press("Enter")
-        page.wait_for_timeout(400)
 
         # Assert filtered row contains the specific CVE
         row = page.locator("table tbody tr").filter(has_text="CVE-2024-6387")

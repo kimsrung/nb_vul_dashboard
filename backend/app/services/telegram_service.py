@@ -144,37 +144,17 @@ class TelegramService:
         kb_map: Dict[int, Any],
     ) -> str:
         """Format an alert message with HTML formatting for Telegram."""
-        ip = html.escape(asset.ip_address or "Unknown IP")
-        fqdn = html.escape(asset.fqdn or "No FQDN")
         os_name = html.escape(asset.os_name or "Unknown OS")
         risk_level = (getattr(asset, "risk_level", "Critical") or "Critical").upper()
-        risk_score = getattr(asset, "risk_score", 0.0)
-        tags = [html.escape(t) for t in (asset.tags or [])]
-        tags_str = ", ".join([f"<code>{t}</code>" for t in tags]) if tags else "<i>None</i>"
-
-        server_name = html.escape(getattr(asset, "server_name", None) or (asset.fqdn.split(".")[0] if asset.fqdn else "Unknown-Server"))
         icon = "🚨" if risk_level == "CRITICAL" else "⚠️"
-
-        owner_username = html.escape(getattr(asset, "owner_username", None) or "Unassigned")
-        poc_name = getattr(asset, "poc_name", None)
-        poc_email = getattr(asset, "poc_email", None)
-        owner_info = f"<code>{owner_username}</code>"
-        if poc_name:
-            poc_str = f"{html.escape(poc_name)}"
-            if poc_email:
-                poc_str += f" &lt;{html.escape(poc_email)}&gt;"
-            owner_info += f" (PoC: {poc_str})"
 
         crit_v = getattr(asset, "critical_vulns", 0)
         high_v = getattr(asset, "high_vulns", 0)
         total_v = getattr(asset, "total_vulns", 0)
 
         lines = [
-            f"{icon} <b>Threat Center: {server_name} ({ip})</b>",
+            f"{icon} <b>Threat Center: High-Risk Asset Alert</b>",
             "",
-            f"🖥 <b>Server Name:</b> <code>{server_name}</code>",
-            f"🌐 <b>IP Address:</b> <code>{ip}</code> ({fqdn})",
-            f"👤 <b>Ownership:</b> {owner_info}",
             f"💻 <b>OS:</b> {os_name}",
             f"📊 <b>Vulnerabilities:</b> 🔴 <b>{crit_v}</b> Crit (Sev 5) | 🟠 <b>{high_v}</b> High (Sev 4) | <b>{total_v}</b> Total",
             "",
@@ -222,11 +202,6 @@ class TelegramService:
         report = _get("assessment_report", {}) or {}
         if not isinstance(report, dict):
             report = {}
-        affected_assets = report.get("affected_assets", [])
-        if not affected_assets and isinstance(assessment, dict) and "affected_assets" in assessment:
-            affected_assets = assessment.get("affected_assets", [])
-        product = html.escape(str(_get("affected_product", "software") or "software"))
-        vuln_ver = html.escape(str(_get("vulnerable_versions", "") or ""))
         rec_action = html.escape(str(report.get("recommended_actions") or _get("suggested_solution", "Apply security update.")))
         verification_cmd = html.escape(str(report.get("verification_command") or _get("verification_command", "")))
 
@@ -253,18 +228,6 @@ class TelegramService:
             f"<b>Assessment Status:</b> {badge}",
             f"<i>{status_desc}</i>",
         ]
-
-        for a in affected_assets[:4]:
-            s_name = html.escape(a.get("server_name") or a.get("ip_address") or "Server")
-            ip = html.escape(a.get("ip_address") or "N/A")
-            ev = html.escape(a.get("evidence") or "")
-            conf = html.escape(a.get("confidence") or "High")
-            lines.append(f"• <b>{s_name}</b> (<code>{ip}</code>)")
-            lines.append(f"  └ <i>Evidence:</i> {ev}")
-            lines.append(f"  └ <i>Confidence:</i> <b>{conf}</b>")
-
-        if len(affected_assets) > 4:
-            lines.append(f"<i>...and {len(affected_assets) - 4} more server(s). Check dashboard.</i>")
 
         if verification_cmd:
             lines.extend([

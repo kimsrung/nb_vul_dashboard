@@ -35,6 +35,17 @@ async def get_detection(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Detection {detection_id} not found",
         )
+
+    # RBAC Scoping: "owner" role cannot inspect detections for unassigned assets
+    if user.role == "owner":
+        asset_res = await db.execute(select(Asset.owner_id).where(Asset.id == det.asset_id))
+        owner_id = asset_res.scalar_one_or_none()
+        if owner_id != user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are only authorized to view detections for assets assigned to you",
+            )
+
     return det
 
 

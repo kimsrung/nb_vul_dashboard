@@ -1,3 +1,6 @@
+import ipaddress
+from urllib.parse import urlparse
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +23,42 @@ from app.services.telegram_service import TelegramService
 from app.services.audit_service import AuditService
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
+
+
+def validate_external_url(url: Optional[str]) -> None:
+    if not url:
+        return
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Destination URL must use http or https scheme",
+        )
+    hostname = (parsed.hostname or "").lower()
+    if not hostname:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid destination URL host",
+        )
+    blocked_hosts = {
+        "169.254.169.254",
+        "metadata.google.internal",
+        "100.100.100.200",
+    }
+    if hostname in blocked_hosts:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Access to internal metadata service addresses is strictly prohibited",
+        )
+    try:
+        ip = ipaddress.ip_address(hostname)
+        if ip.is_link_local:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Access to link-local IP addresses is strictly prohibited",
+            )
+    except ValueError:
+        pass
 
 
 def _mask_token(token: str) -> str:
@@ -80,6 +119,7 @@ async def update_settings(
                 changes[key] = {"old": old_val, "new": new_val}
 
     if settings_in.qualys_api_url is not None:
+        validate_external_url(settings_in.qualys_api_url)
         new_url = settings_in.qualys_api_url.strip().rstrip("/")
         record_change("qualys_api_url", settings.QUALYS_API_URL, new_url)
         settings.QUALYS_API_URL = new_url
@@ -109,6 +149,7 @@ async def update_settings(
         settings.QUALYS_TAG_FILTER = new_tag
 
     if settings_in.misp_url is not None:
+        validate_external_url(settings_in.misp_url)
         new_misp_url = settings_in.misp_url.strip().rstrip("/")
         record_change("misp_url", settings.MISP_URL, new_misp_url)
         settings.MISP_URL = new_misp_url
@@ -327,6 +368,7 @@ async def test_qualys_connection(
     test_req: QualysTestRequest,
     admin: User = Depends(require_admin),
 ):
+    validate_external_url(test_req.qualys_api_url)
     client = QualysApiClient(
         base_url=test_req.qualys_api_url,
         username=test_req.qualys_username,
@@ -342,6 +384,7 @@ async def test_misp_connection(
     test_req: MispTestRequest,
     admin: User = Depends(require_admin),
 ):
+    validate_external_url(test_req.misp_url)
     if test_req.misp_zmq_host:
         settings.MISP_ZMQ_HOST = test_req.misp_zmq_host.strip()
     if test_req.misp_zmq_port:
