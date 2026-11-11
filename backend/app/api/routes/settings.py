@@ -381,7 +381,7 @@ async def test_telegram_connection(
             detail="Telegram Bot Token and Chat ID must be specified",
         )
 
-    msg = "🛡 <b>Risk Alert Dashboard: Test Alert</b>\n\n✅ Your Telegram Bot integration is configured correctly!"
+    msg = "🛡 <b>Threat Center Dashboard: Test Alert</b>\n\n✅ Your Telegram Bot integration is configured correctly!"
     result = await TelegramService.send_message(msg, bot_token=token, chat_id=cid, topic_id=topic_id)
     return result
 

@@ -1,5 +1,5 @@
 # ==============================================================================
-# Production Dockerfile for Risk Alert Dashboard Frontend (React + Nginx)
+# Production Dockerfile for Threat Center Dashboard Frontend (React + Nginx)
 # ==============================================================================
 # Build stage
 FROM node:22-alpine AS build

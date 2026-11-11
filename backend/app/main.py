@@ -315,7 +315,7 @@ def release_coordinator_lock():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    logger.info("Initializing Risk Alert Dashboard Backend...")
+    logger.info("Initializing Threat Center Dashboard Backend...")
     is_coordinator = acquire_coordinator_lock()
 
     if is_coordinator:

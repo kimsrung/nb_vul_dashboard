@@ -1,6 +1,6 @@
 # Qualys & MISP (FS-ISAC) Integration Guide: How They Work Together Without Conflict
 
-This document explains the technical architecture, data flow, synchronization lifecycle, and conflict-prevention guarantees between **Qualys Cloud Platform** and **MISP (FS-ISAC)** threat intelligence within the Risk Alert Dashboard.
+This document explains the technical architecture, data flow, synchronization lifecycle, and conflict-prevention guarantees between **Qualys Cloud Platform** and **MISP (FS-ISAC)** threat intelligence within the Threat Center Dashboard.
 
 ---
 
@@ -63,7 +63,7 @@ sequenceDiagram
     Note over Attacker, MISP: DAY 0: Vulnerability Announcement
     Attacker->>MISP: New Zero-Day CVE Published (e.g. OpenSSH CVE-2024-6387)
     MISP->>Engine: Stream advisory via ZeroMQ or REST API (/events/restSearch)
-    
+
     Note over Engine, DB: Step 1: Check Active Qualys Detections
     Engine->>DB: Query Detection table for active QIDs matching CVE
     DB-->>Engine: 0 Matches (Qualys has not scanned/authored QID yet)
@@ -71,7 +71,7 @@ sequenceDiagram
     Note over Engine, DB: Step 2: Proactive Inventory Evaluation
     Engine->>DB: Query AssetSoftware inventory (pre-discovered by Qualys)
     DB-->>Engine: 3 Servers running OpenSSH < 9.8p1 (e.g. bk-appcore-sit)
-    
+
     Engine->>DB: Create MispCveAssessment (match_type: INVENTORY_PROACTIVE)
     Engine->>DB: Create Threat Alert in Alert Center
     Engine->>TG: Dispatch incident card with Server, IP, Owner Group & PoC
@@ -80,12 +80,12 @@ sequenceDiagram
     Note over Admin, Qualys: DAY 1-3: Workaround Applied & Scanner Catch-Up
     Admin->>Admin: Apply mitigation / patch on affected hosts
     Qualys->>Qualys: Authors new QID and executes scheduled vulnerability sweep
-    
+
     Note over Qualys, DB: DAY 3: Qualys Scanner Confirmation
     Qualys->>DB: Qualys Delta Sync runs (/api/2.0/fo/asset/host/vm/detection/)
     DB->>DB: Upsert Detection (QID 379982, status: Active)
     DB->>DB: Recalculate Asset severity counts (Sev 5..Sev 1)
-    
+
     Note over Engine, DB: Step 3: Match State Elevation
     Engine->>DB: Sync re-evaluates CVE against updated Detections
     DB-->>Engine: Active Qualys Detection confirmed!

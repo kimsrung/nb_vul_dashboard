@@ -1,6 +1,6 @@
 # MISP Threat Intelligence & Proactive Assessment Guide
 
-This document explains the architecture, operational workflow, and configuration of the **MISP (Malware Information Sharing Platform)** integration within the Risk Alert Dashboard.
+This document explains the architecture, operational workflow, and configuration of the **MISP (Malware Information Sharing Platform)** integration within the Threat Center Dashboard.
 
 It details how CVE advisories are synchronized, how the platform proactively evaluates exposure against infrastructure inventory, and how to operate **FS-ISAC** live threat intelligence feeds.
 
@@ -11,7 +11,7 @@ It details how CVE advisories are synchronized, how the platform proactively eva
 Traditional vulnerability management relies entirely on active vulnerability scanner scans (e.g., Qualys). While highly accurate, scanners suffer from a fundamental timing gap:
 
 ```
-[Threat Published / Zero-Day Announced] 
+[Threat Published / Zero-Day Announced]
     → Scanner Vendor Authors QID (1–7 days)
     → Scheduled Scanner Sweep Runs (Weekly/Monthly)
     → Vulnerability Finally Flagged (Total Lag: Days to Weeks)
@@ -50,13 +50,13 @@ flowchart TD
     subgraph Assessment["Proactive Assessment Engine"]
         STEP1{"Step 1: Check Active Qualys Detections?"}
         Q_MATCH["QUALYS_CONFIRMED<br/>Confidence: High (Scanner Verified)"]
-        
+
         STEP2{"Step 2: Check Software Inventory (AssetSoftware)?"}
         INV_MATCH["INVENTORY_PROACTIVE<br/>Confidence: High (Installed Package Match)"]
-        
+
         STEP3{"Step 3: Check OS Platform (Asset.os_name)?"}
         OS_MATCH["INVENTORY_PROACTIVE<br/>Confidence: Medium (Target OS Platform)"]
-        
+
         CLEAN["NO_ASSETS_AFFECTED<br/>Clean / Zero Vulnerable Hosts"]
     end
 

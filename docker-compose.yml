@@ -1,7 +1,7 @@
 version: '3.8'
 
 # ==============================================================================
-# Risk Alert Dashboard - Default Docker Compose Configuration (Production Mode)
+# Threat Center Dashboard - Default Docker Compose Configuration (Production Mode)
 #
 # Quick Start:
 #   Development: docker compose -f docker-compose.dev.yml up --build

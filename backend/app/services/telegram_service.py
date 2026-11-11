@@ -170,7 +170,7 @@ class TelegramService:
         total_v = getattr(asset, "total_vulns", 0)
 
         lines = [
-            f"{icon} <b>Risk Alert: {server_name} ({ip})</b>",
+            f"{icon} <b>Threat Center: {server_name} ({ip})</b>",
             "",
             f"🖥 <b>Server Name:</b> <code>{server_name}</code>",
             f"🌐 <b>IP Address:</b> <code>{ip}</code> ({fqdn})",
@@ -200,7 +200,7 @@ class TelegramService:
         lines.extend([
             "",
             "🔧 <b>Action Required:</b> Review findings and apply vendor patches.",
-            "🛡 <i>Risk Alert Dashboard</i>",
+            "🛡 <i>Threat Center Dashboard</i>",
         ])
 
         return "\n".join(lines)
@@ -252,9 +252,6 @@ class TelegramService:
             f"<b>Severity:</b> {sev_icon} <b>{severity}{cvss_str}</b>",
             f"<b>Assessment Status:</b> {badge}",
             f"<i>{status_desc}</i>",
-            "",
-            f"🔈 <b>Target Product:</b> <code>{product}</code> (Criteria: <code>{vuln_ver}</code>)",
-            f"💻 <b>Affected Infrastructure ({len(affected_assets)} Server{'s' if len(affected_assets) != 1 else ''}):</b>",
         ]
 
         for a in affected_assets[:4]:

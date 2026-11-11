@@ -106,7 +106,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             <Activity className="w-4 h-4" /> Real-Time Vulnerability & Threat Posture
           </div>
           <h2 className="text-2xl font-black text-slate-100">
-            Internal Risk Alert Dashboard
+            Internal Threat Center Dashboard
           </h2>
           <p className="text-xs text-slate-400 mt-1">
             Correlating Qualys Host Detections with KnowledgeBase remediation and threat intelligence.

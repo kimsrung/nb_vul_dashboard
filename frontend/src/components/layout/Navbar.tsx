@@ -39,7 +39,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
         <div className="min-w-0">
           <h1 className="text-sm font-bold text-slate-100 flex items-center gap-2 truncate">
-            Risk Alert
+            Threat Center
             <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 shrink-0">
               KB Remediation
             </span>

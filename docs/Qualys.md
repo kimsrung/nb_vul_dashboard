@@ -1,12 +1,12 @@
 # Qualys Cloud Platform Integration & Synchronization Guide
 
-This document explains the architecture, operational mechanics, synchronization engine, and raw Qualys Severity tracking of the **Qualys Cloud Platform Vulnerability Management (VM)** integration within the Risk Alert Dashboard.
+This document explains the architecture, operational mechanics, synchronization engine, and raw Qualys Severity tracking of the **Qualys Cloud Platform Vulnerability Management (VM)** integration within the Threat Center Dashboard.
 
 ---
 
 ## 1. Executive Summary & Capabilities
 
-The Qualys integration continuously ingests vulnerability posture, asset inventory, operating system data, and scanner diagnostic proof from the **Qualys Enterprise Cloud Platform**. 
+The Qualys integration continuously ingests vulnerability posture, asset inventory, operating system data, and scanner diagnostic proof from the **Qualys Enterprise Cloud Platform**.
 
 ### Core Capabilities
 1. **Automated Host Discovery & Reconciliation**: Ingests scanned assets, IP/IPv6 addresses, FQDNs, NetBIOS names, OS families, and asset tags.
@@ -311,10 +311,10 @@ stateDiagram-v2
     Open --> In_Progress: Engineer Begins Patching
     Open --> Acknowledged: Compensating Controls Verified
     Open --> False_Positive: Security Team Confirms Non-Issue (Deducted from Active Counters)
-    
+
     In_Progress --> Resolved: Patch Applied & Verified (Deducted from Active Counters)
     Acknowledged --> Resolved: Permanent Fix Deployed (Deducted from Active Counters)
-    
+
     Resolved --> Open: Qualys Scan Re-detects Vulnerability (Regression)
     Resolved --> [*]: Qualys Delta Sync Confirms Fixed
 ```

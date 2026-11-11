@@ -57,7 +57,7 @@ class StressBenchmark:
                             resp = await client.post(path, headers=headers, json=json_body)
                         else:
                             raise ValueError(f"Unsupported method: {method}")
-                        
+
                         latency = (time.perf_counter() - t0) * 1000.0
                         latencies_ms.append(latency)
                         status_codes[resp.status_code] = status_codes.get(resp.status_code, 0) + 1
@@ -104,7 +104,7 @@ class StressBenchmark:
 async def run_tiered_stress_suite(base_url: str = TARGET_BASE_URL):
     bench = StressBenchmark(base_url=base_url)
     print(f"\n=======================================================")
-    print(f"🚀 Risk Alert Dashboard: Concurrency Stress Test Suite")
+    print(f"🚀 Threat Center Dashboard: Concurrency Stress Test Suite")
     print(f"Target: {base_url}")
     print(f"=======================================================\n")
 

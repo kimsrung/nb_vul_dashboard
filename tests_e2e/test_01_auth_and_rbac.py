@@ -11,7 +11,7 @@ class TestAuthAndRBACSuite:
     def test_01_invalid_login_credentials_shows_error(self, page: Page, base_url: str):
         """Verify submitting invalid credentials renders an error alert without authenticating."""
         page.goto(f"{base_url}/login")
-        expect(page.locator("h1")).to_contain_text("Risk Alert Dashboard")
+        expect(page.locator("h1")).to_contain_text("Threat Center Dashboard")
 
         page.fill('input[placeholder="Username"]', "invalid_operator")
         page.fill('input[placeholder="Password"]', "WrongPassword999!")
@@ -67,7 +67,7 @@ class TestAuthAndRBACSuite:
         # Direct navigation to /settings must redirect to /dashboard
         page.goto(f"{base_url}/settings")
         page.wait_for_url("**/dashboard*", timeout=10000)
-        expect(page.locator("h2")).to_contain_text("Internal Risk Alert Dashboard")
+        expect(page.locator("h2")).to_contain_text("Internal Threat Center Dashboard")
 
     def test_04_owner_role_scoping_in_browser(self, owner_page: Page):
         """Verify Asset Owner is scoped strictly to their assigned servers in Asset Inventory."""

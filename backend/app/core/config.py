@@ -17,7 +17,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    PROJECT_NAME: str = "Risk Alert Dashboard"
+    PROJECT_NAME: str = "Threat Center Dashboard"
     API_V1_STR: str = "/api/v1"
 
     # Database: PostgreSQL (asyncpg)

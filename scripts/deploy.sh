@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Production Deployment Script for Risk Alert Dashboard
+# Production Deployment Script for Threat Center Dashboard
 # Usage:
 #   ./scripts/deploy.sh               # Deploys :latest image tag
 #   ./scripts/deploy.sh sha-a1b2c3d   # Deploys a specific commit SHA tag
@@ -15,7 +15,7 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${ROOT_DIR}"
 
 echo "================================================================="
-echo " 🚀 Deploying Risk Alert Dashboard (Production)"
+echo " 🚀 Deploying Threat Center Dashboard (Production)"
 echo " Working Directory: ${ROOT_DIR}"
 echo "================================================================="
 

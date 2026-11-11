@@ -1,6 +1,6 @@
 # Platform Overview & Operational Workflow Guide
 
-This document provides a comprehensive overview of the **Risk Alert Dashboard & Remediation Platform**. It describes the six core functional modules, the underlying data architecture, the role-based access control (RBAC) model, and step-by-step day-in-the-life operational workflows for each user role.
+This document provides a comprehensive overview of the **Threat Center Dashboard & Remediation Platform**. It describes the six core functional modules, the underlying data architecture, the role-based access control (RBAC) model, and step-by-step day-in-the-life operational workflows for each user role.
 
 ---
 
@@ -33,7 +33,7 @@ flowchart TD
         DB_DET[("Detections & Remediation Status")]
         DB_KB[("KnowledgeBase & RTI Flags")]
         DB_SW[("AssetSoftware (Discovered Packages)")]
-        DB_ALERT[("Threat & Risk Alerts")]
+        DB_ALERT[("Threat & Threat Centers")]
         DB_AUDIT[("Immutable Audit Trail")]
         DB_SETTING[("System Settings")]
     end

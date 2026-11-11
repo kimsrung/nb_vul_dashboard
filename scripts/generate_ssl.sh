@@ -18,7 +18,7 @@ CERT_FILE="${OUTPUT_DIR}/server.crt"
 KEY_FILE="${OUTPUT_DIR}/server.key"
 
 echo "================================================================="
-echo " 🔒 SSL Certificate Setup for Risk Alert Dashboard"
+echo " 🔒 SSL Certificate Setup for Threat Center Dashboard"
 echo " Target Domain: ${DOMAIN}"
 echo " Output Directory: ${OUTPUT_DIR}"
 echo "================================================================="

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Database Backup Utility for Risk Alert Dashboard
+# Database Backup Utility for Threat Center Dashboard
 # Creates a timestamped PostgreSQL dump from the production Docker container.
 # Usage: ./scripts/backup_db.sh [destination_dir]
 # ==============================================================================
