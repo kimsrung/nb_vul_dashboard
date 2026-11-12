@@ -169,15 +169,15 @@ else
   echo -e "${GREEN}✅ Existing .env.production found. Preserving current secrets.${NC}"
 fi
 
-# Ensure .env symlinks to .env.production so standard docker compose commands load production vars automatically
-ln -sf "${ENV_PROD}" "${ROOT_DIR}/.env"
-echo -e "${GREEN}✅ Linked .env -> .env.production for seamless docker compose compatibility.${NC}"
+# Ensure .env is copied from .env.production
+rm -f "${ROOT_DIR}/.env"
+cp "${ENV_PROD}" "${ROOT_DIR}/.env"
+echo -e "${GREEN}✅ Synchronized .env from .env.production.${NC}"
 
-# Ensure SSL certificates exist (generates self-signed fallback if missing)
+# Ensure SSL directory exists
+mkdir -p "${ROOT_DIR}/ssl"
 if [ ! -f "${ROOT_DIR}/ssl/server.crt" ] || [ ! -f "${ROOT_DIR}/ssl/server.key" ]; then
-  echo -e "${BLUE}🔒 Setting up SSL fallback certificates in ./ssl...${NC}"
-  chmod +x "${ROOT_DIR}/scripts/generate_ssl.sh"
-  "${ROOT_DIR}/scripts/generate_ssl.sh" "alert-dashboard.nbc.gov.kh" "${ROOT_DIR}/ssl"
+  echo -e "${BLUE}ℹ️ Notice: Please place your SSL certificates in ${ROOT_DIR}/ssl/ (server.crt and server.key).${NC}"
 fi
 
 # Check if Harbor is configured as an HTTP registry and configure Docker daemon insecure-registries

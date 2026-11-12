@@ -165,10 +165,35 @@ fi
 
 # 6.5. Ensure SSL Certificates Exist
 if [ ! -f "${ROOT_DIR}/ssl/server.crt" ] || [ ! -f "${ROOT_DIR}/ssl/server.key" ]; then
-  echo "🔒 SSL certificates not found in ${ROOT_DIR}/ssl. Generating self-signed fallback certificate..."
-  chmod +x "${ROOT_DIR}/scripts/generate_ssl.sh"
-  "${ROOT_DIR}/scripts/generate_ssl.sh" "${DOMAIN_NAME:-alert-dashboard.nbc.gov.kh}" "${ROOT_DIR}/ssl"
+  # Search standard persistent server directories
+  for candidate_ssl in \
+    "/opt/alert-dashboard/ssl" \
+    "/opt/dashboard_alert/ssl" \
+    "${HOME}/alert-dashboard/ssl" \
+    "${HOME}/dashboard_alert/ssl"; do
+    if [ -f "${candidate_ssl}/server.crt" ] && [ -f "${candidate_ssl}/server.key" ]; then
+      echo "ℹ️ Found manual server certificates at ${candidate_ssl} -> copying to ${ROOT_DIR}/ssl"
+      mkdir -p "${ROOT_DIR}/ssl"
+      cp "${candidate_ssl}/server.crt" "${ROOT_DIR}/ssl/server.crt"
+      cp "${candidate_ssl}/server.key" "${ROOT_DIR}/ssl/server.key"
+      chmod 644 "${ROOT_DIR}/ssl/server.crt"
+      chmod 600 "${ROOT_DIR}/ssl/server.key"
+      break
+    fi
+  done
 fi
+
+# 6.6. Ensure backend/certs Directory Exists & Preserves Custom CA Certs
+mkdir -p "${ROOT_DIR}/backend/certs"
+for candidate_certs in \
+  "/opt/alert-dashboard/backend/certs" \
+  "/opt/dashboard_alert/backend/certs" \
+  "${HOME}/alert-dashboard/backend/certs" \
+  "${HOME}/dashboard_alert/backend/certs"; do
+  if [ -d "${candidate_certs}" ] && [ "${candidate_certs}" != "${ROOT_DIR}/backend/certs" ]; then
+    cp -n "${candidate_certs}"/*.crt "${candidate_certs}"/*.pem "${ROOT_DIR}/backend/certs/" 2>/dev/null || true
+  fi
+done
 
 # 7. Pull latest / target Docker images from Harbor
 echo ""
