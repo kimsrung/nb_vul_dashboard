@@ -219,6 +219,7 @@ jobs:
 
       - name: Locate Server Production Configuration
         run: |
+          rm -f .env
           if [ ! -f .env.production ]; then
             for candidate in \
               "${HOME}/alert-dashboard/.env.production" \
@@ -229,7 +230,6 @@ jobs:
               if [ -f "$candidate" ]; then
                 echo "📋 Found server configuration at $candidate -> copying to runner workspace"
                 cp "$candidate" .env.production
-                ln -sf .env.production .env
                 break
               fi
             done

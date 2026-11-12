@@ -52,7 +52,6 @@ if [ ! -f "${ENV_FILE}" ]; then
     if [ -f "${candidate}" ]; then
       echo "ℹ️ Found production configuration at: ${candidate}"
       cp "${candidate}" "${ROOT_DIR}/.env.production"
-      ln -sf "${ROOT_DIR}/.env.production" "${ROOT_DIR}/.env"
       ENV_FILE="${ROOT_DIR}/.env.production"
       break
     fi
@@ -78,8 +77,12 @@ if [ -n "${HARBOR_URL}" ]; then
 fi
 
 # Ensure .env is synchronized and sanitized for Docker Compose variable interpolation
-cp "${ENV_FILE}" "${ROOT_DIR}/.env"
-if [ -n "${CLEAN_HARBOR_URL:-}" ]; then
+if [ "${ENV_FILE}" != "${ROOT_DIR}/.env" ]; then
+  rm -f "${ROOT_DIR}/.env"
+  cp "${ENV_FILE}" "${ROOT_DIR}/.env"
+fi
+
+if [ -n "${CLEAN_HARBOR_URL:-}" ] && [ -f "${ROOT_DIR}/.env" ]; then
   sed -i.bak -E "s|^HARBOR_URL=.*|HARBOR_URL=${CLEAN_HARBOR_URL}|" "${ROOT_DIR}/.env" && rm -f "${ROOT_DIR}/.env.bak"
 fi
 
@@ -170,7 +173,11 @@ fi
 # 7. Pull latest / target Docker images from Harbor
 echo ""
 echo "📥 Pulling backend and frontend images (${IMAGE_TAG})..."
-docker compose --env-file "${ROOT_DIR}/.env" -f docker-compose.prod.yml pull backend frontend
+if ! docker compose --env-file "${ROOT_DIR}/.env" -f docker-compose.prod.yml pull backend frontend; then
+  echo "⚠️ Notice: Unable to pull latest images from registry (network issue or registry unreachable)."
+  echo "   Attempting to use locally built/cached images or build on host..."
+  docker compose --env-file "${ROOT_DIR}/.env" -f docker-compose.prod.yml build backend frontend || true
+fi
 
 # 8. Recreate and restart production containers
 echo ""
