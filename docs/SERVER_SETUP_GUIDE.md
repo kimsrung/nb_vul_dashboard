@@ -165,19 +165,7 @@ Open your web browser and navigate to either:
 
 The production stack terminates SSL directly inside the frontend Nginx reverse proxy with modern TLS 1.2 / TLS 1.3 encryption and dual HTTP/HTTPS listening.
 
-### A. Fallback Certificate Generation
-During `./scripts/init_server.sh` or `./scripts/deploy.sh`, if `./ssl/server.crt` does not exist, the bootstrap script automatically generates a 4096-bit RSA self-signed SAN certificate covering:
-- `DNS:alert-dashboard.nbc.gov.kh`
-- `DNS:*.nbc.gov.kh`
-- `DNS:localhost`
-- All detected host IP addresses (e.g., `10.20.40.55`)
-
-To manually regenerate or force a new self-signed certificate:
-```bash
-./scripts/generate_ssl.sh alert-dashboard.nbc.gov.kh ./ssl --force
-```
-
-### B. Installing Commercial / Corporate CA Certificates
+### Installing Commercial / Corporate CA Certificates
 When your official corporate SSL certificate is issued:
 1. Copy the certificate file (including intermediate bundle) to:
    ```bash

@@ -235,6 +235,24 @@ jobs:
             done
           fi
 
+          if [ ! -f ssl/server.crt ] || [ ! -f ssl/server.key ]; then
+            for candidate_ssl in \
+              "${HOME}/alert-dashboard/ssl" \
+              "${HOME}/dashboard_alert/ssl" \
+              "/opt/alert-dashboard/ssl" \
+              "/opt/dashboard_alert/ssl"; do
+              if [ -f "${candidate_ssl}/server.crt" ] && [ -f "${candidate_ssl}/server.key" ]; then
+                echo "📋 Found server SSL certificates at ${candidate_ssl} -> copying to runner workspace"
+                mkdir -p ssl
+                cp "${candidate_ssl}/server.crt" ssl/server.crt
+                cp "${candidate_ssl}/server.key" ssl/server.key
+                chmod 644 ssl/server.crt
+                chmod 600 ssl/server.key
+                break
+              fi
+            done
+          fi
+
       - name: Execute Server Deployment Script
         env:
           DEPLOY_TAG: "${{ needs.build-and-push.outputs.deploy_tag }}"
