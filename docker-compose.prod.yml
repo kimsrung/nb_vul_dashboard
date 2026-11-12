@@ -54,6 +54,8 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+    env_file:
+      - .env.production
     environment:
       DOMAIN_NAME: ${DOMAIN_NAME:-alert-dashboard.nbc.gov.kh}
       REDIRECT_TO_DOMAIN: ${REDIRECT_TO_DOMAIN:-false}

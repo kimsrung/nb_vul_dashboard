@@ -71,10 +71,16 @@ set -a
 source <(grep -v '^[[:space:]]*#' "${ENV_FILE}" | grep -v '^[[:space:]]*$')
 set +a
 
-# 4. Clean Harbor URL (strip protocol schemes)
+# 4. Clean Harbor URL (strip protocol schemes and trailing slashes)
 if [ -n "${HARBOR_URL}" ]; then
   CLEAN_HARBOR_URL=$(echo "${HARBOR_URL}" | sed -e 's|^https://||' -e 's|^http://||' -e 's|/$||')
   export HARBOR_URL="${CLEAN_HARBOR_URL}"
+fi
+
+# Ensure .env is synchronized and sanitized for Docker Compose variable interpolation
+cp "${ENV_FILE}" "${ROOT_DIR}/.env"
+if [ -n "${CLEAN_HARBOR_URL:-}" ]; then
+  sed -i.bak -E "s|^HARBOR_URL=.*|HARBOR_URL=${CLEAN_HARBOR_URL}|" "${ROOT_DIR}/.env" && rm -f "${ROOT_DIR}/.env.bak"
 fi
 
 # 5. Ensure Insecure HTTP Registry Support in Docker Daemon
@@ -164,12 +170,12 @@ fi
 # 7. Pull latest / target Docker images from Harbor
 echo ""
 echo "📥 Pulling backend and frontend images (${IMAGE_TAG})..."
-docker compose -f docker-compose.prod.yml pull backend frontend
+docker compose --env-file "${ROOT_DIR}/.env" -f docker-compose.prod.yml pull backend frontend
 
 # 8. Recreate and restart production containers
 echo ""
 echo "🔄 Updating running services (backend & frontend)..."
-docker compose -f docker-compose.prod.yml up -d backend frontend
+docker compose --env-file "${ROOT_DIR}/.env" -f docker-compose.prod.yml up -d --force-recreate backend frontend
 
 # 9. Clean up dangling images to prevent disk exhaustion
 echo ""
