@@ -28,10 +28,25 @@ server {
 }
 
 # ------------------------------------------------------------------------------
-# 2. Main Application Server Block: Dual HTTP & HTTPS Listening
+# 2. Main Application Server Block: HTTPS with Automatic HTTP-to-HTTPS Redirect
 # ------------------------------------------------------------------------------
 server {
     listen 80;
+    server_name ${DOMAIN_NAME};
+
+    # Internal health check for container liveness probes
+    location /nginx-health {
+        access_log off;
+        return 200 "healthy\n";
+    }
+
+    # Redirect all HTTP requests to HTTPS
+    location / {
+        return 301 https://${DOMAIN_NAME}$request_uri;
+    }
+}
+
+server {
     listen 443 ssl;
     server_name ${DOMAIN_NAME};
 
