@@ -253,6 +253,17 @@ jobs:
             done
           fi
 
+          mkdir -p backend/certs
+          for candidate_certs in \
+            "${HOME}/alert-dashboard/backend/certs" \
+            "${HOME}/dashboard_alert/backend/certs" \
+            "/opt/alert-dashboard/backend/certs" \
+            "/opt/dashboard_alert/backend/certs"; do
+            if [ -d "${candidate_certs}" ]; then
+              cp -n "${candidate_certs}"/*.crt "${candidate_certs}"/*.pem backend/certs/ 2>/dev/null || true
+            fi
+          done
+
       - name: Execute Server Deployment Script
         env:
           DEPLOY_TAG: "${{ needs.build-and-push.outputs.deploy_tag }}"

@@ -183,10 +183,17 @@ if [ ! -f "${ROOT_DIR}/ssl/server.crt" ] || [ ! -f "${ROOT_DIR}/ssl/server.key" 
   done
 fi
 
-if [ ! -f "${ROOT_DIR}/ssl/server.crt" ] || [ ! -f "${ROOT_DIR}/ssl/server.key" ]; then
-  echo "⚠️ Warning: SSL certificates (server.crt, server.key) not found in ${ROOT_DIR}/ssl."
-  echo "   Please upload your commercial certificates to ${ROOT_DIR}/ssl/ before serving HTTPS."
-fi
+# 6.6. Ensure backend/certs Directory Exists & Preserves Custom CA Certs
+mkdir -p "${ROOT_DIR}/backend/certs"
+for candidate_certs in \
+  "/opt/alert-dashboard/backend/certs" \
+  "/opt/dashboard_alert/backend/certs" \
+  "${HOME}/alert-dashboard/backend/certs" \
+  "${HOME}/dashboard_alert/backend/certs"; do
+  if [ -d "${candidate_certs}" ] && [ "${candidate_certs}" != "${ROOT_DIR}/backend/certs" ]; then
+    cp -n "${candidate_certs}"/*.crt "${candidate_certs}"/*.pem "${ROOT_DIR}/backend/certs/" 2>/dev/null || true
+  fi
+done
 
 # 7. Pull latest / target Docker images from Harbor
 echo ""
