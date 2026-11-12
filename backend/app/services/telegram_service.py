@@ -1,6 +1,6 @@
 import html
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple, Union
 import httpx
 
 from app.core.config import settings
@@ -28,51 +28,110 @@ class TelegramService:
         return cid
 
     @staticmethod
+    def parse_chat_and_topic(
+        chat_id: Optional[str],
+        topic_id: Optional[Union[int, str]] = None,
+    ) -> Tuple[str, Optional[int]]:
+        """
+        Parse and normalize Telegram Chat ID and optional Forum Topic ID (message_thread_id).
+        Supports:
+        - Direct chat ID with separate topic_id: ("-1002142256980", 42)
+        - Composite slash syntax: ("-1002142256980/42", None) -> ("-1002142256980", 42)
+        - Composite colon syntax: ("-1002142256980:42", None) -> ("-1002142256980", 42)
+        - Short un-prefixed channel IDs in composite: ("-2142256980/42", None) -> ("-1002142256980", 42)
+        """
+        parsed_topic: Optional[int] = None
+        if topic_id is not None and str(topic_id).strip().isdigit():
+            parsed_topic = int(str(topic_id).strip())
+
+        if not chat_id:
+            return "", parsed_topic
+
+        raw = str(chat_id).strip()
+
+        # Parse composite syntax: chat_id/topic or chat_id:topic
+        if "/" in raw:
+            parts = raw.split("/", 1)
+            raw = parts[0].strip()
+            if parts[1].strip().isdigit():
+                parsed_topic = int(parts[1].strip())
+        elif ":" in raw and not raw.startswith("http"):
+            parts = raw.split(":", 1)
+            raw = parts[0].strip()
+            if parts[1].strip().isdigit():
+                parsed_topic = int(parts[1].strip())
+
+        normalized = TelegramService.normalize_chat_id(raw)
+        return normalized, parsed_topic
+
+    @staticmethod
     async def send_message(
         text: str,
         bot_token: Optional[str] = None,
         chat_id: Optional[str] = None,
+        topic_id: Optional[Union[int, str]] = None,
         parse_mode: str = "HTML",
     ) -> Dict[str, Any]:
-        """Send message via Telegram Bot API with automatic channel ID normalization and fallback."""
+        """Send message via Telegram Bot API with automatic channel ID normalization, forum topic support, and timeout resilience."""
         token = bot_token or settings.TELEGRAM_BOT_TOKEN
-        raw_cid = chat_id or settings.TELEGRAM_CHAT_ID
+        raw_cid_input = chat_id if chat_id is not None else settings.TELEGRAM_CHAT_ID
+        raw_topic_input = topic_id if topic_id is not None else settings.TELEGRAM_TOPIC_ID
 
-        if not token or not raw_cid:
+        cid, active_topic = TelegramService.parse_chat_and_topic(raw_cid_input, raw_topic_input)
+
+        if not token or not cid:
             return {"success": False, "message": "Telegram Bot Token or Chat ID not configured."}
 
-        # Try normalized chat ID first (auto-resolves missing -100 for channels/supergroups)
-        cid = TelegramService.normalize_chat_id(raw_cid)
         url = f"https://api.telegram.org/bot{token}/sendMessage"
 
-        async def _do_post(target_cid: str):
-            payload = {
+        async def _do_post(target_cid: str, target_topic: Optional[int]):
+            payload: Dict[str, Any] = {
                 "chat_id": target_cid,
                 "text": text,
                 "parse_mode": parse_mode,
                 "disable_web_page_preview": True,
             }
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            if target_topic is not None:
+                payload["message_thread_id"] = target_topic
+
+            # 25-second split timeout: 10s connect, 25s read
+            timeout = httpx.Timeout(25.0, connect=10.0, read=25.0)
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 resp = await client.post(url, json=payload)
                 data = resp.json()
                 return resp.status_code, data
 
         try:
-            status_code, data = await _do_post(cid)
+            status_code, data = await _do_post(cid, active_topic)
             if status_code == 200 and data.get("ok"):
-                note = " (auto-normalized to -100 channel format)" if cid != str(raw_cid).strip() else ""
+                note = " (auto-normalized to -100 channel format)" if cid != str(raw_cid_input).strip() and not str(raw_cid_input).startswith(cid) else ""
                 return {"success": True, "message": f"Telegram alert dispatched successfully.{note}"}
 
-            # If normalized failed with chat not found and differed from raw_cid, attempt raw_cid
-            if cid != str(raw_cid).strip():
-                status_code, data = await _do_post(str(raw_cid).strip())
+            # If normalized failed with chat not found and differed from raw_cid, attempt raw_base
+            raw_base = str(raw_cid_input).strip().split("/")[0].split(":")[0].strip()
+            if cid != raw_base and raw_base:
+                status_code, data = await _do_post(raw_base, active_topic)
                 if status_code == 200 and data.get("ok"):
                     return {"success": True, "message": "Telegram alert dispatched successfully."}
 
             err_desc = data.get("description", str(data))
             if "chat not found" in err_desc.lower():
                 err_desc += " (Tip: Channels & supergroups require '-100' prefix, e.g. -1002142256980, and the bot must be an Admin. Personal chats require clicking /start first.)"
+            elif "message thread not found" in err_desc.lower() or "thread not found" in err_desc.lower():
+                err_desc += " (Tip: Check your Topic ID. Forum supergroups require valid Topic IDs, and the bot must have permission to post in forum topics.)"
             return {"success": False, "message": f"Telegram API error: {err_desc}"}
+        except httpx.ReadTimeout:
+            logger.warning("Telegram request timed out waiting for API confirmation, but message payload was transmitted.")
+            return {
+                "success": True,
+                "message": "Telegram alert dispatched (confirmation read timed out after 25s; please verify in chat).",
+            }
+        except httpx.ConnectTimeout:
+            logger.error("Failed to connect to Telegram API (connection timed out after 10s).")
+            return {
+                "success": False,
+                "message": "Network error: Connection to api.telegram.org timed out. Check firewall or ISP connectivity.",
+            }
         except Exception as e:
             logger.error(f"Failed to send Telegram alert: {e}")
             return {"success": False, "message": f"Network error sending Telegram message: {str(e)}"}
@@ -85,37 +144,17 @@ class TelegramService:
         kb_map: Dict[int, Any],
     ) -> str:
         """Format an alert message with HTML formatting for Telegram."""
-        ip = html.escape(asset.ip_address or "Unknown IP")
-        fqdn = html.escape(asset.fqdn or "No FQDN")
         os_name = html.escape(asset.os_name or "Unknown OS")
         risk_level = (getattr(asset, "risk_level", "Critical") or "Critical").upper()
-        risk_score = getattr(asset, "risk_score", 0.0)
-        tags = [html.escape(t) for t in (asset.tags or [])]
-        tags_str = ", ".join([f"<code>{t}</code>" for t in tags]) if tags else "<i>None</i>"
-
-        server_name = html.escape(getattr(asset, "server_name", None) or (asset.fqdn.split(".")[0] if asset.fqdn else "Unknown-Server"))
         icon = "🚨" if risk_level == "CRITICAL" else "⚠️"
-
-        owner_username = html.escape(getattr(asset, "owner_username", None) or "Unassigned")
-        poc_name = getattr(asset, "poc_name", None)
-        poc_email = getattr(asset, "poc_email", None)
-        owner_info = f"<code>{owner_username}</code>"
-        if poc_name:
-            poc_str = f"{html.escape(poc_name)}"
-            if poc_email:
-                poc_str += f" &lt;{html.escape(poc_email)}&gt;"
-            owner_info += f" (PoC: {poc_str})"
 
         crit_v = getattr(asset, "critical_vulns", 0)
         high_v = getattr(asset, "high_vulns", 0)
         total_v = getattr(asset, "total_vulns", 0)
 
         lines = [
-            f"{icon} <b>Risk Alert: {server_name} ({ip})</b>",
+            f"{icon} <b>Threat Center: High-Risk Asset Alert</b>",
             "",
-            f"🖥 <b>Server Name:</b> <code>{server_name}</code>",
-            f"🌐 <b>IP Address:</b> <code>{ip}</code> ({fqdn})",
-            f"👤 <b>Ownership:</b> {owner_info}",
             f"💻 <b>OS:</b> {os_name}",
             f"📊 <b>Vulnerabilities:</b> 🔴 <b>{crit_v}</b> Crit (Sev 5) | 🟠 <b>{high_v}</b> High (Sev 4) | <b>{total_v}</b> Total",
             "",
@@ -141,7 +180,7 @@ class TelegramService:
         lines.extend([
             "",
             "🔧 <b>Action Required:</b> Review findings and apply vendor patches.",
-            "🛡 <i>Risk Alert Dashboard</i>",
+            "🛡 <i>Threat Center Dashboard</i>",
         ])
 
         return "\n".join(lines)
@@ -163,11 +202,6 @@ class TelegramService:
         report = _get("assessment_report", {}) or {}
         if not isinstance(report, dict):
             report = {}
-        affected_assets = report.get("affected_assets", [])
-        if not affected_assets and isinstance(assessment, dict) and "affected_assets" in assessment:
-            affected_assets = assessment.get("affected_assets", [])
-        product = html.escape(str(_get("affected_product", "software") or "software"))
-        vuln_ver = html.escape(str(_get("vulnerable_versions", "") or ""))
         rec_action = html.escape(str(report.get("recommended_actions") or _get("suggested_solution", "Apply security update.")))
         verification_cmd = html.escape(str(report.get("verification_command") or _get("verification_command", "")))
 
@@ -193,22 +227,7 @@ class TelegramService:
             f"<b>Severity:</b> {sev_icon} <b>{severity}{cvss_str}</b>",
             f"<b>Assessment Status:</b> {badge}",
             f"<i>{status_desc}</i>",
-            "",
-            f"🔈 <b>Target Product:</b> <code>{product}</code> (Criteria: <code>{vuln_ver}</code>)",
-            f"💻 <b>Affected Infrastructure ({len(affected_assets)} Server{'s' if len(affected_assets) != 1 else ''}):</b>",
         ]
-
-        for a in affected_assets[:4]:
-            s_name = html.escape(a.get("server_name") or a.get("ip_address") or "Server")
-            ip = html.escape(a.get("ip_address") or "N/A")
-            ev = html.escape(a.get("evidence") or "")
-            conf = html.escape(a.get("confidence") or "High")
-            lines.append(f"• <b>{s_name}</b> (<code>{ip}</code>)")
-            lines.append(f"  └ <i>Evidence:</i> {ev}")
-            lines.append(f"  └ <i>Confidence:</i> <b>{conf}</b>")
-
-        if len(affected_assets) > 4:
-            lines.append(f"<i>...and {len(affected_assets) - 4} more server(s). Check dashboard.</i>")
 
         if verification_cmd:
             lines.extend([

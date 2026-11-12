@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Production Deployment Script for Risk Alert Dashboard
+# Production Deployment Script for Threat Center Dashboard
 # Usage:
 #   ./scripts/deploy.sh               # Deploys :latest image tag
 #   ./scripts/deploy.sh sha-a1b2c3d   # Deploys a specific commit SHA tag
@@ -15,7 +15,7 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${ROOT_DIR}"
 
 echo "================================================================="
-echo " 🚀 Deploying Risk Alert Dashboard (Production)"
+echo " 🚀 Deploying Threat Center Dashboard (Production)"
 echo " Working Directory: ${ROOT_DIR}"
 echo "================================================================="
 
@@ -52,7 +52,6 @@ if [ ! -f "${ENV_FILE}" ]; then
     if [ -f "${candidate}" ]; then
       echo "ℹ️ Found production configuration at: ${candidate}"
       cp "${candidate}" "${ROOT_DIR}/.env.production"
-      ln -sf "${ROOT_DIR}/.env.production" "${ROOT_DIR}/.env"
       ENV_FILE="${ROOT_DIR}/.env.production"
       break
     fi
@@ -71,10 +70,20 @@ set -a
 source <(grep -v '^[[:space:]]*#' "${ENV_FILE}" | grep -v '^[[:space:]]*$')
 set +a
 
-# 4. Clean Harbor URL (strip protocol schemes)
+# 4. Clean Harbor URL (strip protocol schemes and trailing slashes)
 if [ -n "${HARBOR_URL}" ]; then
   CLEAN_HARBOR_URL=$(echo "${HARBOR_URL}" | sed -e 's|^https://||' -e 's|^http://||' -e 's|/$||')
   export HARBOR_URL="${CLEAN_HARBOR_URL}"
+fi
+
+# Ensure .env is synchronized and sanitized for Docker Compose variable interpolation
+if [ "${ENV_FILE}" != "${ROOT_DIR}/.env" ]; then
+  rm -f "${ROOT_DIR}/.env"
+  cp "${ENV_FILE}" "${ROOT_DIR}/.env"
+fi
+
+if [ -n "${CLEAN_HARBOR_URL:-}" ] && [ -f "${ROOT_DIR}/.env" ]; then
+  sed -i.bak -E "s|^HARBOR_URL=.*|HARBOR_URL=${CLEAN_HARBOR_URL}|" "${ROOT_DIR}/.env" && rm -f "${ROOT_DIR}/.env.bak"
 fi
 
 # 5. Ensure Insecure HTTP Registry Support in Docker Daemon
@@ -164,12 +173,16 @@ fi
 # 7. Pull latest / target Docker images from Harbor
 echo ""
 echo "📥 Pulling backend and frontend images (${IMAGE_TAG})..."
-docker compose -f docker-compose.prod.yml pull backend frontend
+if ! docker compose --env-file "${ROOT_DIR}/.env" -f docker-compose.prod.yml pull backend frontend; then
+  echo "⚠️ Notice: Unable to pull latest images from registry (network issue or registry unreachable)."
+  echo "   Attempting to use locally built/cached images or build on host..."
+  docker compose --env-file "${ROOT_DIR}/.env" -f docker-compose.prod.yml build backend frontend || true
+fi
 
 # 8. Recreate and restart production containers
 echo ""
 echo "🔄 Updating running services (backend & frontend)..."
-docker compose -f docker-compose.prod.yml up -d backend frontend
+docker compose --env-file "${ROOT_DIR}/.env" -f docker-compose.prod.yml up -d --force-recreate backend frontend
 
 # 9. Clean up dangling images to prevent disk exhaustion
 echo ""

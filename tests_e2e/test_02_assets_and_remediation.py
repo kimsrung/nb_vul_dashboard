@@ -14,7 +14,7 @@ class TestAssetsAndRemediationSuite:
     def test_01_dashboard_kpis_and_theme_toggle(self, admin_page: Page):
         """Verify Executive Overview renders core KPI metrics and supports dynamic day/night theme toggle."""
         page = admin_page
-        expect(page.locator("h2")).to_contain_text("Internal Risk Alert Dashboard")
+        expect(page.locator("h2")).to_contain_text("Internal Threat Center Dashboard")
 
         # Verify key executive KPI cards
         expect(page.locator("text=Assets Monitored").first).to_be_visible()

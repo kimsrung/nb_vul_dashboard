@@ -4,7 +4,7 @@ import {
   Bell, CheckCircle2, Send, RefreshCw, RotateCw, ShieldAlert,
   Search, Server, Zap, Calendar, Terminal,
   Check, Copy, AlertTriangle, ExternalLink,
-  ArrowUpDown, ArrowUp, ArrowDown, X, CheckCircle, Radio
+  ArrowUpDown, ArrowUp, ArrowDown, X, CheckCircle, Radio, ShieldCheck, Target
 } from 'lucide-react';
 import { AlertItem, PaginatedAlertsResponse, apiClient } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -573,6 +573,20 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
                           Target: <span className="text-sky-300 font-semibold">{al.affected_product}</span>
                           {al.vulnerable_versions && ` (${al.vulnerable_versions})`}
                         </div>
+                        {al.mitre_techniques && al.mitre_techniques.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {al.mitre_techniques.map((t) => (
+                              <span
+                                key={t.id}
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-950/40 text-amber-300 border border-amber-800/50"
+                                title={`${t.name} (${t.tactic_name})`}
+                              >
+                                <Target className="w-2.5 h-2.5 text-amber-400" />
+                                {t.id}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </td>
 
                       {/* Affected Servers Column (Showing Server Names) */}
@@ -662,7 +676,7 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
 
       {/* Slide-over Drawer for Assessment Report Detail (Previous FS-ISAC Threat Intel Design) */}
       {selectedAlertId && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200 no-top-margin">
           <div className="w-full max-w-2xl bg-surface border-l border-surfaceBorder h-full flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-right duration-200">
             {/* Drawer Header */}
             <div className="p-6 border-b border-surfaceBorder flex items-start justify-between bg-slate-900/60">
@@ -717,20 +731,20 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
                 <>
                   {/* Match Banner (Qualys Confirmed in BLUE) */}
                   {selectedDetail.match_type === 'QUALYS_CONFIRMED' ? (
-                    <div className="p-4 rounded-xl bg-blue-950/40 border border-blue-800 space-y-1">
-                      <div className="flex items-center gap-2 font-bold text-blue-300 text-sm">
+                    <div className="p-4 rounded-xl bg-blue-950/40 border border-blue-800 space-y-1 alert-detail-qualys-banner">
+                      <div className="flex items-center gap-2 font-bold text-blue-300 text-sm alert-detail-qualys-title">
                         <ShieldAlert className="w-4 h-4 text-blue-400" /> Qualys Scanner Confirmed Finding
                       </div>
-                      <p className="text-blue-200/80 leading-relaxed text-[11px]">
+                      <p className="text-blue-200/80 leading-relaxed text-[11px] alert-detail-qualys-desc">
                         Qualys scanner has verified active vulnerability detections for this CVE across your scanned infrastructure with scanner diagnostic proof.
                       </p>
                     </div>
                   ) : (
-                    <div className="p-4 rounded-xl bg-amber-950/40 border border-amber-800 space-y-1">
-                      <div className="flex items-center gap-2 font-bold text-amber-300 text-sm">
+                    <div className="p-4 rounded-xl bg-amber-950/40 border border-amber-800 space-y-1 alert-detail-prescan-banner">
+                      <div className="flex items-center gap-2 font-bold text-amber-300 text-sm alert-detail-prescan-title">
                         <Zap className="w-4 h-4 text-amber-400" /> Pre-Scan Proactive Finding (Inventory Match)
                       </div>
-                      <p className="text-amber-200/80 leading-relaxed text-[11px]">
+                      <p className="text-amber-200/80 leading-relaxed text-[11px] alert-detail-prescan-desc">
                         Qualys scanner has <b>not</b> detected this vulnerability yet. Our proactive engine identified exposure by comparing installed package versions and OS platform on your servers against FS-ISAC criteria.
                       </p>
                     </div>
@@ -801,7 +815,7 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
                                 onClick={() => handleSelectAsset(srv.asset_id)}
                                 className="text-sky-400 hover:text-sky-300 text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
                               >
-                                Host Dossier <ExternalLink className="w-3 h-3" />
+                                Host Profile <ExternalLink className="w-3 h-3" />
                               </button>
                             </div>
 
@@ -855,6 +869,111 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onSelectAsset }) => {
                       </div>
                     </div>
                   )}
+
+                  {/* MITRE ATT&CK & Adversary Intelligence */}
+                  {selectedDetail.mitre_techniques && selectedDetail.mitre_techniques.length > 0 && (
+                    <div className="space-y-3">
+                      <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Target className="w-3.5 h-3.5 text-amber-400" /> Adversary Perspective & MITRE ATT&CK
+                      </span>
+                      <div className="space-y-3">
+                        {selectedDetail.mitre_techniques.map((tech) => (
+                          <div
+                            key={tech.id}
+                            className="p-3.5 rounded-xl bg-slate-950 border border-surfaceBorder space-y-2.5 alert-detail-mitre-card"
+                          >
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-amber-950 text-amber-300 border border-amber-800 alert-detail-mitre-badge">
+                                  {tech.id}
+                                </span>
+                                <span className="font-bold text-slate-100 text-xs alert-detail-mitre-name">{tech.name}</span>
+                              </div>
+                              <a
+                                href={tech.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[10px] text-sky-400 hover:text-sky-300 flex items-center gap-1 font-mono alert-detail-mitre-link"
+                              >
+                                MITRE Matrix <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </div>
+
+                            <div className="flex items-center gap-3 text-[10px] text-slate-400 font-mono alert-detail-mitre-meta">
+                              <span>Tactic: <span className="text-amber-400 font-bold">{tech.tactic_name} ({tech.tactic_id})</span></span>
+                              <span>Impact: <span className="text-red-400 font-bold">{tech.severity_impact}</span></span>
+                            </div>
+
+                            <p className="text-[11px] text-slate-300 leading-relaxed font-sans bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80 alert-detail-adversary-box">
+                              <span className="text-amber-400 font-semibold block text-[10px] uppercase mb-1">
+                                Adversary Attack Vector:
+                              </span>
+                              {tech.adversary_perspective}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Safe Compensating Controls (For System Owners) */}
+                  {selectedDetail.mitre_techniques &&
+                    selectedDetail.mitre_techniques.some((t) => t.compensating_controls?.length > 0) && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5 alert-detail-compensating-header">
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                            Safe Compensating Controls (Zero Downtime)
+                          </span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-800 alert-detail-compensating-badge">
+                            Apply Before Patching
+                          </span>
+                        </div>
+
+                        <div className="p-3.5 rounded-xl bg-emerald-950/20 border border-emerald-800/40 text-[11px] text-emerald-200/80 leading-relaxed alert-detail-compensating-callout">
+                          Cannot patch this system immediately during banking operations? System owners can apply these safe workarounds to neutralize the attack vector without restarting services.
+                        </div>
+
+                        <div className="space-y-2.5">
+                          {selectedDetail.mitre_techniques
+                            .flatMap((t) => t.compensating_controls || [])
+                            .map((ctrl) => (
+                              <div
+                                key={ctrl.id}
+                                className="p-3.5 rounded-xl bg-slate-950 border border-surfaceBorder space-y-2 alert-detail-control-card"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-950 text-emerald-300 border border-emerald-800 alert-detail-control-badge">
+                                      {ctrl.id}
+                                    </span>
+                                    <span className="font-bold text-slate-200 text-xs alert-detail-control-name">{ctrl.name}</span>
+                                  </div>
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 alert-detail-control-cat">
+                                    {ctrl.category}
+                                  </span>
+                                </div>
+
+                                <p className="text-[11px] text-slate-300 alert-detail-control-desc">{ctrl.description}</p>
+
+                                <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px] alert-detail-steps-box">
+                                  <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1 steps-heading">
+                                    Recommended Implementation:
+                                  </span>
+                                  <ul className="space-y-1 text-slate-300 steps-list">
+                                    {ctrl.implementation_steps.map((st, i) => (
+                                      <li key={i} className="flex items-start gap-1">
+                                        <span className="text-emerald-400 font-bold step-bullet">•</span>
+                                        <span className="step-text">{st}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
 
                   {/* Suggested Solution & Remediation Guidance */}
                   {selectedDetail.suggested_solution && (

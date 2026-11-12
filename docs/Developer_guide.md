@@ -148,7 +148,7 @@ dashboard_alert/
         └── pages/
             ├── DashboardPage.tsx   # Executive overview, KPI widgets, RTI metrics
             ├── AssetsPage.tsx      # Paginated inventory table with server name, owner assignment, & admin delete
-            ├── AssetDetailPage.tsx # Host dossier with detections, installed software, & admin delete
+            ├── AssetDetailPage.tsx # Host profile with detections, installed software, & admin delete
             ├── AlertsPage.tsx      # Threat alert center (strictly affecting monitored servers)
             ├── MispPage.tsx        # Comprehensive MISP Threat Feed & FS-ISAC CVE assessments
             ├── AuditLogsPage.tsx   # Security audit trail & administrative history logs

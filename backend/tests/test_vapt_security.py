@@ -222,3 +222,70 @@ class TestVAPTSecuritySuite:
             res_logs = await client.get(f"/api/v1/audit-logs?search={payload}", headers=admin_headers)
             assert res_logs.status_code == 200, f"SQLi payload failed on audit logs search: {payload}"
             assert isinstance(res_logs.json().get("items"), list)
+
+    # =========================================================================
+    # 5. Broken Object Level Authorization (BOLA / IDOR) Defense (OWASP API1:2023)
+    # =========================================================================
+
+    @pytest.mark.asyncio
+    async def test_owner_cannot_access_unowned_detection_detail_bola(self, client: AsyncClient, owner_headers: dict, admin_headers: dict):
+        """Asset Owner must be rejected with 403 when requesting detection details on an unassigned host."""
+        res_assets = await client.get("/api/v1/assets", headers=admin_headers)
+        assert res_assets.status_code == 200
+        unowned_asset = next((a for a in res_assets.json()["items"] if a.get("owner_username") != "owner_appcore"), None)
+        assert unowned_asset is not None
+
+        res_det = await client.get(f"/api/v1/assets/{unowned_asset['id']}", headers=admin_headers)
+        assert res_det.status_code == 200
+        detections = res_det.json().get("detections", [])
+        if detections:
+            target_det_id = detections[0]["id"]
+            res_forbidden = await client.get(f"/api/v1/detections/{target_det_id}", headers=owner_headers)
+            assert res_forbidden.status_code == 403
+            assert "only authorized to view detections for assets assigned to you" in res_forbidden.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_owner_cannot_access_unowned_alert_detail_bola(self, client: AsyncClient, owner_headers: dict, admin_headers: dict):
+        """Asset Owner must be rejected with 403 when requesting threat alert details affecting only unassigned hosts."""
+        res_alerts = await client.get("/api/v1/alerts", headers=admin_headers)
+        assert res_alerts.status_code == 200
+        alerts = res_alerts.json()["items"]
+        target_alert = None
+        for al in alerts:
+            affected = al.get("affected_assets", [])
+            if affected and not any(a.get("server_name") == "Bakong SIT" for a in affected):
+                target_alert = al
+                break
+
+        if target_alert:
+            res_forbidden = await client.get(f"/api/v1/alerts/{target_alert['id']}", headers=owner_headers)
+            assert res_forbidden.status_code == 403
+            assert "not authorized to view this threat alert" in res_forbidden.json()["detail"]
+
+    # =========================================================================
+    # 6. SSRF Protection on External Integration Endpoints
+    # =========================================================================
+
+    @pytest.mark.asyncio
+    async def test_ssrf_metadata_and_forbidden_schemes_rejected(self, client: AsyncClient, admin_headers: dict):
+        """Verify cloud metadata services and non-HTTP schemes are rejected by settings test endpoints."""
+        ssrf_payloads = [
+            "http://169.254.169.254/latest/meta-data/",
+            "http://metadata.google.internal/computeMetadata/v1/",
+            "file:///etc/passwd",
+            "ftp://malicious.corp/data",
+        ]
+        for url in ssrf_payloads:
+            res_q = await client.post(
+                "/api/v1/settings/test-qualys",
+                headers=admin_headers,
+                json={"qualys_api_url": url, "qualys_mock_mode": False},
+            )
+            assert res_q.status_code == 400
+
+            res_m = await client.post(
+                "/api/v1/settings/test-misp",
+                headers=admin_headers,
+                json={"misp_url": url, "misp_mock_mode": False},
+            )
+            assert res_m.status_code == 400

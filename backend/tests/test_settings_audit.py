@@ -40,6 +40,44 @@ class TestSettingsAuditAndTelegram:
         assert get_res.json()["telegram_cooldown_hours"] == 8
 
     @pytest.mark.asyncio
+    async def test_update_settings_audit_logging(self, client: AsyncClient, admin_headers: dict):
+        # 1. Update settings with changed fields
+        payload = {
+            "qualys_sync_interval_hours": 12,
+            "misp_api_key": "new_secret_key_12345",
+        }
+        res = await client.post("/api/v1/settings", headers=admin_headers, json=payload)
+        assert res.status_code == 200
+
+        # Verify audit log recorded UPDATE_SETTINGS
+        audit_res = await client.get("/api/v1/audit-logs?action=UPDATE_SETTINGS", headers=admin_headers)
+        assert audit_res.status_code == 200
+        items = audit_res.json()["items"]
+        assert len(items) > 0
+        latest_log = items[0]
+        assert latest_log["action"] == "UPDATE_SETTINGS"
+        assert latest_log["target_type"] == "Settings"
+        assert latest_log["actor_username"] == "admin"
+        assert "changes" in latest_log["details"]
+
+        # Sensitive key was masked
+        misp_key_change = latest_log["details"]["changes"].get("misp_api_key")
+        assert misp_key_change is not None
+        assert "new_secret_key_12345" not in misp_key_change["new"]  # Never stored in plaintext!
+        assert "..." in misp_key_change["new"]
+
+        # Non-sensitive key recorded clean diff
+        assert latest_log["details"]["changes"]["qualys_sync_interval_hours"]["new"] == 12
+
+        # 2. Resubmit identical settings -> No new audit log generated (no noise)
+        before_count = audit_res.json()["total"]
+        res_dup = await client.post("/api/v1/settings", headers=admin_headers, json=payload)
+        assert res_dup.status_code == 200
+
+        audit_res2 = await client.get("/api/v1/audit-logs?action=UPDATE_SETTINGS", headers=admin_headers)
+        assert audit_res2.json()["total"] == before_count
+
+    @pytest.mark.asyncio
     async def test_audit_logs_pagination_and_search(self, client: AsyncClient, admin_headers: dict):
         res = await client.get("/api/v1/audit-logs?page=1&page_size=10", headers=admin_headers)
         assert res.status_code == 200
@@ -69,11 +107,9 @@ class TestSettingsAuditAndTelegram:
             total_vulns=5,
         )
         msg = TelegramService.format_asset_alert(asset, [], {})
-        assert "bk-appcore-sit" in msg
-        assert "10.20.6.190" in msg
-        assert "owner_appcore" in msg
-        assert "Chan Vanna" in msg
-        assert "chan.vanna@nbc.gov.kh" in msg
+        assert "Threat Center: High-Risk Asset Alert" in msg
+        assert "bk-appcore-sit" not in msg
+        assert "10.20.6.190" not in msg
         assert "Vulnerabilities:" in msg
         assert "Crit (Sev 5)" in msg
 
@@ -101,8 +137,8 @@ class TestSettingsAuditAndTelegram:
         )
         msg = TelegramService.format_misp_assessment_alert(assessment)
         assert "CVE-2024-6387" in msg
-        assert "bk-appcore-sit" in msg
-        assert "10.20.6.190" in msg
+        assert "bk-appcore-sit" not in msg
+        assert "10.20.6.190" not in msg
         assert "PROACTIVE PRE-SCAN MATCH" in msg
         assert "dpkg -l openssh-server" in msg
 
@@ -119,15 +155,82 @@ class TestSettingsAuditAndTelegram:
         assert TelegramService.normalize_chat_id(None) == ""
         assert TelegramService.normalize_chat_id("") == ""
 
+    def test_parse_chat_and_topic(self):
+        # Direct with separate topic
+        assert TelegramService.parse_chat_and_topic("-1002142256980", 42) == ("-1002142256980", 42)
+        # Composite slash with normalization
+        assert TelegramService.parse_chat_and_topic("-2142256980/42") == ("-1002142256980", 42)
+        assert TelegramService.parse_chat_and_topic("-1002142256980/105") == ("-1002142256980", 105)
+        # Composite colon
+        assert TelegramService.parse_chat_and_topic("-1002142256980:88") == ("-1002142256980", 88)
+        # Plain chat without topic
+        assert TelegramService.parse_chat_and_topic("-1002142256980") == ("-1002142256980", None)
+        # None and empty
+        assert TelegramService.parse_chat_and_topic(None) == ("", None)
+        assert TelegramService.parse_chat_and_topic("", 12) == ("", 12)
+
     @pytest.mark.asyncio
     async def test_update_settings_normalizes_telegram_chat_id(self, client: AsyncClient, admin_headers: dict):
         update_payload = {
-            "telegram_chat_id": "-2142256980",
+            "telegram_chat_id": "-2142256980/42",
         }
         res = await client.post("/api/v1/settings", headers=admin_headers, json=update_payload)
         assert res.status_code == 200
-        # Check that it auto-normalized to -100 format in response and DB
+        # Check that it auto-normalized chat_id and extracted topic_id
         assert res.json()["telegram_chat_id"] == "-1002142256980"
+        assert res.json()["telegram_topic_id"] == 42
+
+    @pytest.mark.asyncio
+    async def test_telegram_send_message_read_timeout_resilience(self, monkeypatch):
+        from unittest.mock import AsyncMock
+        import httpx
+
+        mock_client = AsyncMock()
+        mock_client.post.side_effect = httpx.ReadTimeout("The read operation timed out")
+        mock_client.__aenter__.return_value = mock_client
+
+        monkeypatch.setattr("httpx.AsyncClient", lambda *args, **kwargs: mock_client)
+
+        res = await TelegramService.send_message(
+            text="Test alert",
+            bot_token="123456:ABC-DEF",
+            chat_id="-1002142256980",
+            topic_id=42,
+        )
+        assert res["success"] is True
+        assert "timed out after 25s" in res["message"]
+
+    @pytest.mark.asyncio
+    async def test_telegram_send_message_includes_topic_id(self, monkeypatch):
+        sent_payloads = []
+
+        class MockResp:
+            status_code = 200
+            def json(self):
+                return {"ok": True, "result": {"message_id": 999}}
+
+        class MockClient:
+            def __init__(self, *args, **kwargs):
+                pass
+            async def __aenter__(self):
+                return self
+            async def __aexit__(self, *args):
+                pass
+            async def post(self, url, json=None):
+                sent_payloads.append(json)
+                return MockResp()
+
+        monkeypatch.setattr("httpx.AsyncClient", MockClient)
+
+        res = await TelegramService.send_message(
+            text="Test alert",
+            bot_token="123456:ABC-DEF",
+            chat_id="-1002142256980/77",
+        )
+        assert res["success"] is True
+        assert len(sent_payloads) == 1
+        assert sent_payloads[0]["chat_id"] == "-1002142256980"
+        assert sent_payloads[0]["message_thread_id"] == 77
 
     @pytest.mark.asyncio
     async def test_user_management_audit_logging(self, client: AsyncClient, admin_headers: dict):

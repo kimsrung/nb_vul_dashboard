@@ -20,7 +20,7 @@ RED="\033[0;31m"
 NC="\033[0m"
 
 echo -e "${BOLD}${BLUE}=================================================================${NC}"
-echo -e "${BOLD}${BLUE} 🚀 Risk Alert Dashboard - Server Bootstrap & Provisioning${NC}"
+echo -e "${BOLD}${BLUE} 🚀 Threat Center Dashboard - Server Bootstrap & Provisioning${NC}"
 echo -e "${BOLD}${BLUE}=================================================================${NC}"
 
 # 1. Determine Privileges & Target User

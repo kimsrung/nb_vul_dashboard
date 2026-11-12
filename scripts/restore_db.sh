@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Database Restore Utility for Risk Alert Dashboard
+# Database Restore Utility for Threat Center Dashboard
 # Restores a PostgreSQL dump into the production Docker container.
 # Usage: ./scripts/restore_db.sh <path_to_backup.sql.gz>
 # ==============================================================================

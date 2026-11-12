@@ -1,6 +1,6 @@
 # Blank Server Provisioning & Deployment Guide
 
-This guide walks you through setting up a **new, blank Ubuntu / Debian server** to host the **Risk Alert Dashboard** (HTTP port 80) and run the **GitHub Actions Self-Hosted Runner** daemon.
+This guide walks you through setting up a **new, blank Ubuntu / Debian server** to host the **Threat Center Dashboard** (HTTP port 80) and run the **GitHub Actions Self-Hosted Runner** daemon.
 
 ---
 

@@ -22,7 +22,7 @@ from app.services.proactive_assessment_engine import ProactiveAssessmentEngine
 from app.services.scheduler import start_scheduler, stop_scheduler
 from app.services.sync_service import SyncService
 
-from app.api.routes import auth, dashboard, assets, detections, knowledge_base, alerts, settings as settings_routes, misp, software, audit_logs, sync
+from app.api.routes import auth, dashboard, assets, detections, knowledge_base, alerts, settings as settings_routes, misp, software, audit_logs, sync, mitre
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("qualys-dashboard-alert")
@@ -127,6 +127,8 @@ async def init_db_and_seed():
                 settings.TELEGRAM_BOT_TOKEN = v
             elif k == "telegram_chat_id" and v:
                 settings.TELEGRAM_CHAT_ID = v
+            elif k == "telegram_topic_id":
+                settings.TELEGRAM_TOPIC_ID = int(v) if v and v.isdigit() else None
             elif k == "telegram_cooldown_hours" and v.isdigit():
                 settings.TELEGRAM_COOLDOWN_HOURS = int(v)
             elif k == "docs_username" and v:
@@ -313,7 +315,7 @@ def release_coordinator_lock():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    logger.info("Initializing Risk Alert Dashboard Backend...")
+    logger.info("Initializing Threat Center Dashboard Backend...")
     is_coordinator = acquire_coordinator_lock()
 
     if is_coordinator:
@@ -428,6 +430,7 @@ app.include_router(misp.router, prefix=settings.API_V1_STR)
 app.include_router(software.router, prefix=settings.API_V1_STR)
 app.include_router(audit_logs.router, prefix=settings.API_V1_STR)
 app.include_router(sync.router, prefix=settings.API_V1_STR)
+app.include_router(mitre.router, prefix=settings.API_V1_STR)
 
 
 @app.get("/health")

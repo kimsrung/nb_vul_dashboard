@@ -16,7 +16,11 @@ router = APIRouter(prefix="/auth", tags=["Authentication & User Management"])
 
 @router.post("/login", response_model=Token)
 async def login(login_data: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)):
-    client_ip = request.client.host if request.client else "unknown"
+    x_forwarded_for = request.headers.get("x-forwarded-for")
+    if x_forwarded_for:
+        client_ip = x_forwarded_for.split(",")[0].strip()
+    else:
+        client_ip = request.client.host if request.client else "unknown"
     rate_key = f"{client_ip}:{login_data.username}"
 
     if login_limiter.is_rate_limited(rate_key):

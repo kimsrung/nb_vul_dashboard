@@ -27,3 +27,15 @@ class KnowledgeBase(Base):
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     detections = relationship("Detection", back_populates="knowledge_base")
+
+    @property
+    def mitre_techniques(self):
+        from app.services.mitre_service import MitreService
+        return MitreService.map_to_techniques(
+            title=self.title,
+            description=f"{self.diagnosis or ''} {self.consequence or ''}",
+            category=self.category,
+            vuln_type=self.vuln_type,
+            cve_list=self.cve_list,
+            threat_flags=self.threat_intel_flags,
+        )

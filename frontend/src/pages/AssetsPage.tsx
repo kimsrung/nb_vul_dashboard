@@ -720,7 +720,7 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
                       type="button"
                       onClick={() => handleSelectAsset(asset.id)}
                       className="px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 hover:text-sky-300 border border-sky-500/30 text-xs font-semibold transition-colors cursor-pointer"
-                      title="Inspect asset risk dossier"
+                      title="Inspect asset profile"
                     >
                       Details &rarr;
                     </button>
@@ -746,7 +746,7 @@ export const AssetsPage: React.FC<AssetsPageProps> = ({ onSelectAsset }) => {
 
       {/* Delete Confirmation Modal (Admin Only) */}
       {deletingAsset && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs no-top-margin">
           <div className="bg-surface border border-surfaceBorder rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-surfaceBorder">
               <div className="flex items-center gap-2 text-red-400">

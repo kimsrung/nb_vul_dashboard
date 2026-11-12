@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Radio,
@@ -85,8 +85,12 @@ export const MispPage: React.FC = () => {
   const [isLoadingDetail, setIsLoadingDetail] = useState<boolean>(false);
   const [copiedCmd, setCopiedCmd] = useState<boolean>(false);
 
+  // Stale request tracking
+  const fetchReqId = useRef<number>(0);
+
   // Fetch feed items
   const fetchFeed = useCallback(async () => {
+    const currentReqId = ++fetchReqId.current;
     setIsLoading(true);
     try {
       const params: Record<string, any> = {
@@ -101,6 +105,7 @@ export const MispPage: React.FC = () => {
       if (sourceFilter) params.source = sourceFilter;
 
       const res = await apiClient.get<PaginatedMispFeedResponse>('/misp/feed', { params });
+      if (currentReqId !== fetchReqId.current) return;
       setItems(res.data.items);
       setTotal(res.data.total);
       if (res.data.total_events) {
@@ -111,9 +116,12 @@ export const MispPage: React.FC = () => {
       setConfirmedCount(res.data.confirmed_count);
       setCleanCount(res.data.clean_count);
     } catch (err: any) {
+      if (currentReqId !== fetchReqId.current) return;
       console.error('Failed to fetch MISP feed', err);
     } finally {
-      setIsLoading(false);
+      if (currentReqId === fetchReqId.current) {
+        setIsLoading(false);
+      }
     }
   }, [page, pageSize, sortBy, sortOrder, search, matchType, severity, sourceFilter]);
 
@@ -674,14 +682,14 @@ export const MispPage: React.FC = () => {
         />
       </div>
 
-      {/* Slide-over Threat Advisory Dossier Drawer */}
+      {/* Slide-over Threat Advisory Report Drawer */}
       {selectedAssessmentId !== null && (
-        <div className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-xs flex justify-end animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-xs flex justify-end animate-in fade-in duration-200 no-top-margin">
           <div className="w-full max-w-2xl bg-surface border-l border-surfaceBorder h-full flex flex-col shadow-2xl overflow-y-auto">
             {isLoadingDetail ? (
               <div className="p-12 text-center text-slate-500 my-auto">
                 <RotateCw className="w-8 h-8 mx-auto animate-spin mb-3 text-purple-400" />
-                Loading threat advisory dossier...
+                Loading threat advisory report...
               </div>
             ) : selectedDetail ? (
               <div className="p-6 space-y-6">

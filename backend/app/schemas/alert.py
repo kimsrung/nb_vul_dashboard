@@ -1,6 +1,7 @@
 from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel
+from app.schemas.mitre import MitreTechnique
 
 
 class AffectedServerItem(BaseModel):
@@ -40,6 +41,7 @@ class AlertItem(BaseModel):
     dispatched_telegram: bool = False
     date_detected: datetime
     updated_at: datetime
+    mitre_techniques: List[MitreTechnique] = []
 
 
 class PaginatedAlertsResponse(BaseModel):

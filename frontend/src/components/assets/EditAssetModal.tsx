@@ -59,8 +59,8 @@ export const EditAssetModal: React.FC<EditAssetModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
-      <div 
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 mt-0 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150 no-top-margin">
+      <div
         className="w-full max-w-lg bg-surface border border-surfaceBorder rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
@@ -149,7 +149,7 @@ export const EditAssetModal: React.FC<EditAssetModalProps> = ({
               <span>Point of Contact (Individual Person)</span>
             </div>
             <p className="text-[11px] text-slate-400">
-              Designated person responsible for this asset. Displayed on alert dossiers and in Telegram incident notifications.
+              Designated person responsible for this asset. Displayed in alert reports and in Telegram incident notifications.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">

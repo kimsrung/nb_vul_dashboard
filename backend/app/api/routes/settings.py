@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import ipaddress
+from urllib.parse import urlparse
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -17,8 +20,45 @@ from app.schemas.settings import (
 from app.services.qualys_client import QualysApiClient
 from app.services.misp_client import MispClient
 from app.services.telegram_service import TelegramService
+from app.services.audit_service import AuditService
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
+
+
+def validate_external_url(url: Optional[str]) -> None:
+    if not url:
+        return
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Destination URL must use http or https scheme",
+        )
+    hostname = (parsed.hostname or "").lower()
+    if not hostname:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid destination URL host",
+        )
+    blocked_hosts = {
+        "169.254.169.254",
+        "metadata.google.internal",
+        "100.100.100.200",
+    }
+    if hostname in blocked_hosts:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Access to internal metadata service addresses is strictly prohibited",
+        )
+    try:
+        ip = ipaddress.ip_address(hostname)
+        if ip.is_link_local:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Access to link-local IP addresses is strictly prohibited",
+            )
+    except ValueError:
+        pass
 
 
 def _mask_token(token: str) -> str:
@@ -52,6 +92,7 @@ async def get_settings(admin: User = Depends(require_admin)):
         telegram_enabled=settings.TELEGRAM_ENABLED,
         telegram_bot_token_masked=_mask_token(settings.TELEGRAM_BOT_TOKEN),
         telegram_chat_id=settings.TELEGRAM_CHAT_ID,
+        telegram_topic_id=settings.TELEGRAM_TOPIC_ID,
         telegram_cooldown_hours=settings.TELEGRAM_COOLDOWN_HOURS,
         docs_username=settings.DOCS_USERNAME,
         docs_password_masked="••••••••" if settings.DOCS_PASSWORD else "Not Set",
@@ -61,64 +102,186 @@ async def get_settings(admin: User = Depends(require_admin)):
 @router.post("", response_model=SystemSettingsResponse)
 async def update_settings(
     settings_in: SystemSettingsUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
+    changes = {}
+
+    def record_change(key: str, old_val, new_val, is_secret: bool = False):
+        if is_secret:
+            old_masked = _mask_token(str(old_val)) if old_val else "Not Set"
+            new_masked = _mask_token(str(new_val)) if new_val else "Not Set"
+            if old_masked != new_masked:
+                changes[key] = {"old": old_masked, "new": new_masked}
+        else:
+            if old_val != new_val:
+                changes[key] = {"old": old_val, "new": new_val}
+
     if settings_in.qualys_api_url is not None:
-        settings.QUALYS_API_URL = settings_in.qualys_api_url.strip().rstrip("/")
+        validate_external_url(settings_in.qualys_api_url)
+        new_url = settings_in.qualys_api_url.strip().rstrip("/")
+        record_change("qualys_api_url", settings.QUALYS_API_URL, new_url)
+        settings.QUALYS_API_URL = new_url
+
     if settings_in.qualys_username is not None:
-        settings.QUALYS_USERNAME = settings_in.qualys_username.strip()
+        new_user = settings_in.qualys_username.strip()
+        record_change("qualys_username", settings.QUALYS_USERNAME, new_user)
+        settings.QUALYS_USERNAME = new_user
+
     if settings_in.qualys_password is not None and settings_in.qualys_password.strip():
-        settings.QUALYS_PASSWORD = settings_in.qualys_password.strip()
+        new_pass = settings_in.qualys_password.strip()
+        if settings.QUALYS_PASSWORD != new_pass:
+            changes["qualys_password"] = {"old": "••••••••" if settings.QUALYS_PASSWORD else "Not Set", "new": "•••••••• (Updated)"}
+            settings.QUALYS_PASSWORD = new_pass
+
     if settings_in.qualys_mock_mode is not None:
+        record_change("qualys_mock_mode", settings.QUALYS_MOCK_MODE, settings_in.qualys_mock_mode)
         settings.QUALYS_MOCK_MODE = settings_in.qualys_mock_mode
+
     if settings_in.qualys_sync_interval_hours is not None:
+        record_change("qualys_sync_interval_hours", settings.QUALYS_SYNC_INTERVAL_HOURS, settings_in.qualys_sync_interval_hours)
         settings.QUALYS_SYNC_INTERVAL_HOURS = settings_in.qualys_sync_interval_hours
+
     if settings_in.qualys_tag_filter is not None:
-        settings.QUALYS_TAG_FILTER = settings_in.qualys_tag_filter.strip()
+        new_tag = settings_in.qualys_tag_filter.strip()
+        record_change("qualys_tag_filter", settings.QUALYS_TAG_FILTER, new_tag)
+        settings.QUALYS_TAG_FILTER = new_tag
 
     if settings_in.misp_url is not None:
-        settings.MISP_URL = settings_in.misp_url.strip().rstrip("/")
+        validate_external_url(settings_in.misp_url)
+        new_misp_url = settings_in.misp_url.strip().rstrip("/")
+        record_change("misp_url", settings.MISP_URL, new_misp_url)
+        settings.MISP_URL = new_misp_url
+
     if settings_in.misp_api_key is not None and settings_in.misp_api_key.strip():
-        settings.MISP_API_KEY = settings_in.misp_api_key.strip()
+        new_api_key = settings_in.misp_api_key.strip()
+        if settings.MISP_API_KEY != new_api_key:
+            record_change("misp_api_key", settings.MISP_API_KEY, new_api_key, is_secret=True)
+            settings.MISP_API_KEY = new_api_key
+
     if settings_in.misp_creator_org is not None:
-        settings.MISP_CREATOR_ORG = settings_in.misp_creator_org.strip()
+        new_org = settings_in.misp_creator_org.strip()
+        record_change("misp_creator_org", settings.MISP_CREATOR_ORG, new_org)
+        settings.MISP_CREATOR_ORG = new_org
+
     if settings_in.misp_tag_filter is not None:
-        settings.MISP_TAG_FILTER = settings_in.misp_tag_filter.strip()
+        new_mtag = settings_in.misp_tag_filter.strip()
+        record_change("misp_tag_filter", settings.MISP_TAG_FILTER, new_mtag)
+        settings.MISP_TAG_FILTER = new_mtag
+
     if settings_in.misp_feed_tag is not None:
-        settings.MISP_FEED_TAG = settings_in.misp_feed_tag.strip()
+        new_ftag = settings_in.misp_feed_tag.strip()
+        record_change("misp_feed_tag", settings.MISP_FEED_TAG, new_ftag)
+        settings.MISP_FEED_TAG = new_ftag
+
     if settings_in.misp_enabled is not None:
+        record_change("misp_enabled", settings.MISP_ENABLED, settings_in.misp_enabled)
         settings.MISP_ENABLED = settings_in.misp_enabled
+
     if settings_in.misp_mock_mode is not None:
+        record_change("misp_mock_mode", settings.MISP_MOCK_MODE, settings_in.misp_mock_mode)
         settings.MISP_MOCK_MODE = settings_in.misp_mock_mode
+
     if settings_in.misp_verify_ssl is not None:
+        record_change("misp_verify_ssl", settings.MISP_VERIFY_SSL, settings_in.misp_verify_ssl)
         settings.MISP_VERIFY_SSL = settings_in.misp_verify_ssl
+
     if settings_in.misp_sync_interval_hours is not None:
+        record_change("misp_sync_interval_hours", settings.MISP_SYNC_INTERVAL_HOURS, settings_in.misp_sync_interval_hours)
         settings.MISP_SYNC_INTERVAL_HOURS = settings_in.misp_sync_interval_hours
+
     if settings_in.misp_zmq_enabled is not None:
+        record_change("misp_zmq_enabled", settings.MISP_ZMQ_ENABLED, settings_in.misp_zmq_enabled)
         settings.MISP_ZMQ_ENABLED = settings_in.misp_zmq_enabled
+
     if settings_in.misp_zmq_host is not None:
-        settings.MISP_ZMQ_HOST = settings_in.misp_zmq_host.strip()
+        new_zhost = settings_in.misp_zmq_host.strip()
+        record_change("misp_zmq_host", settings.MISP_ZMQ_HOST, new_zhost)
+        settings.MISP_ZMQ_HOST = new_zhost
+
     if settings_in.misp_zmq_port is not None:
+        record_change("misp_zmq_port", settings.MISP_ZMQ_PORT, settings_in.misp_zmq_port)
         settings.MISP_ZMQ_PORT = settings_in.misp_zmq_port
+
     if settings_in.misp_zmq_username is not None:
-        settings.MISP_ZMQ_USERNAME = settings_in.misp_zmq_username.strip()
+        new_zuser = settings_in.misp_zmq_username.strip()
+        record_change("misp_zmq_username", settings.MISP_ZMQ_USERNAME, new_zuser)
+        settings.MISP_ZMQ_USERNAME = new_zuser
+
     if settings_in.misp_zmq_password is not None and settings_in.misp_zmq_password.strip():
-        settings.MISP_ZMQ_PASSWORD = settings_in.misp_zmq_password.strip()
+        new_zpass = settings_in.misp_zmq_password.strip()
+        if settings.MISP_ZMQ_PASSWORD != new_zpass:
+            record_change("misp_zmq_password", settings.MISP_ZMQ_PASSWORD, new_zpass, is_secret=True)
+            settings.MISP_ZMQ_PASSWORD = new_zpass
 
     if settings_in.telegram_enabled is not None:
+        record_change("telegram_enabled", settings.TELEGRAM_ENABLED, settings_in.telegram_enabled)
         settings.TELEGRAM_ENABLED = settings_in.telegram_enabled
+
     if settings_in.telegram_bot_token is not None and settings_in.telegram_bot_token.strip():
-        settings.TELEGRAM_BOT_TOKEN = settings_in.telegram_bot_token.strip()
+        new_token = settings_in.telegram_bot_token.strip()
+        if settings.TELEGRAM_BOT_TOKEN != new_token:
+            record_change("telegram_bot_token", settings.TELEGRAM_BOT_TOKEN, new_token, is_secret=True)
+            settings.TELEGRAM_BOT_TOKEN = new_token
+
     if settings_in.telegram_chat_id is not None:
-        settings.TELEGRAM_CHAT_ID = TelegramService.normalize_chat_id(settings_in.telegram_chat_id)
+        new_cid, auto_topic = TelegramService.parse_chat_and_topic(settings_in.telegram_chat_id, settings_in.telegram_topic_id)
+        record_change("telegram_chat_id", settings.TELEGRAM_CHAT_ID, new_cid)
+        settings.TELEGRAM_CHAT_ID = new_cid
+        if auto_topic is not None:
+            settings_in.telegram_topic_id = auto_topic
+
+    if settings_in.telegram_topic_id is not None:
+        record_change("telegram_topic_id", settings.TELEGRAM_TOPIC_ID, settings_in.telegram_topic_id)
+        settings.TELEGRAM_TOPIC_ID = settings_in.telegram_topic_id
+
     if settings_in.telegram_cooldown_hours is not None:
+        record_change("telegram_cooldown_hours", settings.TELEGRAM_COOLDOWN_HOURS, settings_in.telegram_cooldown_hours)
         settings.TELEGRAM_COOLDOWN_HOURS = settings_in.telegram_cooldown_hours
 
     if settings_in.docs_username is not None and settings_in.docs_username.strip():
-        settings.DOCS_USERNAME = settings_in.docs_username.strip()
+        new_duser = settings_in.docs_username.strip()
+        record_change("docs_username", settings.DOCS_USERNAME, new_duser)
+        settings.DOCS_USERNAME = new_duser
+
     if settings_in.docs_password is not None and settings_in.docs_password.strip() and settings_in.docs_password != "••••••••":
-        settings.DOCS_PASSWORD = settings_in.docs_password.strip()
+        new_dpass = settings_in.docs_password.strip()
+        if settings.DOCS_PASSWORD != new_dpass:
+            changes["docs_password"] = {"old": "••••••••" if settings.DOCS_PASSWORD else "Not Set", "new": "•••••••• (Updated)"}
+            settings.DOCS_PASSWORD = new_dpass
+
+    # Record Audit Log if any setting values actually changed
+    if changes:
+        sections = set()
+        for field in changes.keys():
+            if field.startswith("qualys"):
+                sections.add("Qualys")
+            elif field.startswith("misp"):
+                sections.add("MISP")
+            elif field.startswith("telegram"):
+                sections.add("Telegram")
+            elif field.startswith("docs"):
+                sections.add("API Docs")
+            else:
+                sections.add("System")
+
+        section_desc = ", ".join(sorted(sections))
+        await AuditService.log_event(
+            db=db,
+            action="UPDATE_SETTINGS",
+            target_type="Settings",
+            target_id="system_settings",
+            target_name=f"System Configuration ({section_desc})",
+            actor=admin,
+            request=request,
+            details={
+                "changed_count": len(changes),
+                "sections_modified": list(sections),
+                "changed_fields": list(changes.keys()),
+                "changes": changes,
+            },
+        )
 
     # Persist all current settings to database
     items_to_persist = {
@@ -145,6 +308,7 @@ async def update_settings(
         "telegram_enabled": "true" if settings.TELEGRAM_ENABLED else "false",
         "telegram_bot_token": settings.TELEGRAM_BOT_TOKEN,
         "telegram_chat_id": settings.TELEGRAM_CHAT_ID,
+        "telegram_topic_id": str(settings.TELEGRAM_TOPIC_ID) if settings.TELEGRAM_TOPIC_ID is not None else "",
         "telegram_cooldown_hours": str(settings.TELEGRAM_COOLDOWN_HOURS),
         "docs_username": settings.DOCS_USERNAME,
         "docs_password": settings.DOCS_PASSWORD,
@@ -192,6 +356,7 @@ async def update_settings(
         telegram_enabled=settings.TELEGRAM_ENABLED,
         telegram_bot_token_masked=_mask_token(settings.TELEGRAM_BOT_TOKEN),
         telegram_chat_id=settings.TELEGRAM_CHAT_ID,
+        telegram_topic_id=settings.TELEGRAM_TOPIC_ID,
         telegram_cooldown_hours=settings.TELEGRAM_COOLDOWN_HOURS,
         docs_username=settings.DOCS_USERNAME,
         docs_password_masked="••••••••" if settings.DOCS_PASSWORD else "Not Set",
@@ -203,6 +368,7 @@ async def test_qualys_connection(
     test_req: QualysTestRequest,
     admin: User = Depends(require_admin),
 ):
+    validate_external_url(test_req.qualys_api_url)
     client = QualysApiClient(
         base_url=test_req.qualys_api_url,
         username=test_req.qualys_username,
@@ -218,6 +384,7 @@ async def test_misp_connection(
     test_req: MispTestRequest,
     admin: User = Depends(require_admin),
 ):
+    validate_external_url(test_req.misp_url)
     if test_req.misp_zmq_host:
         settings.MISP_ZMQ_HOST = test_req.misp_zmq_host.strip()
     if test_req.misp_zmq_port:
@@ -249,6 +416,7 @@ async def test_telegram_connection(
 ):
     token = test_req.bot_token or settings.TELEGRAM_BOT_TOKEN
     cid = test_req.chat_id or settings.TELEGRAM_CHAT_ID
+    topic_id = test_req.topic_id if test_req.topic_id is not None else settings.TELEGRAM_TOPIC_ID
 
     if not token or not cid:
         raise HTTPException(
@@ -256,8 +424,8 @@ async def test_telegram_connection(
             detail="Telegram Bot Token and Chat ID must be specified",
         )
 
-    msg = "🛡 <b>Risk Alert Dashboard: Test Alert</b>\n\n✅ Your Telegram Bot integration is configured correctly!"
-    result = await TelegramService.send_message(msg, bot_token=token, chat_id=cid)
+    msg = "🛡 <b>Threat Center Dashboard: Test Alert</b>\n\n✅ Your Telegram Bot integration is configured correctly!"
+    result = await TelegramService.send_message(msg, bot_token=token, chat_id=cid, topic_id=topic_id)
     return result
 
 

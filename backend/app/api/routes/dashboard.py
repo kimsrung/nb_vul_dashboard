@@ -18,7 +18,9 @@ from app.schemas.dashboard import (
     SeverityBreakdown,
 )
 from app.schemas.asset import AssetListItem
+from app.schemas.mitre import ThreatReadinessResponse
 from app.services.sync_service import SyncService
+from app.services.mitre_service import MitreService
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -212,3 +214,15 @@ async def get_dashboard_summary(
         last_sync_mode=last_mode,
         sync_status=sync_status.get("status", "Idle"),
     )
+
+
+@router.get("/threat-readiness", response_model=ThreatReadinessResponse)
+async def get_threat_readiness(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_viewer),
+):
+    """Calculate the Threat Readiness Index (TRI 0-100%) and Banking Critical Infrastructure
+
+    tier health breakdown (Bakong, SWIFT, Core Banking).
+    """
+    return await MitreService.calculate_threat_readiness(db)

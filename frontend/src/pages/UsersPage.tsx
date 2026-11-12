@@ -450,7 +450,7 @@ export const UsersPage: React.FC = () => {
 
       {/* Modal: Add New User */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 no-top-margin">
           <div className="w-full max-w-md bg-surface border border-surfaceBorder rounded-2xl shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-surfaceBorder pb-3">
               <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
@@ -546,7 +546,7 @@ export const UsersPage: React.FC = () => {
 
       {/* Modal: Edit User */}
       {editingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 no-top-margin">
           <div className="w-full max-w-md bg-surface border border-surfaceBorder rounded-2xl shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-surfaceBorder pb-3">
               <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
@@ -640,7 +640,7 @@ export const UsersPage: React.FC = () => {
 
       {/* Modal: Delete Confirmation */}
       {deletingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 no-top-margin">
           <div className="w-full max-w-sm bg-surface border border-red-900/50 rounded-2xl shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-red-950/60 border border-red-800 flex items-center justify-center text-red-400">

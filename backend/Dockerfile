@@ -1,5 +1,5 @@
 # ==============================================================================
-# Production Dockerfile for Risk Alert Dashboard Backend (FastAPI)
+# Production Dockerfile for Threat Center Dashboard Backend (FastAPI)
 # ==============================================================================
 FROM python:3.11-slim
 

@@ -31,7 +31,7 @@ jobs:
       deploy_tag: ${{ steps.meta.outputs.deploy_tag }}
     steps:
       - name: Checkout Code Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Extract Metadata and Tags
         id: meta
@@ -154,7 +154,7 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: Checkout Code Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Run Test Suite against Containerized PostgreSQL
         env:
@@ -215,10 +215,11 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: Checkout Code Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Locate Server Production Configuration
         run: |
+          rm -f .env
           if [ ! -f .env.production ]; then
             for candidate in \
               "${HOME}/alert-dashboard/.env.production" \
@@ -229,7 +230,6 @@ jobs:
               if [ -f "$candidate" ]; then
                 echo "📋 Found server configuration at $candidate -> copying to runner workspace"
                 cp "$candidate" .env.production
-                ln -sf .env.production .env
                 break
               fi
             done

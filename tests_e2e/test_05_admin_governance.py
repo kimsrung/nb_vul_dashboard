@@ -120,11 +120,11 @@ class TestAdminGovernanceSuite:
         initially_checked = ssl_checkbox.is_checked()
 
         # Toggle SSL verification
-        ssl_checkbox.click()
+        ssl_checkbox.set_checked(not initially_checked)
         expect(ssl_checkbox).to_be_checked(checked=not initially_checked)
 
         # Toggle back to original state
-        ssl_checkbox.click()
+        ssl_checkbox.set_checked(initially_checked)
         expect(ssl_checkbox).to_be_checked(checked=initially_checked)
 
         # Test MISP Connection button is visible and active
