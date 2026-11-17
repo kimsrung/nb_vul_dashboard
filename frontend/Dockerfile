@@ -15,15 +15,11 @@ RUN npm run build
 # Production stage
 FROM nginx:alpine
 
-# Apply security patches for alpine packages, install openssl for fallback cert generation, and libcap for non-root port binding
-RUN apk upgrade --no-cache && \
-    apk add --no-cache openssl libcap
+# Apply security patches for alpine packages and install openssl for fallback cert generation
+RUN apk upgrade --no-cache && apk add --no-cache openssl
 
-# Grant cap_net_bind_service so non-root user (nginx, UID 101) can bind standard ports (80/443)
-RUN setcap 'cap_net_bind_service=+ep' /usr/sbin/nginx
-
-# Ensure SSL and template directories exist with default fallback certificate so nginx always boots cleanly
-RUN mkdir -p /etc/nginx/ssl /etc/nginx/templates /etc/nginx/template-sources /var/cache/nginx /var/log/nginx && \
+# Ensure SSL directory exists with default fallback certificate so nginx always boots cleanly
+RUN mkdir -p /etc/nginx/ssl /etc/nginx/templates && \
     openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
         -keyout /etc/nginx/ssl/server.key \
         -out /etc/nginx/ssl/server.crt \
@@ -31,32 +27,14 @@ RUN mkdir -p /etc/nginx/ssl /etc/nginx/templates /etc/nginx/template-sources /va
 
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+RUN mkdir -p /etc/nginx/template-sources
 COPY nginx.direct.conf.template /etc/nginx/template-sources/nginx.direct.conf.template
 COPY nginx.redirect.conf.template /etc/nginx/template-sources/nginx.redirect.conf.template
 COPY 18-setup-redirect-template.sh /docker-entrypoint.d/18-setup-redirect-template.sh
 RUN chmod +x /docker-entrypoint.d/18-setup-redirect-template.sh
 
-# Reconfigure master nginx.conf:
-# 1. Disable user directive (master process runs directly as unprivileged nginx user)
-# 2. Relocate PID file from /run/nginx.pid to unprivileged /tmp/nginx.pid
-RUN sed -i 's|user  nginx;|#user nginx;|g' /etc/nginx/nginx.conf && \
-    sed -i 's|pid        /run/nginx.pid;|pid /tmp/nginx.pid;|g' /etc/nginx/nginx.conf
-
-# Prepare permissions for non-root user (nginx:nginx, UID 101:GID 101)
-RUN touch /tmp/nginx.pid && \
-    chown -R nginx:nginx \
-        /tmp/nginx.pid \
-        /var/cache/nginx \
-        /var/log/nginx \
-        /etc/nginx \
-        /usr/share/nginx/html \
-        /docker-entrypoint.d
-
 ENV DOMAIN_NAME=alert-dashboard.nbc.gov.kh
 ENV REDIRECT_TO_DOMAIN=false
-
-# Drop root privileges - run container exclusively as non-root unprivileged user 'nginx' (UID 101)
-USER nginx
 
 EXPOSE 80 443
 
