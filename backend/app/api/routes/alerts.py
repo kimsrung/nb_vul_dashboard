@@ -359,7 +359,7 @@ async def simulate_threat_event(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON body")
 
     from app.services.misp_zmq_subscriber import process_misp_zmq_payload
-    await process_misp_zmq_payload("misp_json_event", json.dumps(body))
+    await process_misp_zmq_payload("misp_json_event", json.dumps(body), source_channel="Simulated Event")
     return {
         "success": True,
         "message": "ZeroMQ threat event processed and verified against asset inventory!",

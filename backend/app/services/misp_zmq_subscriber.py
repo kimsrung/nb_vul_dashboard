@@ -21,11 +21,13 @@ import logging
 import argparse
 import asyncio
 from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 
+from sqlalchemy import select
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 from app.models.setting import SystemSetting
+from app.models.audit_log import AuditLog
 from app.services.misp_client import MispClient
 from app.services.proactive_assessment_engine import ProactiveAssessmentEngine
 from app.services.telegram_service import TelegramService
@@ -39,6 +41,11 @@ _stop_event = asyncio.Event()
 _last_connected_at: Optional[datetime] = None
 _last_message_at: Optional[datetime] = None
 _messages_received_count: int = 0
+
+# In-memory deduplication cache for MISP threat advisories:
+# Maps cve_id -> (timestamp_epoch, affected_assets_count, match_type)
+_recent_cve_audit_cache: Dict[str, Tuple[float, int, str]] = {}
+AUDIT_COOLDOWN_SECONDS: int = 3600  # 1 hour cooldown for identical threat state
 
 
 def check_tcp_established(host: str, port: int) -> bool:
@@ -136,7 +143,19 @@ async def process_misp_push_payload(
             "details": [],
         }
 
-    logger.info(f"⚡ [MISP {source_channel}] Received {len(parsed_advisories)} FS-ISAC advisory candidate(s)")
+    # Deduplicate candidate advisories within this batch by cve_id to prevent redundant evaluations
+    unique_advisories = []
+    seen_batch_cves = set()
+    for adv in parsed_advisories:
+        cid = adv.get("cve_id")
+        if cid:
+            if cid in seen_batch_cves:
+                continue
+            seen_batch_cves.add(cid)
+        unique_advisories.append(adv)
+    parsed_advisories = unique_advisories
+
+    logger.info(f"⚡ [MISP {source_channel}] Received {len(parsed_advisories)} unique FS-ISAC advisory candidate(s)")
 
     evaluated_details: List[Dict[str, Any]] = []
     async with AsyncSessionLocal() as session:
@@ -178,28 +197,86 @@ async def process_misp_push_payload(
                 "dispatched_telegram": record.dispatched_telegram,
             })
 
-            # Record audit log for EVERY event triggered from MISP (whether matched or clean)
-            status_desc = f"{affected_count} server(s) affected" if matched_flag else "0 servers affected (Clean)"
-            await AuditService.log_event(
-                db=session,
-                action="MISP_EVENT_TRIGGERED",
-                target_type="MISP_Advisory",
-                target_id=str(cve_id),
-                target_name=f"{cve_id} ({adv.get('affected_product', 'software')}) — {status_desc}",
-                details={
-                    "cve_id": cve_id,
-                    "title": adv.get("title") or record.title,
-                    "affected_product": adv.get("affected_product"),
-                    "vulnerable_versions": adv.get("vulnerable_versions"),
-                    "severity": record.severity,
-                    "cvss_score": record.cvss_score,
-                    "affected_assets_count": affected_count,
-                    "match_type": record.match_type,
-                    "matched_in_inventory": matched_flag,
-                    "source": source_channel,
-                    "misp_event_id": adv.get("misp_event_id"),
-                },
-            )
+            # Determine whether to record an individual MISP_EVENT_TRIGGERED audit entry
+            should_log_audit = False
+            now_ts = datetime.now(timezone.utc).timestamp()
+
+            if not matched_flag:
+                # 1. Clean events (0 affected assets):
+                # Suppress per-CVE row in live background stream (source_channel == "ZeroMQ Stream")
+                # because MISP_ZMQ_FEED_RECEIVED already records the stream batch telemetry with all evaluated CVEs.
+                # Allow logging for manual/simulated events so testing is visible in audit logs.
+                if source_channel != "ZeroMQ Stream":
+                    cache_entry = _recent_cve_audit_cache.get(cve_id)
+                    if not cache_entry or (now_ts - cache_entry[0] >= AUDIT_COOLDOWN_SECONDS):
+                        should_log_audit = True
+            else:
+                # 2. Matched events (>0 affected assets):
+                # Check memory cache first
+                cache_entry = _recent_cve_audit_cache.get(cve_id)
+                if cache_entry:
+                    last_ts, last_count, last_type = cache_entry
+                    state_changed = (last_count != affected_count) or (last_type != record.match_type)
+                    if state_changed or (now_ts - last_ts >= AUDIT_COOLDOWN_SECONDS):
+                        should_log_audit = True
+                    else:
+                        logger.debug(
+                            f"Audit log throttled for {cve_id}: identical finding already recorded "
+                            f"{int(now_ts - last_ts)}s ago ({affected_count} assets, {record.match_type})."
+                        )
+                else:
+                    # Check database for recent audit log if not in memory cache
+                    stmt = (
+                        select(AuditLog)
+                        .where(AuditLog.action == "MISP_EVENT_TRIGGERED")
+                        .where(AuditLog.target_id == str(cve_id))
+                        .order_by(AuditLog.created_at.desc())
+                        .limit(1)
+                    )
+                    db_row = (await session.execute(stmt)).scalars().first()
+                    if db_row and db_row.created_at:
+                        age = (datetime.now(timezone.utc) - db_row.created_at).total_seconds()
+                        prev_count = (db_row.details or {}).get("affected_assets_count", 0)
+                        prev_type = (db_row.details or {}).get("match_type", "")
+                        state_changed = (prev_count != affected_count) or (prev_type != record.match_type)
+                        if state_changed or (age >= AUDIT_COOLDOWN_SECONDS):
+                            should_log_audit = True
+                        else:
+                            _recent_cve_audit_cache[cve_id] = (db_row.created_at.timestamp(), prev_count, prev_type)
+                            logger.debug(
+                                f"Audit log throttled for {cve_id}: identical finding in DB from "
+                                f"{int(age)}s ago ({prev_count} assets, {prev_type})."
+                            )
+                    else:
+                        should_log_audit = True
+
+            if should_log_audit:
+                status_desc = f"{affected_count} server(s) affected" if matched_flag else "0 servers affected (Clean)"
+                await AuditService.log_event(
+                    db=session,
+                    action="MISP_EVENT_TRIGGERED",
+                    target_type="MISP_Advisory",
+                    target_id=str(cve_id),
+                    target_name=f"{cve_id} ({adv.get('affected_product', 'software')}) — {status_desc}",
+                    details={
+                        "cve_id": cve_id,
+                        "title": adv.get("title") or record.title,
+                        "affected_product": adv.get("affected_product"),
+                        "vulnerable_versions": adv.get("vulnerable_versions"),
+                        "severity": record.severity,
+                        "cvss_score": record.cvss_score,
+                        "affected_assets_count": affected_count,
+                        "match_type": record.match_type,
+                        "matched_in_inventory": matched_flag,
+                        "source": source_channel,
+                        "misp_event_id": adv.get("misp_event_id"),
+                    },
+                )
+                _recent_cve_audit_cache[cve_id] = (
+                    now_ts,
+                    affected_count,
+                    record.match_type,
+                )
 
         # Update last sync time watermark in system_settings
         now_str = datetime.now(timezone.utc).isoformat()
@@ -237,7 +314,7 @@ async def process_misp_push_payload(
     }
 
 
-async def process_misp_zmq_payload(topic: str, payload_str: str):
+async def process_misp_zmq_payload(topic: str, payload_str: str, source_channel: str = "ZeroMQ Stream"):
     """Parse MISP ZeroMQ JSON payload and trigger proactive asset assessment."""
     try:
         raw_data = json.loads(payload_str)
@@ -245,7 +322,7 @@ async def process_misp_zmq_payload(topic: str, payload_str: str):
         logger.warning(f"Failed to decode MISP ZMQ JSON on topic '{topic}': {e}")
         return
 
-    await process_misp_push_payload(raw_data, source_channel="ZeroMQ Stream", topic=topic)
+    await process_misp_push_payload(raw_data, source_channel=source_channel, topic=topic)
 
 
 async def zmq_subscriber_loop(
@@ -263,7 +340,7 @@ async def zmq_subscriber_loop(
         return
 
     if not topics:
-        topics = ["misp_json_event", "misp_json", "misp_json_attribute"]
+        topics = ["misp_json_event"]
 
     user = username if username is not None else settings.MISP_ZMQ_USERNAME
     pwd = password if password is not None else settings.MISP_ZMQ_PASSWORD
@@ -371,10 +448,10 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=50000, help="MISP ZeroMQ Port (Default: 50000)")
     parser.add_argument("--username", default=None, help="MISP ZeroMQ PLAIN Username")
     parser.add_argument("--password", default=None, help="MISP ZeroMQ PLAIN Password")
-    parser.add_argument("--topic", action="append", help="ZeroMQ Topic(s) (Defaults to misp_json_event and misp_json)")
+    parser.add_argument("--topic", action="append", help="ZeroMQ Topic(s) (Defaults to misp_json_event)")
     args = parser.parse_args()
 
-    topics = args.topic or ["misp_json_event", "misp_json", "misp_json_attribute"]
+    topics = args.topic or ["misp_json_event"]
     auth_str = f"with user '{args.username}'" if args.username else "unauthenticated"
     print(f"Starting MISP ZeroMQ Subscriber on tcp://{args.host}:{args.port} ({auth_str})...")
     try:
