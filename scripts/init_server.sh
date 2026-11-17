@@ -150,7 +150,7 @@ if [ ! -f "${ENV_PROD}" ]; then
   sed -i \
     -e "s|SECRET_KEY=.*|SECRET_KEY=${GEN_SECRET_KEY}|g" \
     -e "s|POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=${GEN_PG_PASS}|g" \
-    -e "s|DATABASE_URL=.*|DATABASE_URL=postgresql+asyncpg://risk_alert_prod_user:${GEN_PG_PASS}@postgres:5432/risk_alert_prod_db|g" \
+    -e "s|DATABASE_URL=.*|DATABASE_URL=postgresql+asyncpg://threat_center_prod_user:${GEN_PG_PASS}@postgres:5432/threat_center_prod_db|g" \
     -e "s|ADMIN_PASSWORD=.*|ADMIN_PASSWORD=${GEN_ADMIN_PASS}|g" \
     -e "s|VIEWER_PASSWORD=.*|VIEWER_PASSWORD=${GEN_VIEWER_PASS}|g" \
     -e "s|DOCS_PASSWORD=.*|DOCS_PASSWORD=${GEN_DOCS_PASS}|g" \

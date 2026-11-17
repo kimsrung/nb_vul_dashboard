@@ -109,9 +109,9 @@ docker compose -f docker-compose.prod.yml up -d --build
 docker compose -f docker-compose.prod.yml ps
 ```
 All three containers should be in `Up (healthy)` state:
-- `risk_alert_prod_postgres` (PostgreSQL 16)
-- `risk_alert_prod_backend` (FastAPI 4-worker application)
-- `risk_alert_prod_frontend` (Alpine Nginx reverse proxy serving port 80)
+- `threat_center_prod_postgres` (PostgreSQL 16)
+- `threat_center_prod_backend` (FastAPI 4-worker application)
+- `threat_center_prod_frontend` (Alpine Nginx reverse proxy serving port 80)
 
 ---
 

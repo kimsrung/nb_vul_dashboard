@@ -380,7 +380,7 @@ If the frontend navigation spinner remains in a continuous "Syncing" state:
 2. If `status` is `"running"`, note the `active_job.id` and `active_job.started_at`.
 3. Check recent backend application logs:
    ```bash
-   docker logs risk_alert_prod_backend --tail 50
+   docker logs threat_center_prod_backend --tail 50
    ```
 
 ### B. Manually Cancelling a Stuck Job

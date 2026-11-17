@@ -1,5 +1,6 @@
 # Python
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
 *.so
@@ -9,6 +10,10 @@ backend/env/
 *.db
 *.sqlite
 *.sqlite3
+.pytest_cache/
+**/.pytest_cache/
+.coverage
+htmlcov/
 
 # Node / Frontend
 frontend/node_modules/
@@ -26,6 +31,7 @@ backend/certs/*.key
 .env.development
 .env.production
 .DS_Store
+**/.DS_Store
 .idea/
 .vscode/
 

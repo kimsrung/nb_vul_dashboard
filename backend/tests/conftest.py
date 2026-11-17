@@ -9,8 +9,8 @@ import sys
 test_db_url = os.environ.get("TEST_DATABASE_URL")
 if not test_db_url:
     current_db = os.environ.get("DATABASE_URL", "")
-    if "risk_alert_db" in current_db and "test" not in current_db.lower():
-        test_db_url = current_db.replace("risk_alert_db", "risk_alert_test_db")
+    if ("risk_alert_db" in current_db or "threat_center" in current_db) and "test" not in current_db.lower():
+        test_db_url = current_db.replace("risk_alert_db", "risk_alert_test_db").replace("threat_center_prod_db", "threat_center_test_db")
     elif not current_db:
         test_db_url = "postgresql+asyncpg://risk_alert_user:risk_alert_secret_password@localhost:5432/risk_alert_test_db"
     else:
@@ -33,7 +33,7 @@ async def initialize_test_database():
     """Ensure database schema and default seed data are clean and ready before tests run."""
     # Critical Safety Guard: Never allow pytest to drop tables on a production / non-test DB
     db_url_str = str(engine.url).lower()
-    if "risk_alert_db" in db_url_str and "test" not in db_url_str:
+    if ("risk_alert_db" in db_url_str or "threat_center" in db_url_str) and "test" not in db_url_str:
         raise RuntimeError(
             f"CRITICAL SAFETY ABORT: pytest detected target database is '{engine.url}', "
             "which lacks 'test' in its database name! Tests are strictly prohibited from dropping "
