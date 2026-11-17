@@ -10,6 +10,7 @@ server {
     listen 80 default_server;
     listen 443 ssl default_server;
     server_name _;
+    server_tokens off;
 
     ssl_certificate /etc/nginx/ssl/server.crt;
     ssl_certificate_key /etc/nginx/ssl/server.key;
@@ -33,6 +34,7 @@ server {
 server {
     listen 80;
     server_name ${DOMAIN_NAME};
+    server_tokens off;
 
     # Internal health check for container liveness probes
     location /nginx-health {
@@ -49,6 +51,7 @@ server {
 server {
     listen 443 ssl;
     server_name ${DOMAIN_NAME};
+    server_tokens off;
 
     # SSL / TLS Settings
     ssl_certificate /etc/nginx/ssl/server.crt;

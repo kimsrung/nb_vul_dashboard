@@ -32,7 +32,8 @@ server {
         application/x-javascript
         image/svg+xml;
 
-    # Security Headers (HSTS omitted for dual HTTP/HTTPS support)
+    # Security Headers & Information Disclosure Protection
+    server_tokens off;
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-XSS-Protection "1; mode=block" always;
