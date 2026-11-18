@@ -313,7 +313,12 @@ class ProactiveAssessmentEngine:
             await db.flush()
         else:
             if ev_date:
-                if not record.misp_event_date or ev_date > record.misp_event_date:
+                rec_date = record.misp_event_date
+                if rec_date and rec_date.tzinfo is None and ev_date.tzinfo is not None:
+                    rec_date = rec_date.replace(tzinfo=timezone.utc)
+                elif rec_date and rec_date.tzinfo is not None and ev_date.tzinfo is None:
+                    ev_date = ev_date.replace(tzinfo=timezone.utc)
+                if not rec_date or ev_date > rec_date:
                     record.misp_event_date = ev_date
                     if ev_id:
                         record.misp_event_id = ev_id
