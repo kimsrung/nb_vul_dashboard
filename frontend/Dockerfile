@@ -21,11 +21,14 @@ RUN apk upgrade --no-cache && \
     apk add --no-cache openssl
 
 # Ensure SSL and template directories exist with fallback certificates readable by non-root nginx
-RUN mkdir -p /etc/nginx/ssl /etc/nginx/templates /etc/nginx/template-sources /var/cache/nginx /var/log/nginx && \
+RUN mkdir -p /etc/nginx/ssl /etc/nginx/ssl-fallback /etc/nginx/templates /etc/nginx/template-sources /var/cache/nginx /var/log/nginx && \
     openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-        -keyout /etc/nginx/ssl/server.key \
-        -out /etc/nginx/ssl/server.crt \
+        -keyout /etc/nginx/ssl-fallback/server.key \
+        -out /etc/nginx/ssl-fallback/server.crt \
         -subj "/C=KH/ST=Phnom Penh/O=National Bank of Cambodia/CN=alert-dashboard.nbc.gov.kh" 2>/dev/null && \
+    cp /etc/nginx/ssl-fallback/server.crt /etc/nginx/ssl/server.crt && \
+    cp /etc/nginx/ssl-fallback/server.key /etc/nginx/ssl/server.key && \
+    chmod 644 /etc/nginx/ssl-fallback/server.key /etc/nginx/ssl-fallback/server.crt && \
     chmod 644 /etc/nginx/ssl/server.key /etc/nginx/ssl/server.crt
 
 COPY --from=build /app/dist /usr/share/nginx/html

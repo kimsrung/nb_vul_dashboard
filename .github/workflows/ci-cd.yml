@@ -246,11 +246,23 @@ jobs:
                 mkdir -p ssl
                 cp "${candidate_ssl}/server.crt" ssl/server.crt
                 cp "${candidate_ssl}/server.key" ssl/server.key
-                chmod 644 ssl/server.crt
-                chmod 600 ssl/server.key
                 break
               fi
             done
+          fi
+
+          if [ ! -f ssl/server.crt ] || [ ! -f ssl/server.key ]; then
+            echo "ℹ️ No server SSL certificates found -> generating fallback self-signed certificates"
+            mkdir -p ssl
+            openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+              -keyout ssl/server.key \
+              -out ssl/server.crt \
+              -subj "/C=KH/ST=Phnom Penh/O=National Bank of Cambodia/CN=alert-dashboard.nbc.gov.kh" 2>/dev/null || true
+          fi
+
+          if [ -d ssl ]; then
+            chmod 755 ssl 2>/dev/null || true
+            chmod 644 ssl/* 2>/dev/null || true
           fi
 
           mkdir -p backend/certs

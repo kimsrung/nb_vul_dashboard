@@ -174,11 +174,17 @@ rm -f "${ROOT_DIR}/.env"
 cp "${ENV_PROD}" "${ROOT_DIR}/.env"
 echo -e "${GREEN}✅ Synchronized .env from .env.production.${NC}"
 
-# Ensure SSL directory exists
+# Ensure SSL directory exists & certificates are readable by non-root container user
 mkdir -p "${ROOT_DIR}/ssl"
 if [ ! -f "${ROOT_DIR}/ssl/server.crt" ] || [ ! -f "${ROOT_DIR}/ssl/server.key" ]; then
-  echo -e "${BLUE}ℹ️ Notice: Please place your SSL certificates in ${ROOT_DIR}/ssl/ (server.crt and server.key).${NC}"
+  echo -e "${BLUE}ℹ️ Generating initial fallback SSL certificates in ${ROOT_DIR}/ssl/...${NC}"
+  openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout "${ROOT_DIR}/ssl/server.key" \
+    -out "${ROOT_DIR}/ssl/server.crt" \
+    -subj "/C=KH/ST=Phnom Penh/O=National Bank of Cambodia/CN=alert-dashboard.nbc.gov.kh" 2>/dev/null || true
 fi
+chmod 755 "${ROOT_DIR}/ssl" 2>/dev/null || true
+chmod 644 "${ROOT_DIR}/ssl"/* 2>/dev/null || true
 
 # Check if Harbor is configured as an HTTP registry and configure Docker daemon insecure-registries
 RAW_HARBOR=$(grep -E '^HARBOR_URL=' "${ENV_PROD}" | cut -d '=' -f2- | tr -d ' "' || true)
