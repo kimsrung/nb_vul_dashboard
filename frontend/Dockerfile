@@ -16,9 +16,9 @@ RUN npm run build
 # Production stage
 FROM nginx:alpine
 
-# Apply security patches for alpine packages and install openssl for fallback cert generation
+# Apply security patches for alpine packages and install openssl and curl for healthcheck & cert generation
 RUN apk upgrade --no-cache && \
-    apk add --no-cache openssl
+    apk add --no-cache openssl curl
 
 # Ensure SSL and template directories exist with fallback certificates readable by non-root nginx
 RUN mkdir -p /etc/nginx/ssl /etc/nginx/ssl-fallback /etc/nginx/templates /etc/nginx/template-sources /var/cache/nginx /var/log/nginx && \
@@ -63,7 +63,7 @@ USER nginx
 
 EXPOSE 8080 8443
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget -q -O - http://localhost:8080/nginx-health || exit 1
+HEALTHCHECK --interval=15s --timeout=5s --start-period=15s --retries=5 \
+    CMD curl -f -s http://127.0.0.1:8080/nginx-health || wget -q -O - http://127.0.0.1:8080/nginx-health || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]
