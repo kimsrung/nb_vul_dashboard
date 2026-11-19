@@ -295,7 +295,7 @@ def acquire_coordinator_lock() -> bool:
     global _coordinator_lock_file, _is_coordinator_worker
     try:
         import fcntl
-        lock_path = "/tmp/risk_alert_worker_coordinator.lock"
+        lock_path = "/tmp/threat_center_worker_coordinator.lock"
         _coordinator_lock_file = open(lock_path, "a+")
         fcntl.flock(_coordinator_lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         _is_coordinator_worker = True

@@ -32,7 +32,7 @@ You can run the application in three ways:
 
 ### Option 1: Direct Local Run (Host Machine)
 
-The backend connects to PostgreSQL (`postgresql+asyncpg://risk_alert_user:risk_alert_secret_password@localhost:5432/risk_alert_db`).
+The backend connects to PostgreSQL (`postgresql+asyncpg://threat_center_user:threat_center_secret_password@localhost:5432/threat_center_db`).
 
 #### Prerequisites
 - **Python**: 3.11+ (`python3 --version`)
@@ -99,7 +99,7 @@ docker compose -f docker-compose.dev.yml down
 #### Development Access Points:
 - **Frontend Dashboard (Vite HMR)**: `http://localhost:3000`
 - **Backend API & Swagger Docs**: `http://localhost:8000/docs`
-- **PostgreSQL Database**: `localhost:5432` (User: `risk_alert_dev_user`, Password: `risk_alert_dev_password`, DB: `risk_alert_dev_db`)
+- **PostgreSQL Database**: `localhost:5432` (User: `threat_center_dev_user`, Password: `threat_center_dev_password`, DB: `threat_center_dev_db`)
 
 ---
 
