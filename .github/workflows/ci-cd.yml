@@ -169,14 +169,14 @@ jobs:
           docker run -d \
             --name "${CI_PG}" \
             --network "${CI_NET}" \
-            -e POSTGRES_USER=risk_alert_user \
-            -e POSTGRES_PASSWORD=risk_alert_secret_password \
-            -e POSTGRES_DB=risk_alert_test_db \
+            -e POSTGRES_USER=threat_center_user \
+            -e POSTGRES_PASSWORD=threat_center_secret_password \
+            -e POSTGRES_DB=threat_center_test_db \
             postgres:16-alpine
 
           echo "Waiting for test database readiness..."
           for i in {1..30}; do
-            if docker exec "${CI_PG}" pg_isready -U risk_alert_user -d risk_alert_test_db >/dev/null 2>&1; then
+            if docker exec "${CI_PG}" pg_isready -U threat_center_user -d threat_center_test_db >/dev/null 2>&1; then
               echo "✅ Test database is ready!"
               break
             fi
@@ -187,8 +187,8 @@ jobs:
           docker run --rm \
             --network "${CI_NET}" \
             -e PYTHONPATH=/app \
-            -e DATABASE_URL="postgresql+asyncpg://risk_alert_user:risk_alert_secret_password@${CI_PG}:5432/risk_alert_test_db" \
-            -e TEST_DATABASE_URL="postgresql+asyncpg://risk_alert_user:risk_alert_secret_password@${CI_PG}:5432/risk_alert_test_db" \
+            -e DATABASE_URL="postgresql+asyncpg://threat_center_user:threat_center_secret_password@${CI_PG}:5432/threat_center_test_db" \
+            -e TEST_DATABASE_URL="postgresql+asyncpg://threat_center_user:threat_center_secret_password@${CI_PG}:5432/threat_center_test_db" \
             -e QUALYS_MOCK_MODE=true \
             -e MISP_MOCK_MODE=true \
             "${BACKEND_IMAGE}" \
@@ -246,11 +246,23 @@ jobs:
                 mkdir -p ssl
                 cp "${candidate_ssl}/server.crt" ssl/server.crt
                 cp "${candidate_ssl}/server.key" ssl/server.key
-                chmod 644 ssl/server.crt
-                chmod 600 ssl/server.key
                 break
               fi
             done
+          fi
+
+          if [ ! -f ssl/server.crt ] || [ ! -f ssl/server.key ]; then
+            echo "ℹ️ No server SSL certificates found -> generating fallback self-signed certificates"
+            mkdir -p ssl
+            openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+              -keyout ssl/server.key \
+              -out ssl/server.crt \
+              -subj "/C=KH/ST=Phnom Penh/O=National Bank of Cambodia/CN=alert-dashboard.nbc.gov.kh" 2>/dev/null || true
+          fi
+
+          if [ -d ssl ]; then
+            chmod 755 ssl 2>/dev/null || true
+            chmod 644 ssl/* 2>/dev/null || true
           fi
 
           mkdir -p backend/certs

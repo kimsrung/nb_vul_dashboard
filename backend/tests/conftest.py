@@ -4,15 +4,15 @@ import sys
 # ==============================================================================
 # Dedicated Test Database Isolation & Safety Guard
 # Strictly prevents automated tests from modifying, dropping, or polluting
-# the primary development or production database (risk_alert_db).
+# the primary development or production database (threat_center_db).
 # ==============================================================================
 test_db_url = os.environ.get("TEST_DATABASE_URL")
 if not test_db_url:
     current_db = os.environ.get("DATABASE_URL", "")
-    if "risk_alert_db" in current_db and "test" not in current_db.lower():
-        test_db_url = current_db.replace("risk_alert_db", "risk_alert_test_db")
+    if ("threat_center_db" in current_db or "threat_center" in current_db) and "test" not in current_db.lower():
+        test_db_url = current_db.replace("threat_center_db", "threat_center_test_db").replace("threat_center_prod_db", "threat_center_test_db")
     elif not current_db:
-        test_db_url = "postgresql+asyncpg://risk_alert_user:risk_alert_secret_password@localhost:5432/risk_alert_test_db"
+        test_db_url = "postgresql+asyncpg://threat_center_user:threat_center_secret_password@localhost:5432/threat_center_test_db"
     else:
         test_db_url = current_db
 
@@ -33,11 +33,11 @@ async def initialize_test_database():
     """Ensure database schema and default seed data are clean and ready before tests run."""
     # Critical Safety Guard: Never allow pytest to drop tables on a production / non-test DB
     db_url_str = str(engine.url).lower()
-    if "risk_alert_db" in db_url_str and "test" not in db_url_str:
+    if ("threat_center_db" in db_url_str or "threat_center" in db_url_str) and "test" not in db_url_str:
         raise RuntimeError(
             f"CRITICAL SAFETY ABORT: pytest detected target database is '{engine.url}', "
             "which lacks 'test' in its database name! Tests are strictly prohibited from dropping "
-            "or seeding primary/production databases. Ensure TEST_DATABASE_URL or risk_alert_test_db is used."
+            "or seeding primary/production databases. Ensure TEST_DATABASE_URL or threat_center_test_db is used."
         )
 
     # Ensure automated tests run in self-contained mock mode without requiring live cloud APIs

@@ -163,7 +163,7 @@ dashboard_alert/
 
 ### Option A: Direct Local Run (Zero-Docker / Fast Development)
 
-The backend uses PostgreSQL (`postgresql+asyncpg://risk_alert_user:risk_alert_secret_password@localhost:5432/risk_alert_db`).
+The backend uses PostgreSQL (`postgresql+asyncpg://threat_center_user:threat_center_secret_password@localhost:5432/threat_center_db`).
 
 #### 1. Backend Terminal:
 ```bash
@@ -197,7 +197,7 @@ docker compose -f docker-compose.dev.yml up --build
 ```
 - Frontend UI: `http://localhost:3000`
 - Backend API & Swagger Docs: `http://localhost:8000/docs`
-- PostgreSQL Port: `localhost:5432` (`risk_alert_dev_user` / `risk_alert_dev_password`)
+- PostgreSQL Port: `localhost:5432` (`threat_center_dev_user` / `threat_center_dev_password`)
 
 ---
 
@@ -265,7 +265,7 @@ E2E_BASE_URL="http://localhost:80" ./run_e2e.sh --headless
 ### B. Backend Unit, Integration & Security Test Suite (pytest)
 
 The automated backend test suite (78 tests across 11 modules including VAPT security and penetration testing) enforces strict database isolation:
-- `backend/tests/conftest.py` automatically binds to `risk_alert_test_db` (or `TEST_DATABASE_URL`), ensuring that primary/production databases (`risk_alert_db`) are **never wiped or overwritten with mock data**.
+- `backend/tests/conftest.py` automatically binds to `threat_center_test_db` (or `TEST_DATABASE_URL`), ensuring that primary/production databases (`threat_center_db`) are **never wiped or overwritten with mock data**.
 - A hard runtime safety guard in `conftest.py` aborts with `RuntimeError` if tests are pointed at any non-test database.
 
 ```bash
@@ -380,7 +380,7 @@ If the frontend navigation spinner remains in a continuous "Syncing" state:
 2. If `status` is `"running"`, note the `active_job.id` and `active_job.started_at`.
 3. Check recent backend application logs:
    ```bash
-   docker logs risk_alert_prod_backend --tail 50
+   docker logs threat_center_prod_backend --tail 50
    ```
 
 ### B. Manually Cancelling a Stuck Job
@@ -413,4 +413,4 @@ The job status is immediately set to `CANCELLED`, freeing the concurrency lock f
 7. **Strict Live Integrity & No Mock Fallback**:
    In live production mode (`QUALYS_MOCK_MODE=false` and `MISP_MOCK_MODE=false`), external API errors (e.g. network timeouts, TLS handshakes, upstream HTTP 500s) **must never fall back to mock data**. Live failures must raise an exception and fail the background sync job cleanly, preserving existing database records intact without injecting mock CVEs or synthetic assets.
 8. **Multi-Worker Coordinator Process Coordination**:
-   In multi-worker production configurations (`WORKERS=4`), Uvicorn spins up multiple parallel processes. The application coordinates startup via a POSIX file mutex (`/tmp/risk_alert_worker_coordinator.lock`) using `fcntl.flock`. Exactly one worker is designated as the Primary Coordinator (handling DB migrations, APScheduler cron jobs, and ZeroMQ listeners), while replica workers immediately serve HTTP traffic without spawning duplicate schedulers or racing on startup migrations.
+   In multi-worker production configurations (`WORKERS=4`), Uvicorn spins up multiple parallel processes. The application coordinates startup via a POSIX file mutex (`/tmp/threat_center_worker_coordinator.lock`) using `fcntl.flock`. Exactly one worker is designated as the Primary Coordinator (handling DB migrations, APScheduler cron jobs, and ZeroMQ listeners), while replica workers immediately serve HTTP traffic without spawning duplicate schedulers or racing on startup migrations.

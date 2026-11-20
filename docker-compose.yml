@@ -11,14 +11,14 @@ version: '3.8'
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: risk_alert_postgres
+    container_name: threat_center_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-risk_alert_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-risk_alert_secret_password}
-      POSTGRES_DB: ${POSTGRES_DB:-risk_alert_db}
+      POSTGRES_USER: ${POSTGRES_USER:-threat_center_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-threat_center_secret_password}
+      POSTGRES_DB: ${POSTGRES_DB:-threat_center_db}
     volumes:
-      - risk_alert_pgdata:/var/lib/postgresql/data
+      - threat_center_pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
@@ -31,7 +31,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: risk_alert_backend
+    container_name: threat_center_backend
     restart: unless-stopped
     depends_on:
       postgres:
@@ -39,7 +39,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-risk_alert_user}:${POSTGRES_PASSWORD:-risk_alert_secret_password}@postgres:5432/${POSTGRES_DB:-risk_alert_db}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-threat_center_user}:${POSTGRES_PASSWORD:-threat_center_secret_password}@postgres:5432/${POSTGRES_DB:-threat_center_db}
       WORKERS: ${WORKERS:-4}
     expose:
       - "8000"
@@ -48,12 +48,12 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: risk_alert_frontend
+    container_name: threat_center_frontend
     restart: unless-stopped
     depends_on:
       - backend
     ports:
-      - "${FRONTEND_PORT:-80}:80"
+      - "${FRONTEND_PORT:-80}:8080"
 
 volumes:
-  risk_alert_pgdata:
+  threat_center_pgdata:

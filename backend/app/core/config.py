@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
 
     # Database: PostgreSQL (asyncpg)
-    DATABASE_URL: str = "postgresql+asyncpg://risk_alert_user:risk_alert_secret_password@localhost:5432/risk_alert_db"
+    DATABASE_URL: str = "postgresql+asyncpg://threat_center_user:threat_center_secret_password@localhost:5432/threat_center_db"
 
     # Security / JWT & CORS
     SECRET_KEY: str = "qualys-risk-alert-super-secret-key-change-in-production-2026"

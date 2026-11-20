@@ -231,26 +231,30 @@ async def init_db_and_seed():
                     elif a.owner_id:
                         a.poc_name = "Samnang Tep"
                         a.poc_email = "samnang.tep@nbc.gov.kh"
-        # Seed baseline Asset Software inventory if empty (Mock mode only)
-        if settings.QUALYS_MOCK_MODE:
-            sw_res = await session.execute(select(func.count(AssetSoftware.id)))
-            sw_count = sw_res.scalar() or 0
-            if sw_count == 0 and assets_all:
-                logger.info("Seeding initial server software package inventory for mock mode...")
-                sw_profiles = [
-                    # Product, vendor, version, package, path, port, target IP / host criteria
-                    ("openssh", "OpenBSD", "8.9p1", "openssh-server", "/usr/sbin/sshd", 22, lambda a: True),
-                    ("openssl", "OpenSSL", "3.0.2", "libssl3", "/usr/lib/x86_64-linux-gnu/libssl.so.3", None, lambda a: a.os_family == "Linux"),
-                    ("nginx", "F5", "1.24.0", "nginx-core", "/usr/sbin/nginx", 443, lambda a: "sit" in (a.server_name or "").lower() or a.ip_address in ("10.20.6.190", "172.16.50.8", "10.20.6.20")),
-                    ("xz-utils", "Tukaani", "5.6.0", "liblzma5", "/usr/lib/x86_64-linux-gnu/liblzma.so.5", None, lambda a: a.ip_address == "10.20.6.128"),
-                    ("runc", "OpenContainers", "1.1.7", "runc", "/usr/bin/runc", None, lambda a: "webhook" in (a.server_name or "").lower() or a.ip_address == "10.20.6.128"),
-                    ("php", "PHP Group", "8.1.12", "php-cgi", "/usr/bin/php-cgi", 80, lambda a: a.ip_address == "10.20.6.20"),
-                    ("log4j", "Apache", "2.14.1", "log4j-core", "/opt/analytics/lib/log4j-core.jar", 8080, lambda a: a.ip_address in ("10.20.6.190", "10.0.1.5")),
-                    ("postgresql", "PostgreSQL", "14.5", "postgresql-14", "/usr/lib/postgresql/14/bin/postgres", 5432, lambda a: "db" in (a.server_name or "").lower()),
-                ]
-                for a in assets_all:
-                    for prod, vend, ver, pkg, path, port, predicate in sw_profiles:
-                        if predicate(a):
+        # Seed baseline Asset Software inventory for proactive matching (Mock mode only)
+        if settings.QUALYS_MOCK_MODE and assets_all:
+            sw_profiles = [
+                # Product, vendor, version, package, path, port, target IP / host criteria
+                ("openssh", "OpenBSD", "8.9p1", "openssh-server", "/usr/sbin/sshd", 22, lambda a: a.os_family == "Linux"),
+                ("openssl", "OpenSSL", "3.0.2", "libssl3", "/usr/lib/x86_64-linux-gnu/libssl.so.3", None, lambda a: a.os_family == "Linux"),
+                ("nginx", "F5", "1.24.0", "nginx-core", "/usr/sbin/nginx", 443, lambda a: a.ip_address in ("10.20.6.190", "172.16.50.8")),
+                ("xz-utils", "Tukaani", "5.6.0", "liblzma5", "/usr/lib/x86_64-linux-gnu/liblzma.so.5", None, lambda a: a.ip_address in ("10.20.6.190", "192.168.30.55")),
+                ("runc", "OpenContainers", "1.1.7", "runc", "/usr/bin/runc", None, lambda a: a.ip_address in ("172.16.50.8", "192.168.30.55")),
+                ("php", "PHP Group", "8.1.12", "php-cgi", "/usr/bin/php-cgi", 80, lambda a: a.ip_address in ("172.16.50.8", "192.168.10.45")),
+                ("log4j", "Apache", "2.14.1", "log4j-core", "/opt/analytics/lib/log4j-core.jar", 8080, lambda a: a.ip_address == "10.20.6.190"),
+                ("postgresql", "PostgreSQL", "14.5", "postgresql-14", "/usr/lib/postgresql/14/bin/postgres", 5432, lambda a: "db" in (a.server_name or "").lower() or a.ip_address == "192.168.10.45"),
+            ]
+            added_sw = False
+            for a in assets_all:
+                for prod, vend, ver, pkg, path, port, predicate in sw_profiles:
+                    if predicate(a):
+                        exists = await session.execute(
+                            select(AssetSoftware.id).where(
+                                AssetSoftware.asset_id == a.id,
+                                AssetSoftware.product_name == prod
+                            ).limit(1)
+                        )
+                        if not exists.scalar_one_or_none():
                             session.add(AssetSoftware(
                                 asset_id=a.id,
                                 product_name=prod,
@@ -260,8 +264,10 @@ async def init_db_and_seed():
                                 install_path=path,
                                 port=port,
                             ))
+                            added_sw = True
+            if added_sw:
                 await session.commit()
-                logger.info("Server software inventory populated.")
+                logger.info("Server software inventory populated with mock packages.")
 
         # Seed initial MISP FS-ISAC assessments if empty (Mock mode only)
         if settings.MISP_MOCK_MODE:
@@ -289,7 +295,7 @@ def acquire_coordinator_lock() -> bool:
     global _coordinator_lock_file, _is_coordinator_worker
     try:
         import fcntl
-        lock_path = "/tmp/risk_alert_worker_coordinator.lock"
+        lock_path = "/tmp/threat_center_worker_coordinator.lock"
         _coordinator_lock_file = open(lock_path, "a+")
         fcntl.flock(_coordinator_lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         _is_coordinator_worker = True

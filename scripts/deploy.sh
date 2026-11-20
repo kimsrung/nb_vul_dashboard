@@ -163,7 +163,7 @@ if [ "${IS_LOGGED_IN}" = false ]; then
   fi
 fi
 
-# 6.5. Ensure SSL Certificates Exist
+# 6.5. Ensure SSL Certificates Exist & Are Readable by Unprivileged Container User (UID 101)
 if [ ! -f "${ROOT_DIR}/ssl/server.crt" ] || [ ! -f "${ROOT_DIR}/ssl/server.key" ]; then
   # Search standard persistent server directories
   for candidate_ssl in \
@@ -176,11 +176,25 @@ if [ ! -f "${ROOT_DIR}/ssl/server.crt" ] || [ ! -f "${ROOT_DIR}/ssl/server.key" 
       mkdir -p "${ROOT_DIR}/ssl"
       cp "${candidate_ssl}/server.crt" "${ROOT_DIR}/ssl/server.crt"
       cp "${candidate_ssl}/server.key" "${ROOT_DIR}/ssl/server.key"
-      chmod 644 "${ROOT_DIR}/ssl/server.crt"
-      chmod 600 "${ROOT_DIR}/ssl/server.key"
       break
     fi
   done
+fi
+
+# If certificates still don't exist, generate valid fallback self-signed certificates
+if [ ! -f "${ROOT_DIR}/ssl/server.crt" ] || [ ! -f "${ROOT_DIR}/ssl/server.key" ]; then
+  echo "ℹ️ No existing SSL certificates found. Generating fallback self-signed certificates..."
+  mkdir -p "${ROOT_DIR}/ssl"
+  openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout "${ROOT_DIR}/ssl/server.key" \
+    -out "${ROOT_DIR}/ssl/server.crt" \
+    -subj "/C=KH/ST=Phnom Penh/O=National Bank of Cambodia/CN=${DOMAIN_NAME:-alert-dashboard.nbc.gov.kh}" 2>/dev/null || true
+fi
+
+# Ensure all SSL certificates and keys are readable by non-root nginx container user (UID 101)
+if [ -d "${ROOT_DIR}/ssl" ]; then
+  chmod 755 "${ROOT_DIR}/ssl" 2>/dev/null || true
+  chmod 644 "${ROOT_DIR}/ssl"/* 2>/dev/null || true
 fi
 
 # 6.6. Ensure backend/certs Directory Exists & Preserves Custom CA Certs
